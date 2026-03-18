@@ -2,6 +2,13 @@
 
 use serde::Serialize;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ServerApiType {
+    HubApi,
+    CmApi,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LauncherConfig {
     pub variant: &'static str,
@@ -11,6 +18,7 @@ pub struct LauncherConfig {
     pub app_identifier: &'static str,
     pub discord_app_id: i64,
     pub default_byond_version: Option<&'static str>,
+    pub server_api: ServerApiType,
     pub features: LauncherFeatures,
     pub urls: LauncherUrls,
     pub strings: LauncherStrings,
@@ -22,7 +30,6 @@ pub struct LauncherConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct LauncherFeatures {
     pub relay_selector: bool,
-    pub hub_server_list: bool,
     pub singleplayer: bool,
     pub server_search: bool,
     pub server_filters: bool,
@@ -80,9 +87,9 @@ pub fn get_config() -> LauncherConfig {
         app_identifier: "com.cm-ss13.launcher",
         discord_app_id: 1383904378154651768,
         default_byond_version: None,
+        server_api: ServerApiType::CmApi,
         features: LauncherFeatures {
             relay_selector: true,
-            hub_server_list: false,
             singleplayer: true,
             server_search: false,
             server_filters: false,
@@ -149,9 +156,9 @@ pub fn get_config() -> LauncherConfig {
         app_identifier: "com.ss13.launcher",
         discord_app_id: 1483901387086761994,
         default_byond_version: Some("516.1667"),
+        server_api: ServerApiType::HubApi,
         features: LauncherFeatures {
             relay_selector: false,
-            hub_server_list: true,
             singleplayer: false,
             server_search: true,
             server_filters: true,

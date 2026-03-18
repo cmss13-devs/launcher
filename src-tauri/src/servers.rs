@@ -211,11 +211,10 @@ impl CmApi {
 }
 
 fn get_api_adapter() -> Box<dyn ServerApi> {
-    let config = get_config();
-    if config.features.hub_server_list {
-        Box::new(HubApi)
-    } else {
-        Box::new(CmApi)
+    use crate::config::ServerApiType;
+    match get_config().server_api {
+        ServerApiType::HubApi => Box::new(HubApi),
+        ServerApiType::CmApi => Box::new(CmApi),
     }
 }
 

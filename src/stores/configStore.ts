@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
+export type ServerApiType = "hub" | "cm_ss13";
+
 export interface LauncherFeatures {
   relay_selector: boolean;
-  hub_server_list: boolean;
   singleplayer: boolean;
   server_search: boolean;
   server_filters: boolean;
@@ -54,6 +55,7 @@ export interface LauncherConfig {
   app_identifier: string;
   discord_app_id: number;
   default_byond_version: string | null;
+  server_api: ServerApiType;
   features: LauncherFeatures;
   urls: LauncherUrls;
   strings: LauncherStrings;
