@@ -716,14 +716,20 @@ async fn connect_to_server_impl(
         }
 
         // If connection_timeout_fallback is enabled, emit game-connected after 30s
-        // regardless of whether the control server was pinged
+        // regardless of whether the control server was pinged (but only if game still running)
         if config.features.connection_timeout_fallback {
-            let app_clone = app.clone();
-            let server_name_clone = server_name.clone();
-            tokio::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                app_clone.emit("game-connected", &server_name_clone).ok();
-            });
+            if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
+                let app_clone = app.clone();
+                let server_name_clone = server_name.clone();
+                let manager_clone = Arc::clone(&manager);
+                tokio::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    // Only emit if the game session is still active
+                    if manager_clone.get_game_session().is_some() {
+                        app_clone.emit("game-connected", &server_name_clone).ok();
+                    }
+                });
+            }
         }
 
         Ok(ConnectionResult {
@@ -798,15 +804,21 @@ async fn connect_to_server_impl(
         }
 
         // If connection_timeout_fallback is enabled, emit game-connected after 30s
-        // regardless of whether the control server was pinged
+        // regardless of whether the control server was pinged (but only if game still running)
         let config = crate::config::get_config();
         if config.features.connection_timeout_fallback {
-            let app_clone = app.clone();
-            let server_name_clone = server_name.clone();
-            tokio::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                app_clone.emit("game-connected", &server_name_clone).ok();
-            });
+            if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
+                let app_clone = app.clone();
+                let server_name_clone = server_name.clone();
+                let manager_clone = Arc::clone(&manager);
+                tokio::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    // Only emit if the game session is still active
+                    if manager_clone.get_game_session().is_some() {
+                        app_clone.emit("game-connected", &server_name_clone).ok();
+                    }
+                });
+            }
         }
 
         Ok(ConnectionResult {
