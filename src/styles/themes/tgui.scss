@@ -283,9 +283,12 @@
 
   // Modals
   .auth-modal-overlay,
-  .settings-modal-overlay,
-  .game-connection-overlay {
+  .settings-modal-overlay {
     background: rgba(0, 0, 0, 0.6);
+  }
+
+  .game-connection-overlay {
+    background: rgba(0, 0, 0, 0.85);
   }
 
   .auth-modal,
