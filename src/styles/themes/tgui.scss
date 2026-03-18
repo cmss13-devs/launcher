@@ -592,30 +592,34 @@
     font-weight: normal;
   }
 
-  // Scrollbar
-  &::-webkit-scrollbar,
-  .servers-section::-webkit-scrollbar,
-  .settings-modal-content::-webkit-scrollbar,
-  .singleplayer-panel::-webkit-scrollbar {
-    width: 8px;
+  // Scrollbar - TGUI style
+  // Use scrollbar-color for modern browsers
+  * {
+    scrollbar-color: #4a4a4a #1a1a1a;
+    scrollbar-width: thin;
   }
 
-  &::-webkit-scrollbar-track,
-  .servers-section::-webkit-scrollbar-track,
-  .settings-modal-content::-webkit-scrollbar-track,
-  .singleplayer-panel::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+  // WebKit fallback
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
   }
 
-  &::-webkit-scrollbar-thumb,
-  .servers-section::-webkit-scrollbar-thumb,
-  .settings-modal-content::-webkit-scrollbar-thumb,
-  .singleplayer-panel::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border: 2px solid #1a1a1a;
+    border-radius: 5px;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: #5a5a5a;
     }
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: #1a1a1a;
   }
 }
