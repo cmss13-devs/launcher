@@ -598,6 +598,20 @@
     font-weight: normal;
   }
 
+  // Update notification
+  .update-notification {
+    background: #363636;
+    border-bottom: 1px solid var(--primary);
+  }
+
+  .update-button {
+    border-radius: 2px;
+  }
+
+  .update-dismiss {
+    border-radius: 2px;
+  }
+
   // Scrollbar - TGUI style
   // Use scrollbar-color for modern browsers
   * {

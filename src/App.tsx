@@ -14,6 +14,7 @@ import {
   SocialLinks,
   SteamAuthModal,
   Titlebar,
+  UpdateNotification,
   WineSetupModal,
 } from "./components";
 import type { AuthModalState } from "./components/AuthModal";
@@ -530,6 +531,7 @@ const AppContent = () => {
           <div className="crt" />
         </>
       )}
+      <UpdateNotification />
       <ErrorNotifications errors={errors} onDismiss={dismissError} />
       <AuthModal
         {...authModal}

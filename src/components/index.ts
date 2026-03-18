@@ -13,4 +13,5 @@ export { SocialLinks } from "./SocialLinks";
 export type { SteamAuthModalState } from "./SteamAuthModal";
 export { SteamAuthModal } from "./SteamAuthModal";
 export { Titlebar } from "./Titlebar";
+export { UpdateNotification } from "./UpdateNotification";
 export { WineSetupModal } from "./WineSetupModal";

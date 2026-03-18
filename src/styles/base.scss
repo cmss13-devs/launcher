@@ -1586,3 +1586,95 @@ body {
     text-align: center;
   }
 }
+
+// Update notification
+.update-notification {
+  position: fixed;
+  top: var(--titlebar-height);
+  left: 0;
+  right: 0;
+  background: var(--bg-darker);
+  border-bottom: 2px solid var(--primary);
+  padding: 8px 16px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.update-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.update-message {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.update-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.update-button {
+  background-color: var(--primary);
+  color: var(--bg);
+  border: none;
+  padding: 4px 12px;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover {
+    filter: brightness(1.2);
+  }
+}
+
+.update-dismiss {
+  background: transparent;
+  color: var(--primary-dim);
+  border: 1px solid var(--primary-dim);
+  padding: 4px 12px;
+  font-family: monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+}
+
+.update-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.update-progress-bar {
+  height: 4px;
+  background: var(--primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.update-progress-text {
+  color: var(--primary);
+  font-size: 12px;
+  min-width: 32px;
+  text-align: right;
+}
+
+.update-error {
+  color: var(--error);
+  font-size: 12px;
+}

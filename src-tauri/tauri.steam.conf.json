@@ -3,7 +3,7 @@
   "bundle": {
     "resources": [
       "resources/*",
-      "icons/icon.png"
+      "icons/cm/icon.png"
     ]
   }
 }
