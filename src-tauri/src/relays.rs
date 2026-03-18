@@ -81,6 +81,7 @@ impl RelayState {
     }
 }
 
+#[cfg(feature = "cm_ss13")]
 fn get_default_relays() -> Vec<Relay> {
     vec![
         Relay {
@@ -129,6 +130,11 @@ fn get_default_relays() -> Vec<Relay> {
             host: "asia-se.cm-ss13.com".to_string(),
         },
     ]
+}
+
+#[cfg(not(feature = "cm_ss13"))]
+fn get_default_relays() -> Vec<Relay> {
+    vec![]
 }
 
 async fn ping_relay(host: &str) -> Option<u32> {

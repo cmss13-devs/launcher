@@ -31,9 +31,10 @@ impl TokenStorage {
     }
 
     fn get_auth_file_path() -> Result<PathBuf, String> {
+        let config = crate::config::get_config();
         let data_dir = dirs::data_local_dir()
             .ok_or("Failed to get local data directory")?
-            .join("com.cm-ss13.launcher");
+            .join(config.app_identifier);
 
         fs::create_dir_all(&data_dir)
             .map_err(|e| format!("Failed to create data directory: {}", e))?;

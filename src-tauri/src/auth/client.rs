@@ -5,9 +5,14 @@ use oauth2::{
 use serde::{Deserialize, Serialize};
 
 const CLIENT_ID: &str = "6hm46av41Q5fb47CU8en8B9zZzDsIsKw3BRhSlyo";
-const AUTH_URL: &str = "https://login.cm-ss13.com/application/o/authorize/";
-const TOKEN_URL: &str = "https://login.cm-ss13.com/application/o/token/";
-const USERINFO_URL: &str = "https://login.cm-ss13.com/application/o/userinfo/";
+
+fn get_auth_urls() -> (&'static str, &'static str, &'static str) {
+    (
+        "https://login.cm-ss13.com/application/o/authorize/",
+        "https://login.cm-ss13.com/application/o/token/",
+        "https://login.cm-ss13.com/application/o/userinfo/",
+    )
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
@@ -50,10 +55,14 @@ impl OidcClient {
         &self,
         redirect_uri: &str,
     ) -> Result<AuthorizationRequest, String> {
-        tracing::debug!("Creating authorization request with redirect_uri: {}", redirect_uri);
-        let auth_url =
-            AuthUrl::new(AUTH_URL.to_string()).map_err(|e| format!("Invalid auth URL: {}", e))?;
-        let token_url = TokenUrl::new(TOKEN_URL.to_string())
+        tracing::debug!(
+            "Creating authorization request with redirect_uri: {}",
+            redirect_uri
+        );
+        let (auth_url_str, token_url_str, _) = get_auth_urls();
+        let auth_url = AuthUrl::new(auth_url_str.to_string())
+            .map_err(|e| format!("Invalid auth URL: {}", e))?;
+        let token_url = TokenUrl::new(token_url_str.to_string())
             .map_err(|e| format!("Invalid token URL: {}", e))?;
         let redirect_url = RedirectUrl::new(redirect_uri.to_string())
             .map_err(|e| format!("Invalid redirect URI: {}", e))?;
@@ -88,9 +97,10 @@ impl OidcClient {
         pkce_verifier: PkceCodeVerifier,
     ) -> Result<TokenResult, String> {
         tracing::debug!("Exchanging authorization code for tokens");
-        let auth_url =
-            AuthUrl::new(AUTH_URL.to_string()).map_err(|e| format!("Invalid auth URL: {}", e))?;
-        let token_url = TokenUrl::new(TOKEN_URL.to_string())
+        let (auth_url_str, token_url_str, _) = get_auth_urls();
+        let auth_url = AuthUrl::new(auth_url_str.to_string())
+            .map_err(|e| format!("Invalid auth URL: {}", e))?;
+        let token_url = TokenUrl::new(token_url_str.to_string())
             .map_err(|e| format!("Invalid token URL: {}", e))?;
         let redirect_url = RedirectUrl::new(redirect_uri.to_string())
             .map_err(|e| format!("Invalid redirect URI: {}", e))?;
@@ -130,9 +140,10 @@ impl OidcClient {
 
     pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<TokenResult, String> {
         tracing::debug!("Refreshing tokens");
-        let auth_url =
-            AuthUrl::new(AUTH_URL.to_string()).map_err(|e| format!("Invalid auth URL: {}", e))?;
-        let token_url = TokenUrl::new(TOKEN_URL.to_string())
+        let (auth_url_str, token_url_str, _) = get_auth_urls();
+        let auth_url = AuthUrl::new(auth_url_str.to_string())
+            .map_err(|e| format!("Invalid auth URL: {}", e))?;
+        let token_url = TokenUrl::new(token_url_str.to_string())
             .map_err(|e| format!("Invalid token URL: {}", e))?;
 
         let client = BasicClient::new(ClientId::new(CLIENT_ID.to_string()))
@@ -169,9 +180,10 @@ impl OidcClient {
 
     pub async fn get_userinfo(&self, access_token: &str) -> Result<UserInfo, String> {
         tracing::debug!("Fetching user info");
+        let (_, _, userinfo_url) = get_auth_urls();
         let client = reqwest::Client::new();
         let response = client
-            .get(USERINFO_URL)
+            .get(userinfo_url)
             .bearer_auth(access_token)
             .send()
             .await

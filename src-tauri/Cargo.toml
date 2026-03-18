@@ -12,6 +12,7 @@ default = []
 dev = []
 discord_invites = []
 steam = ["steamworks"]
+cm_ss13 = []  # CM-SS13 specific variant
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary

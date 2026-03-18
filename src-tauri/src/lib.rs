@@ -1,6 +1,7 @@
 mod auth;
 mod autoconnect;
 mod byond;
+pub mod config;
 mod control_server;
 mod discord;
 #[cfg(target_os = "windows")]
@@ -39,6 +40,8 @@ use singleplayer::{
     delete_singleplayer, get_latest_singleplayer_release, get_singleplayer_status,
     install_singleplayer, launch_singleplayer,
 };
+
+use config::get_launcher_config;
 
 #[cfg(target_os = "linux")]
 use wine::{check_wine_status, initialize_wine_prefix, reset_wine_prefix, WineStatus};
@@ -188,6 +191,7 @@ pub fn run() {
             install_singleplayer,
             delete_singleplayer,
             launch_singleplayer,
+            get_launcher_config,
         ]);
     }
 
@@ -234,6 +238,7 @@ pub fn run() {
             install_singleplayer,
             delete_singleplayer,
             launch_singleplayer,
+            get_launcher_config,
         ]);
     }
 

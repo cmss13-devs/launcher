@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CM-SS13 Launcher",
+  "identifier": "com.cm-ss13.launcher",
+  "app": {
+    "windows": [
+      {
+        "title": "CM-SS13",
+        "width": 900,
+        "height": 500,
+        "decorations": false,
+        "resizable": false,
+        "center": true,
+        "transparent": true,
+        "shadow": false
+      }
+    ]
+  },
+  "bundle": {
+    "publisher": "CM-SS13",
+    "copyright": "Copyright 2026 CM-SS13",
+    "shortDescription": "Game launcher for CM-SS13",
+    "longDescription": "Official launcher for CM-SS13. Manages BYOND game client installations and server authentication."
+  }
+}

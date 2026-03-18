@@ -81,9 +81,10 @@ pub fn build_connect_url(
 }
 
 pub fn get_byond_base_dir(_app: &AppHandle) -> Result<PathBuf, String> {
+    let config = crate::config::get_config();
     let local_data = dirs::data_local_dir()
         .ok_or("Failed to get local data directory")?
-        .join("com.cm-ss13.launcher");
+        .join(config.app_identifier);
 
     Ok(local_data.join("byond"))
 }
@@ -179,7 +180,15 @@ struct ByondHashResponse {
 }
 
 async fn fetch_expected_hash(version: &str) -> Result<Option<String>, String> {
-    let url = format!("https://db.cm-ss13.com/api/ByondHash?byond_ver={}", version);
+    let config = crate::config::get_config();
+
+    // If no BYOND hash API is configured for this variant, skip verification
+    let Some(base_url) = config.urls.byond_hash_api else {
+        tracing::debug!("No BYOND hash API configured for this variant");
+        return Ok(None);
+    };
+
+    let url = format!("{}?byond_ver={}", base_url, version);
 
     let response = reqwest::get(&url)
         .await

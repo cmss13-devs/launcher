@@ -2,6 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import type { ConnectionResult } from "../hooks/useConnect";
+import { useConfigStore } from "../stores";
 import type { AuthMode, Platform, Theme, WineStatus } from "../types";
 import { Modal, ModalCloseButton } from "./Modal";
 
@@ -250,6 +251,7 @@ export const SettingsModal = ({
   onResetWinePrefix,
   onClose,
 }: SettingsModalProps) => {
+  const config = useConfigStore((s) => s.config);
   const [byondPagerRunning, setByondPagerRunning] = useState<boolean | null>(
     null,
   );
@@ -281,7 +283,7 @@ export const SettingsModal = ({
           type="button"
           className="help-link"
           onClick={() =>
-            invoke("open_url", { url: "https://github.com/cmss13-devs/cm-launcher/issues" })
+            invoke("open_url", { url: config?.urls.help_url || "https://github.com/cmss13-devs/cm-launcher/issues" })
           }
           title="Report an issue"
         >
@@ -297,17 +299,17 @@ export const SettingsModal = ({
           </p>
           <div className="theme-options">
             <ThemeOption
-              theme="default"
+              theme="tgui"
               currentTheme={theme}
-              name="Default"
-              description="Classic green CRT terminal theme"
+              name="TGUI"
+              description="Modern flat interface"
               onChange={onThemeChange}
             />
             <ThemeOption
-              theme="ntos"
+              theme="crt"
               currentTheme={theme}
-              name="NTos"
-              description="Blue corporate terminal theme"
+              name="CRT Terminal"
+              description="Classic green CRT terminal"
               onChange={onThemeChange}
             />
           </div>
@@ -325,13 +327,15 @@ export const SettingsModal = ({
             </div>
           )}
           <div className="auth-mode-options">
-            <AuthModeOption
-              mode="cm_ss13"
-              currentMode={authMode}
-              name="CM-SS13 Authentication"
-              description="Login with your CM-SS13 account for server access"
-              onChange={onAuthModeChange}
-            />
+            {config?.features.cm_auth && (
+              <AuthModeOption
+                mode="cm_ss13"
+                currentMode={authMode}
+                name={`${config.strings.auth_provider_name} Authentication`}
+                description={`Login with your ${config.strings.auth_provider_name} account for server access`}
+                onChange={onAuthModeChange}
+              />
+            )}
             {steamAvailable && (
               <AuthModeOption
                 mode="steam"

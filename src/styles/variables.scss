@@ -1,13 +1,17 @@
 :root {
-  --primary: #00eb4e;
-  --primary-dim: #00eb4e99;
-  --primary-faint: #00eb4e44;
-  --bg: #1a1919;
-  --bg-dark: rgba(0, 15, 0, 0.7);
-  --bg-darker: rgba(0, 15, 0, 0.9);
-  --bg-highlight: rgba(0, 235, 78, 0.2);
-  --bg-highlight-dim: rgba(0, 235, 78, 0.15);
-  --bg-highlight-faint: rgba(0, 235, 78, 0.05);
+  --primary: #4a7bb5;
+  --primary-dim: rgba(74, 123, 181, 0.7);
+  --primary-faint: rgba(74, 123, 181, 0.3);
+  --bg: #282828;
+  --bg-dark: #141414;
+  --bg-darker: #0d0d0d;
+  --bg-highlight: rgba(255, 255, 255, 0.075);
+  --bg-highlight-dim: rgba(255, 255, 255, 0.05);
+  --bg-highlight-faint: rgba(255, 255, 255, 0.025);
+  --text: rgba(255, 255, 255, 0.9);
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --border: rgba(255, 255, 255, 0.1);
+  --section-bg: rgba(0, 0, 0, 0.33);
   --error: #ff4444;
   --warning: #ffa500;
   --transition: all 0.2s ease;

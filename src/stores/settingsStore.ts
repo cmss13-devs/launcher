@@ -21,7 +21,7 @@ interface SettingsStore {
 
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   authMode: "cm_ss13",
-  theme: "default",
+  theme: "tgui",
   devMode: false,
   notificationServers: new Set<string>(),
   fullscreenOverlay: true,

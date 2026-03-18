@@ -64,7 +64,7 @@ jobs:
           STEAM_APP_ID: "4313790"
           STEAM_APP_NAME: "production"
         with:
-          args: --features steam --config src-tauri/tauri.steam.conf.json
+          args: --features cm_ss13,steam --config src-tauri/tauri.cm.conf.json --config src-tauri/tauri.steam.conf.json
 
       - name: Prepare Windows artifacts
         shell: pwsh
@@ -159,7 +159,7 @@ jobs:
           STEAM_APP_ID: "4313790"
           STEAM_APP_NAME: "production"
         with:
-          args: --features steam --config src-tauri/tauri.steam.conf.json --config src-tauri/tauri.linux.conf.json
+          args: --features cm_ss13,steam --config src-tauri/tauri.cm.conf.json --config src-tauri/tauri.steam.conf.json --config src-tauri/tauri.linux.conf.json
 
       - name: Extract AppImage and prepare artifacts
         run: |

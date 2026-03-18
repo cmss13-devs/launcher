@@ -191,9 +191,10 @@ impl ControlServer {
 
         let (mut write, mut read) = ws_stream.split();
 
+        let config = crate::config::get_config();
         let welcome = serde_json::json!({
             "type": "connected",
-            "data": { "message": "Connected to CM Launcher" }
+            "data": { "message": format!("Connected to {}", config.product_name) }
         });
         if let Err(e) = write.send(Message::Text(welcome.to_string())).await {
             tracing::error!("Failed to send welcome message: {}", e);
@@ -479,7 +480,8 @@ fn generate_hwid() -> Option<String> {
         has_data = true;
     }
 
-    hasher.update(b"cm-ss13-hwid-v1");
+    let config = crate::config::get_config();
+    hasher.update(format!("{}-hwid-v1", config.variant).as_bytes());
 
     if has_data {
         Some(hex::encode(hasher.finalize()))

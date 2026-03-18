@@ -99,8 +99,14 @@ pub async fn authenticate_with_steam(
         create_account_if_missing,
     };
 
+    let config = crate::config::get_config();
+    let steam_auth_url = config
+        .urls
+        .steam_auth
+        .ok_or("Steam authentication is not available for this launcher variant")?;
+
     let response = client
-        .post("https://db.cm-ss13.com/api/Steam/Authenticate")
+        .post(steam_auth_url)
         .json(&request)
         .send()
         .await

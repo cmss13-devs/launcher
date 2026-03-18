@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "CM-SS13 Launcher",
-  "identifier": "com.cm-ss13.launcher",
+  "productName": "SS13 Launcher",
+  "identifier": "com.ss13.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "CM-SS13",
+        "title": "SS13 Launcher",
         "width": 900,
         "height": 500,
         "decorations": false,
@@ -29,11 +29,11 @@
     "resources": [
       "icons/icon.png"
     ],
-    "publisher": "CM-SS13",
-    "copyright": "Copyright © 2026 CM-SS13",
+    "publisher": "SS13",
+    "copyright": "Copyright 2026 SS13",
     "category": "Game",
-    "shortDescription": "Game launcher for CM-SS13",
-    "longDescription": "Official launcher for CM-SS13. Manages BYOND game client installations and server authentication.",
+    "shortDescription": "Game launcher for SS13 servers",
+    "longDescription": "Launcher for SS13 servers. Manages BYOND game client installations.",
     "windows": {
       "allowDowngrades": true,
       "certificateThumbprint": null,
