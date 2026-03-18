@@ -1,5 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -27,6 +27,7 @@ import {
 } from "./hooks";
 import {
   useAuthStore,
+  useConfigStore,
   useServerStore,
   useSettingsStore,
   useSteamStore,
@@ -50,6 +51,13 @@ interface AutoConnectEvent {
 
 const AppContent = () => {
   const { errors, dismissError, showError } = useError();
+
+  const { config, load: loadConfig } = useConfigStore(
+    useShallow((s) => ({
+      config: s.config,
+      load: s.load,
+    })),
+  );
 
   const {
     login,
@@ -176,6 +184,22 @@ const AppContent = () => {
     null,
   );
   const [selectedCategory, setSelectedCategory] = useState<string>("pvp");
+  const [show18Plus, setShow18Plus] = useState(false);
+  const [showOffline, setShowOffline] = useState(false);
+  const [showHubStatus, setShowHubStatus] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
+        setFiltersOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const categories = useMemo(() => {
     const tagSet = new Set<string>();
@@ -194,19 +218,53 @@ const AppContent = () => {
       sorted.unshift(pvp);
     }
 
-    // Add sandbox as a special tab at the end
-    sorted.push("sandbox");
+    if (config?.features.singleplayer) {
+      sorted.push("sandbox");
+    }
 
     return sorted;
-  }, [servers]);
+  }, [servers, config?.features.singleplayer]);
 
   const filteredServers = useMemo(() => {
-    return servers.filter((server) =>
-      server.tags?.some(
-        (t) => t.toLowerCase() === selectedCategory.toLowerCase(),
-      ),
-    );
-  }, [servers, selectedCategory]);
+    const seen = new Set<string>();
+    const uniqueServers = servers.filter((server) => {
+      if (seen.has(server.url)) return false;
+      seen.add(server.url);
+      return true;
+    });
+
+    const hasAnyTags = uniqueServers.some((s) => s.tags && s.tags.length > 0);
+
+    let filtered = hasAnyTags
+      ? uniqueServers.filter((server) =>
+          server.tags?.some(
+            (t) => t.toLowerCase() === selectedCategory.toLowerCase(),
+          ),
+        )
+      : uniqueServers;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((server) =>
+        server.name.toLowerCase().includes(query),
+      );
+    }
+
+    if (!show18Plus) {
+      filtered = filtered.filter((server) => !server.is_18_plus);
+    }
+
+    if (!showOffline && !config?.features.show_offline_servers) {
+      filtered = filtered.filter((server) => server.status === "available");
+    }
+
+    return filtered.sort((a, b) => {
+      const aOnline = a.status === "available";
+      const bOnline = b.status === "available";
+      if (aOnline !== bOnline) return aOnline ? -1 : 1;
+      return b.players - a.players;
+    });
+  }, [servers, selectedCategory, searchQuery, show18Plus, showOffline, config?.features.show_offline_servers]);
 
   useEffect(() => {
     document.documentElement.className = `theme-${theme}`;
@@ -236,6 +294,7 @@ const AppContent = () => {
 
   useEffect(() => {
     const loadInitialState = async () => {
+      const launcherConfig = await loadConfig();
       const settings = await loadSettings();
       const steamAvail = await initializeSteam();
 
@@ -243,12 +302,14 @@ const AppContent = () => {
         setAuthMode(settings.auth_mode);
       } else if (steamAvail) {
         setAuthMode("steam");
-      } else {
+      } else if (launcherConfig.features.cm_auth) {
         setAuthMode("cm_ss13");
+      } else {
+        setAuthMode("byond");
       }
     };
     loadInitialState();
-  }, [loadSettings, initializeSteam, setAuthMode]);
+  }, [loadConfig, loadSettings, initializeSteam, setAuthMode]);
 
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
@@ -308,7 +369,6 @@ const AppContent = () => {
     };
   }, [showError]);
 
-  // Auth handlers
   const handleLogin = useCallback(async () => {
     setAuthModal({ visible: true, state: "loading", error: undefined });
     const result = await login();
@@ -335,7 +395,6 @@ const AppContent = () => {
     setAuthModal({ visible: true, state: "idle", error: undefined });
   }, []);
 
-  // Steam handlers
   const handleSteamAuthenticate = useCallback(
     async (createAccountIfMissing: boolean) => {
       setSteamModal((prev) => ({
@@ -415,7 +474,6 @@ const AppContent = () => {
     [handleSteamAuthenticate],
   );
 
-  // Settings handlers
   const handleAuthModeChange = useCallback(
     async (mode: typeof authMode) => {
       try {
@@ -438,7 +496,6 @@ const AppContent = () => {
     [saveTheme, showError],
   );
 
-  // Wine handlers
   const handleWineSetup = useCallback(async () => {
     await initializeWinePrefix();
   }, [initializeWinePrefix]);
@@ -453,7 +510,6 @@ const AppContent = () => {
     }
   }, [wineIsSettingUp, wineNeedsSetup]);
 
-  // Relay handlers
   const handleRelaySelect = useCallback(
     (relayId: string) => {
       setSelectedRelay(relayId);
@@ -467,9 +523,13 @@ const AppContent = () => {
   }, []);
 
   return (
-    <div className="crt-frame">
-      <div className="crt-bezel" />
-      <div className="crt" />
+    <div className="launcher-frame">
+      {theme === "crt" && (
+        <>
+          <div className="crt-bezel" />
+          <div className="crt" />
+        </>
+      )}
       <ErrorNotifications errors={errors} onDismiss={dismissError} />
       <AuthModal
         {...authModal}
@@ -521,7 +581,7 @@ const AppContent = () => {
 
         <main className="main-content">
           <section className="section servers-section">
-            {categories.length > 0 && (
+            {categories.length > 1 && (
               <div className="category-tabs">
                 {categories.map((category) => (
                   <button
@@ -535,6 +595,74 @@ const AppContent = () => {
                 ))}
               </div>
             )}
+            {selectedCategory !== "sandbox" && (config?.features.server_stats || config?.features.server_search || config?.features.server_filters) && (
+              <div className="server-header">
+                {config?.features.server_stats && (
+                  <div className="server-stats">
+                    <span className="stat-label">Servers</span>
+                    <span className="stat-value">{filteredServers.length}</span>
+                    <span className="stat-label">Players</span>
+                    <span className="stat-value">
+                      {filteredServers
+                        .filter((s) => s.status === "available")
+                        .reduce((sum, s) => sum + s.players, 0)}
+                    </span>
+                  </div>
+                )}
+                {(config?.features.server_search || config?.features.server_filters) && (
+                  <div className="server-controls">
+                    {config?.features.server_search && (
+                      <input
+                        type="text"
+                        className="search-input"
+                        placeholder="Search servers..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    )}
+                    {config?.features.server_filters && (
+                      <div className="filters-dropdown" ref={filtersRef}>
+                        <button
+                          type="button"
+                          className="filters-button"
+                          onClick={() => setFiltersOpen(!filtersOpen)}
+                        >
+                          Filters
+                        </button>
+                        {filtersOpen && (
+                          <div className="filters-menu">
+                            <label className="filter-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={showHubStatus}
+                                onChange={(e) => setShowHubStatus(e.target.checked)}
+                              />
+                              <span>Show hub status</span>
+                            </label>
+                            <label className="filter-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={show18Plus}
+                                onChange={(e) => setShow18Plus(e.target.checked)}
+                              />
+                              <span>Show 18+ servers</span>
+                            </label>
+                            <label className="filter-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={showOffline}
+                                onChange={(e) => setShowOffline(e.target.checked)}
+                              />
+                              <span>Show offline servers</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {selectedCategory === "sandbox" ? (
               <SinglePlayerPanel />
             ) : (
@@ -545,10 +673,11 @@ const AppContent = () => {
                 {serversError && (
                   <div className="server-error">Error: {serversError}</div>
                 )}
-                {filteredServers.map((server, index) => (
+                {filteredServers.map((server) => (
                   <ServerItem
-                    key={server.name || index}
+                    key={server.url}
                     server={server}
+                    showHubStatus={showHubStatus}
                     onLoginRequired={onLoginRequired}
                     onSteamAuthRequired={onSteamAuthRequired}
                     autoConnecting={autoConnecting}
@@ -573,14 +702,16 @@ const AppContent = () => {
             />
           </div>
           <div className="footer-actions">
-            <SocialLinks />
-            <RelayDropdown
-              relays={relays}
-              selectedRelay={selectedRelay}
-              isOpen={relayDropdownOpen}
-              onToggle={toggleRelayDropdown}
-              onSelect={handleRelaySelect}
-            />
+            {config?.features.social_links && <SocialLinks />}
+            {config?.features.relay_selector && (
+              <RelayDropdown
+                relays={relays}
+                selectedRelay={selectedRelay}
+                isOpen={relayDropdownOpen}
+                onToggle={toggleRelayDropdown}
+                onSelect={handleRelaySelect}
+              />
+            )}
             <button
               type="button"
               className="button-secondary settings-button"

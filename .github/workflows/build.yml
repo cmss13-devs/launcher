@@ -6,7 +6,8 @@ on:
       - "v*"
 
 jobs:
-  build-tauri:
+  build-cm:
+    name: Build CM-SS13 Launcher
     permissions:
       contents: write
       issues: write
@@ -36,10 +37,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          shared-key: ${{ matrix.platform }}-${{ matrix.args }}
+          shared-key: ${{ matrix.platform }}-cm
 
       - name: install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04' # This must match the platform value defined above.
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
@@ -67,7 +68,81 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: "v__VERSION__"
+          releaseName: "cm-v__VERSION__"
+          releaseBody: "See the assets to download this version and install."
+          args: --features cm_ss13 --config src-tauri/tauri.cm.conf.json ${{ matrix.args }} ${{ matrix.platform == 'ubuntu-22.04' && '--config src-tauri/tauri.linux.conf.json' || '' }}
+
+      - name: Scan with Windows Defender
+        if: matrix.platform == 'windows-latest'
+        uses: ./.github/actions/defender-scan
+        with:
+          exe_path: src-tauri/target/release/CM_Launcher.exe
+          build_name: ${{ github.ref_name }}-cm
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-ss13:
+    name: Build SS13 Launcher
+    permissions:
+      contents: write
+      issues: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "ubuntu-22.04"
+            args: ""
+          - platform: "windows-latest"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: ${{ matrix.platform }}-ss13
+
+      - name: install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Cache Wine build
+        if: matrix.platform == 'ubuntu-22.04'
+        id: cache-wine
+        uses: actions/cache@v4
+        with:
+          path: |
+            src-tauri/wine.tar.zst
+            src-tauri/winetricks
+            src-tauri/cabextract
+          key: wine-10.5-${{ hashFiles('scripts/download-wine.sh') }}
+
+      - name: Download Wine (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04' && steps.cache-wine.outputs.cache-hit != 'true'
+        run: ./scripts/download-wine.sh
+
+      - name: install frontend dependencies
+        run: npm install
+
+      - uses: tauri-apps/tauri-action@v0.6.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "ss13-v__VERSION__"
           releaseBody: "See the assets to download this version and install."
           args: ${{ matrix.args }} ${{ matrix.platform == 'ubuntu-22.04' && '--config src-tauri/tauri.linux.conf.json' || '' }}
 
@@ -76,5 +151,5 @@ jobs:
         uses: ./.github/actions/defender-scan
         with:
           exe_path: src-tauri/target/release/CM_Launcher.exe
-          build_name: ${{ github.ref_name }}
+          build_name: ${{ github.ref_name }}-ss13
           github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -67,17 +67,12 @@ impl PresenceManager {
         if let Some(ref mut child) = *proc_guard {
             match child.try_wait() {
                 Ok(Some(_status)) => {
-                    // Process has exited
                     drop(proc_guard);
                     self.clear_game_session();
                     false
                 }
-                Ok(None) => {
-                    // Process still running
-                    true
-                }
+                Ok(None) => true,
                 Err(_) => {
-                    // Error checking process, assume dead
                     drop(proc_guard);
                     self.clear_game_session();
                     false

@@ -3,8 +3,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(feature = "steam")]
+use discord_sdk::activity::Button;
 use discord_sdk::{
-    activity::{ActivityBuilder, Assets, Button},
+    activity::{ActivityBuilder, Assets},
     registration::{Application, LaunchCommand},
     wheel::{UserState, Wheel},
     Discord, Subscriptions,
@@ -18,18 +20,11 @@ use crate::{
     DEFAULT_STEAM_ID,
 };
 
-const DISCORD_APP_ID: i64 = 1383904378154651768;
-
 #[cfg(feature = "steam")]
 fn steam_launch_url() -> String {
     use crate::steam::get_steam_app_id;
 
     format!("steam://run/{}", get_steam_app_id())
-}
-
-#[cfg(not(feature = "steam"))]
-fn steam_launch_url() -> String {
-    String::new()
 }
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -49,9 +44,10 @@ impl DiscordState {
             app_id = Some(get_steam_app_id());
         }
 
+        let config = crate::config::get_config();
         if let Err(e) = discord_sdk::registration::register_app(Application {
-            id: DISCORD_APP_ID,
-            name: Some("CM Launcher".to_string()),
+            id: config.discord_app_id,
+            name: Some(config.product_name.to_string()),
             command: LaunchCommand::Steam(app_id.unwrap_or(DEFAULT_STEAM_ID)),
         }) {
             tracing::warn!("Failed to register Discord app: {:?}", e);
@@ -84,8 +80,12 @@ impl DiscordState {
 
         let mut user_spoke = wheel.user();
 
-        let discord = match Discord::new(DISCORD_APP_ID, Subscriptions::ACTIVITY, Box::new(handler))
-        {
+        let config = crate::config::get_config();
+        let discord = match Discord::new(
+            config.discord_app_id,
+            Subscriptions::ACTIVITY,
+            Box::new(handler),
+        ) {
             Ok(d) => d,
             Err(e) => {
                 tracing::warn!("Discord not available: {:?}", e);
@@ -131,13 +131,20 @@ impl DiscordState {
         while let Some(state) = update_rx.recv().await {
             let result = match &state {
                 PresenceState::InLauncher => {
-                    let activity = ActivityBuilder::new()
+                    let config = crate::config::get_config();
+                    #[allow(unused_mut)]
+                    let mut activity = ActivityBuilder::new()
                         .state("In Launcher")
-                        .assets(Assets::default().large("logo", Some::<&str>("CM Launcher")))
-                        .button(Button {
+                        .assets(Assets::default().large("logo", Some(config.product_name)));
+
+                    #[cfg(feature = "steam")]
+                    {
+                        activity = activity.button(Button {
                             label: "Play".to_string(),
                             url: steam_launch_url(),
                         });
+                    }
+
                     discord.update_activity(activity).await
                 }
                 PresenceState::Playing {
@@ -145,25 +152,30 @@ impl DiscordState {
                     player_count,
                     map_name,
                 } => {
-                    let encoded_server =
-                        url::form_urlencoded::byte_serialize(server_name.as_bytes())
-                            .collect::<String>();
-                    let join_url = format!("{}//{}", steam_launch_url(), encoded_server);
-
                     let details = match map_name {
                         Some(map) => format!("{} players on {}", player_count, map),
                         None => format!("{} players online", player_count),
                     };
 
+                    let game_name = crate::config::get_config().strings.discord_game_name;
                     #[allow(unused_mut)]
                     let mut activity = ActivityBuilder::new()
                         .state(format!("Playing on {}", server_name))
                         .details(details)
-                        .assets(Assets::default().large("logo", Some::<&str>("Colonial Marines")))
-                        .button(Button {
+                        .assets(Assets::default().large("logo", Some(game_name)));
+
+                    // Only add join button when Steam feature is enabled (provides valid URL)
+                    #[cfg(feature = "steam")]
+                    {
+                        let encoded_server =
+                            url::form_urlencoded::byte_serialize(server_name.as_bytes())
+                                .collect::<String>();
+                        let join_url = format!("{}//{}", steam_launch_url(), encoded_server);
+                        activity = activity.button(Button {
                             label: "Join Game".to_string(),
                             url: join_url,
                         });
+                    }
 
                     #[cfg(feature = "discord_invites")]
                     {

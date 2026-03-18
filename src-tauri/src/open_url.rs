@@ -8,8 +8,10 @@ const SYSTEM_PATHS: &[&str] = &["/usr/bin", "/usr/local/bin", "/bin"];
 
 #[cfg(target_os = "linux")]
 fn is_system_path(path: &str) -> bool {
-    let is_system = path.starts_with("/usr/") || path.starts_with("/bin/") || path.starts_with("/sbin/");
-    let is_bundled = path.contains("CM-SS13");
+    let is_system =
+        path.starts_with("/usr/") || path.starts_with("/bin/") || path.starts_with("/sbin/");
+    let product_name = crate::config::get_config().product_name;
+    let is_bundled = path.contains(product_name);
     is_system && !is_bundled
 }
 

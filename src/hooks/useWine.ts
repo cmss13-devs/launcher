@@ -22,7 +22,6 @@ export const useWine = () => {
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
 
-  // Use ref to avoid circular dependency in useEffect
   const refreshStatusRef = useRef<() => Promise<void>>();
 
   const checkStatus = useCallback(async (): Promise<WineStatus> => {
@@ -42,19 +41,16 @@ export const useWine = () => {
     }
   }, []);
 
-  // Keep ref updated
   refreshStatusRef.current = async () => {
     await checkStatus();
   };
 
-  // Get platform on mount
   useEffect(() => {
     invoke<Platform>("get_platform")
       .then(setPlatform)
       .catch(() => setPlatform("unknown"));
   }, []);
 
-  // Listen for progress events
   useEffect(() => {
     const unlisten = listen<WineSetupProgress>(
       "wine-setup-progress",
@@ -63,7 +59,6 @@ export const useWine = () => {
 
         if (event.payload.stage === "complete") {
           setIsSettingUp(false);
-          // Refresh status after completion
           refreshStatusRef.current?.();
         } else if (event.payload.stage === "error") {
           setIsSettingUp(false);
@@ -129,12 +124,10 @@ export const useWine = () => {
     }
   }, [checkStatus]);
 
-  // Check if Wine setup is needed (Linux only, prefix not ready)
   const needsSetup =
     platform === "linux" &&
     (!status.prefix_initialized || !status.webview2_installed);
 
-  // Check if Wine is ready to use
   const isReady =
     platform !== "linux" ||
     (status.prefix_initialized && status.webview2_installed);

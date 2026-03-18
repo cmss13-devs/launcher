@@ -152,7 +152,8 @@ fn is_system_path(path: &str) -> bool {
     let dominated_by_system =
         path.starts_with("/usr/") || path.starts_with("/bin/") || path.starts_with("/sbin/");
 
-    let contains_bundled = path.contains("CM-SS13");
+    let product_name = crate::config::get_config().product_name;
+    let contains_bundled = path.contains(product_name);
 
     dominated_by_system && !contains_bundled
 }

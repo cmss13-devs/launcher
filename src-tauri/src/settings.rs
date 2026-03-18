@@ -19,8 +19,10 @@ pub enum AuthMode {
 #[serde(rename_all = "snake_case")]
 pub enum Theme {
     #[default]
-    Default,
-    Ntos,
+    #[serde(alias = "ntos")]
+    Tgui,
+    #[serde(alias = "default")]
+    Crt,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,21 +41,25 @@ fn default_true() -> bool {
 }
 
 impl Default for AppSettings {
-    #[cfg(feature = "steam")]
     fn default() -> Self {
-        Self {
-            auth_mode: AuthMode::Steam,
-            theme: Theme::Default,
-            notification_servers: HashSet::new(),
-            fullscreen_overlay: true,
-        }
-    }
+        let config = crate::config::get_config();
+        let default_theme = match config.default_theme {
+            "crt" => Theme::Crt,
+            _ => Theme::Tgui,
+        };
 
-    #[cfg(not(feature = "steam"))]
-    fn default() -> Self {
+        #[cfg(feature = "steam")]
+        let auth_mode = AuthMode::Steam;
+        #[cfg(not(feature = "steam"))]
+        let auth_mode = if config.features.cm_auth {
+            AuthMode::CmSs13
+        } else {
+            AuthMode::Byond
+        };
+
         Self {
-            auth_mode: AuthMode::CmSs13,
-            theme: Theme::Default,
+            auth_mode,
+            theme: default_theme,
             notification_servers: HashSet::new(),
             fullscreen_overlay: true,
         }
@@ -151,10 +157,7 @@ pub async fn toggle_server_notifications(
 }
 
 #[tauri::command]
-pub async fn set_fullscreen_overlay(
-    app: AppHandle,
-    enabled: bool,
-) -> Result<AppSettings, String> {
+pub async fn set_fullscreen_overlay(app: AppHandle, enabled: bool) -> Result<AppSettings, String> {
     let mut settings = load_settings(&app)?;
     settings.fullscreen_overlay = enabled;
     save_settings(&app, &settings)?;

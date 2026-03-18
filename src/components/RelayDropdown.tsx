@@ -47,7 +47,6 @@ export const RelayDropdown = ({
         <div className="relay-dropdown-menu">
           {[...relays]
             .sort((a, b) => {
-              // Sort by ping ascending, null/checking at the end
               if (a.ping === null && b.ping === null) return 0;
               if (a.ping === null) return 1;
               if (b.ping === null) return -1;

@@ -191,9 +191,10 @@ impl ControlServer {
 
         let (mut write, mut read) = ws_stream.split();
 
+        let config = crate::config::get_config();
         let welcome = serde_json::json!({
             "type": "connected",
-            "data": { "message": "Connected to CM Launcher" }
+            "data": { "message": format!("Connected to {}", config.product_name) }
         });
         if let Err(e) = write.send(Message::Text(welcome.to_string())).await {
             tracing::error!("Failed to send welcome message: {}", e);
@@ -479,7 +480,8 @@ fn generate_hwid() -> Option<String> {
         has_data = true;
     }
 
-    hasher.update(b"cm-ss13-hwid-v1");
+    let config = crate::config::get_config();
+    hasher.update(format!("{}-hwid-v1", config.variant).as_bytes());
 
     if has_data {
         Some(hex::encode(hasher.finalize()))
@@ -519,14 +521,21 @@ async fn refresh_auth_token(
                 Err("Steam feature not enabled".to_string())
             }
         }
-        Some("cm_ss13") => {
-            tracing::info!("Fetching current CM-SS13 access token");
+        Some(access_type) if access_type == crate::config::get_config().variant => {
+            let config = crate::config::get_config();
+            tracing::info!(
+                "Fetching current {} access token",
+                config.strings.auth_provider_name
+            );
             match crate::auth::TokenStorage::get_tokens()? {
                 Some(tokens) if !crate::auth::TokenStorage::is_expired() => {
                     params.access_token = Some(tokens.access_token);
                     Ok(params)
                 }
-                _ => Err("CM-SS13 authentication expired or not available".to_string()),
+                _ => Err(format!(
+                    "{} authentication expired or not available",
+                    config.strings.auth_provider_name
+                )),
             }
         }
         _ => Ok(params),

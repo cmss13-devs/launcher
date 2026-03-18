@@ -44,7 +44,6 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 
   initListener: async () => {
-    // Load initial auth state
     try {
       const state = await invoke<AuthState>("get_auth_state");
       get().setAuthState(state);
@@ -57,7 +56,6 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       });
     }
 
-    // Listen for auth state changes
     const unlisten = await listen<AuthState>("auth-state-changed", (event) => {
       get().setAuthState(event.payload);
     });

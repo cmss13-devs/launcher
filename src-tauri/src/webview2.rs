@@ -33,11 +33,14 @@ pub fn show_webview2_error() {
     use windows::core::*;
     use windows::Win32::UI::WindowsAndMessaging::*;
 
+    let config = crate::config::get_config();
+    let title = HSTRING::from(format!("{} - Missing Dependency", config.product_name));
+
     unsafe {
         MessageBoxW(
             None,
             w!("WebView2 Runtime is required but not installed.\n\nPlease download it from:\nhttps://go.microsoft.com/fwlink/p/?LinkId=2124703"),
-            w!("CM-SS13 Launcher - Missing Dependency"),
+            &title,
             MB_OK | MB_ICONERROR,
         );
     }

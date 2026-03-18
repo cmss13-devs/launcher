@@ -44,7 +44,6 @@ export const useServerStore = create<ServerStore>()((set) => ({
   },
 
   initListener: async () => {
-    // Fetch initial data immediately
     try {
       const servers = await invoke<Server[]>("get_servers");
       if (servers.length > 0) {
@@ -75,7 +74,6 @@ export const useServerStore = create<ServerStore>()((set) => ({
   },
 
   initRelays: async () => {
-    // Fetch initial relay data
     try {
       const relays = await invoke<RelayWithPing[]>("get_relays");
       const ready = hasValidPing(relays);
@@ -87,7 +85,6 @@ export const useServerStore = create<ServerStore>()((set) => ({
       console.error("Failed to get initial relays:", err);
     }
 
-    // Listen for relay updates from backend
     const unlistenRelaysUpdated = await listen<RelayWithPing[]>(
       "relays-updated",
       (event) => {
@@ -97,7 +94,6 @@ export const useServerStore = create<ServerStore>()((set) => ({
       }
     );
 
-    // Backend handles auto-selection and emits this event
     const unlistenRelaySelected = await listen<string>(
       "relay-selected",
       (event) => {

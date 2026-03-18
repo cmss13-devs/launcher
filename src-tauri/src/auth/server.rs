@@ -157,11 +157,7 @@ impl CallbackServer {
                 .recv_timeout(Duration::from_secs(CALLBACK_TIMEOUT_SECS))
             {
                 Ok(Some(req)) => {
-                    tracing::debug!(
-                        "Received request: {} {}",
-                        req.method(),
-                        req.url()
-                    );
+                    tracing::debug!("Received request: {} {}", req.method(), req.url());
                     req
                 }
                 Ok(None) => continue,

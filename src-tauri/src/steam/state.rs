@@ -27,7 +27,6 @@ impl SteamState {
         let overlay_event_tx: Arc<Mutex<Option<broadcast::Sender<bool>>>> =
             Arc::new(Mutex::new(None));
 
-        // Register callback for web API ticket responses
         let pending_tx_clone = Arc::clone(&pending_ticket_tx);
         let callback_handle = client.register_callback(move |response: TicketForWebApiResponse| {
             tracing::debug!("Received TicketForWebApiResponse callback");

@@ -1,23 +1,40 @@
-//! Single player mode support for CM-SS13.
+//! Single player mode support.
 //!
 //! This module handles downloading and extracting the latest game build
-//! from the cmss13-devs/cmss13 GitHub releases.
+//! from GitHub releases. Only available when singleplayer is enabled in config.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use std::sync::Arc;
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+use tauri::AppHandle;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use tauri::{AppHandle, Emitter, Manager};
 
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::byond::get_byond_base_dir;
 use crate::byond::install_byond_version;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::presence::PresenceManager;
 
-const GITHUB_REPO: &str = "cmss13-devs/cmss13";
-const BUILD_ASSET_NAME: &str = "colonialmarines-build.tar.zst";
 const SINGLEPLAYER_DIR: &str = "singleplayer";
 const VERSION_FILE: &str = ".version";
+
+fn get_singleplayer_config() -> Result<(String, String), String> {
+    let config = crate::config::get_config();
+    let repo = config
+        .singleplayer
+        .github_repo
+        .ok_or("Singleplayer is not available for this launcher variant")?;
+    let asset = config
+        .singleplayer
+        .build_asset_name
+        .ok_or("Singleplayer is not available for this launcher variant")?;
+    Ok((repo.to_string(), asset.to_string()))
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SinglePlayerStatus {
@@ -52,9 +69,10 @@ struct GitHubAsset {
 }
 
 fn get_singleplayer_base_dir() -> Result<PathBuf, String> {
+    let config = crate::config::get_config();
     let local_data = dirs::data_local_dir()
         .ok_or("Failed to get local data directory")?
-        .join("com.cm-ss13.launcher");
+        .join(config.app_identifier);
 
     Ok(local_data.join(SINGLEPLAYER_DIR))
 }
@@ -75,9 +93,11 @@ fn write_installed_version(version: &str) -> Result<(), String> {
 
 /// Fetch the latest release info from GitHub
 async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
+    let (github_repo, build_asset_name) = get_singleplayer_config()?;
+
     let url = format!(
         "https://api.github.com/repos/{}/releases/latest",
-        GITHUB_REPO
+        github_repo
     );
 
     let client = reqwest::Client::new();
@@ -98,7 +118,7 @@ async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
         .await
         .map_err(|e| format!("Failed to parse release info: {}", e))?;
 
-    let build_asset = release.assets.iter().find(|a| a.name == BUILD_ASSET_NAME);
+    let build_asset = release.assets.iter().find(|a| a.name == build_asset_name);
 
     Ok(ReleaseInfo {
         tag_name: release.tag_name,
@@ -243,12 +263,13 @@ pub async fn get_latest_singleplayer_release(_app: AppHandle) -> Result<ReleaseI
 pub async fn install_singleplayer(_app: AppHandle) -> Result<SinglePlayerStatus, String> {
     tracing::info!("Starting single player installation");
 
+    let (_, build_asset_name) = get_singleplayer_config()?;
     let release = fetch_latest_release().await?;
 
     let download_url = release.download_url.ok_or_else(|| {
         format!(
             "Release {} does not contain {}",
-            release.tag_name, BUILD_ASSET_NAME
+            release.tag_name, build_asset_name
         )
     })?;
 
@@ -347,11 +368,15 @@ fn find_dmb_file() -> Result<PathBuf, String> {
         return Err("Single player not installed".to_string());
     }
 
-    let dmb_path = base_dir.join("colonialmarines.dmb");
-    if dmb_path.exists() {
-        return Ok(dmb_path);
+    // Try configured DMB name first
+    if let Some(dmb_name) = crate::config::get_config().singleplayer.dmb_name {
+        let dmb_path = base_dir.join(dmb_name);
+        if dmb_path.exists() {
+            return Ok(dmb_path);
+        }
     }
 
+    // Fall back to searching for any .dmb file
     for entry in fs::read_dir(&base_dir)
         .map_err(|e| format!("Failed to read singleplayer directory: {}", e))?
     {

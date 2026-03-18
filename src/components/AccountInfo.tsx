@@ -1,3 +1,5 @@
+import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
 import { useAuthStore, useSettingsStore, useSteamStore } from "../stores";
 
 interface AccountDisplayProps {
@@ -48,12 +50,59 @@ export const AccountInfo = ({
   const steamUser = useSteamStore((s) => s.user);
   const steamAccessToken = useSteamStore((s) => s.accessToken);
 
+  const [byondPagerRunning, setByondPagerRunning] = useState<boolean | null>(null);
+  const [byondUsername, setByondUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (authMode === "byond") {
+      const checkByondStatus = async () => {
+        try {
+          const running = await invoke<boolean>("is_byond_pager_running");
+          setByondPagerRunning(running);
+
+          if (running) {
+            const username = await invoke<string | null>("get_byond_username");
+            setByondUsername(username);
+          } else {
+            setByondUsername(null);
+          }
+        } catch {
+          setByondPagerRunning(null);
+          setByondUsername(null);
+        }
+      };
+
+      checkByondStatus();
+      // Poll every 5 seconds
+      const interval = setInterval(checkByondStatus, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [authMode]);
+
   if (authMode === "byond") {
+    if (byondPagerRunning === true && byondUsername) {
+      return (
+        <AccountDisplay
+          avatar={byondUsername.charAt(0).toUpperCase()}
+          name={byondUsername}
+          status="Logged in via BYOND"
+        />
+      );
+    }
+    if (byondPagerRunning === true) {
+      return (
+        <AccountDisplay
+          avatar="B"
+          name="BYOND"
+          status="Open (not logged in)"
+        />
+      );
+    }
     return (
       <AccountDisplay
         avatar="B"
-        name="BYOND Authentication"
-        status="Using BYOND's built-in auth"
+        name="BYOND"
+        status="Not running"
       />
     );
   }

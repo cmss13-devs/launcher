@@ -93,7 +93,8 @@ mod implementation {
                 let tokens = TokenStorage::get_tokens()?;
                 match tokens {
                     Some(t) if !TokenStorage::is_expired() => {
-                        Ok((Some("cm_ss13".to_string()), Some(t.access_token)))
+                        let config = crate::config::get_config();
+                        Ok((Some(config.variant.to_string()), Some(t.access_token)))
                     }
                     _ => Err("AUTH_REQUIRED".to_string()),
                 }
@@ -203,15 +204,21 @@ mod implementation {
         let version = match &server.recommended_byond_version {
             Some(v) => v.clone(),
             None => {
-                tracing::error!("No BYOND version specified for server");
-                emit_status(
-                    &handle,
-                    &server_name,
-                    AutoConnectStatus::Error,
-                    Some("No BYOND version specified".to_string()),
-                    None,
-                );
-                return;
+                // Fall back to launcher's default BYOND version if configured
+                match crate::config::get_config().default_byond_version {
+                    Some(v) => v.to_string(),
+                    None => {
+                        tracing::error!("No BYOND version specified for server");
+                        emit_status(
+                            &handle,
+                            &server_name,
+                            AutoConnectStatus::Error,
+                            Some("No BYOND version specified".to_string()),
+                            None,
+                        );
+                        return;
+                    }
+                }
             }
         };
 
@@ -234,7 +241,8 @@ mod implementation {
             match get_access_token_for_mode(&handle, settings.auth_mode).await {
                 Ok((t, tok)) => (t, tok),
                 Err(e) if e == "AUTH_REQUIRED" => {
-                    tracing::info!("CM-SS13 auth required");
+                    let config = crate::config::get_config();
+                    tracing::info!("{} auth required", config.strings.auth_provider_name);
                     emit_status(
                         &handle,
                         &server_name,

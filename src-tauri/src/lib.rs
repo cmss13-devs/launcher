@@ -1,6 +1,7 @@
 mod auth;
 mod autoconnect;
 mod byond;
+pub mod config;
 mod control_server;
 mod discord;
 #[cfg(target_os = "windows")]
@@ -29,16 +30,21 @@ use auth::{
 };
 use byond::{
     check_byond_version, connect_to_server, connect_to_url, delete_byond_version,
-    install_byond_version, is_byond_pager_running, is_dev_mode, list_installed_byond_versions,
+    get_byond_username, install_byond_version, is_byond_pager_running, is_dev_mode,
+    list_installed_byond_versions,
 };
 use relays::{get_relays, get_selected_relay, set_selected_relay};
 use servers::get_servers;
-use settings::{get_settings, set_auth_mode, set_fullscreen_overlay, set_theme, toggle_server_notifications};
+use settings::{
+    get_settings, set_auth_mode, set_fullscreen_overlay, set_theme, toggle_server_notifications,
+};
 
 use singleplayer::{
     delete_singleplayer, get_latest_singleplayer_release, get_singleplayer_status,
     install_singleplayer, launch_singleplayer,
 };
+
+use config::get_launcher_config;
 
 #[cfg(target_os = "linux")]
 use wine::{check_wine_status, initialize_wine_prefix, reset_wine_prefix, WineStatus};
@@ -162,6 +168,7 @@ pub fn run() {
             list_installed_byond_versions,
             delete_byond_version,
             is_byond_pager_running,
+            get_byond_username,
             start_login,
             logout,
             get_auth_state,
@@ -188,6 +195,7 @@ pub fn run() {
             install_singleplayer,
             delete_singleplayer,
             launch_singleplayer,
+            get_launcher_config,
         ]);
     }
 
@@ -203,6 +211,7 @@ pub fn run() {
             list_installed_byond_versions,
             delete_byond_version,
             is_byond_pager_running,
+            get_byond_username,
             start_login,
             logout,
             get_auth_state,
@@ -234,6 +243,7 @@ pub fn run() {
             install_singleplayer,
             delete_singleplayer,
             launch_singleplayer,
+            get_launcher_config,
         ]);
     }
 

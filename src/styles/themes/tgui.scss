@@ -1,0 +1,631 @@
+// TGUI Theme - Mimics the SS13 TGUI interface style
+// Based on the standard TGUI library used in SS13
+
+.theme-tgui {
+  // TGUI color variables
+  --primary: #466086;
+  --primary-dim: color-mix(in srgb, var(--primary) 70%, transparent);
+  --primary-faint: color-mix(in srgb, var(--primary) 30%, transparent);
+  --bg: #282828;
+  --bg-dark: #141414;
+  --bg-darker: #0d0d0d;
+  --bg-highlight: rgba(255, 255, 255, 0.075);
+  --bg-highlight-dim: rgba(255, 255, 255, 0.05);
+  --bg-highlight-faint: rgba(255, 255, 255, 0.025);
+  --text: rgba(255, 255, 255, 0.9);
+  --text-dim: rgba(255, 255, 255, 0.5);
+  --border: rgba(255, 255, 255, 0.1);
+  --section-bg: rgba(0, 0, 0, 0.33);
+
+  // TGUI uses Verdana
+  font-family: Verdana, monospace;
+
+  // Hide CRT effects
+  #root {
+    background: var(--bg);
+  }
+
+  .crt,
+  .crt-bezel {
+    display: none;
+  }
+
+  // Titlebar - TGUI style
+  .titlebar {
+    background-color: #363636;
+    border-bottom: 1px solid #171717;
+    box-shadow: 0 2px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .titlebar-title {
+    color: rgba(255, 255, 255, 0.75);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: normal;
+    font-size: 14px;
+  }
+
+  .titlebar-button {
+    border: none;
+    border-radius: 2px;
+    color: rgba(255, 255, 255, 0.5);
+    background-color: transparent;
+
+    &:hover {
+      color: #fff;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  .titlebar-close:hover {
+    background-color: hsl(0, 100%, 40%);
+    color: #fff;
+  }
+
+  // Sections - TGUI style flat design
+  .section {
+    border: none;
+    box-shadow: none;
+    background-color: var(--section-bg);
+    border-radius: 2px;
+  }
+
+  .servers-section {
+    background-color: var(--section-bg);
+  }
+
+  // Category tabs - TGUI tab style
+  .category-tabs {
+    background-color: transparent;
+    padding: 4px 4px 0;
+    margin-bottom: 8px;
+  }
+
+  .category-tab {
+    border: none;
+    border-radius: 4px 4px 0 0;
+    background-color: transparent;
+    color: var(--text-dim);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: normal;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+
+    &:hover {
+      background-color: var(--bg-highlight);
+      color: var(--text);
+      border-color: transparent;
+    }
+
+    &.active {
+      background-color: var(--bg-highlight-dim);
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+  }
+
+  // Server list items
+  .server-list {
+    gap: 2px;
+  }
+
+  .server-item {
+    border: none;
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.03);
+    padding: 10px 12px;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .server-name {
+    color: var(--text);
+    font-weight: normal;
+    font-size: 14px;
+  }
+
+  .server-details {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .status-indicator {
+    box-shadow: none;
+    width: 8px;
+    height: 8px;
+
+    &.offline {
+      box-shadow: none;
+    }
+  }
+
+  .player-count {
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  // Buttons - TGUI flat button style
+  .button,
+  .button-secondary,
+  .relay-dropdown-button {
+    border: none;
+    border-radius: 2px;
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .button {
+    background-color: var(--primary);
+    color: #fff;
+
+    &:hover {
+      background-color: hsl(212, 38%, 60%);
+      color: #fff;
+    }
+
+    &:disabled {
+      background-color: hsl(0, 0%, 40%);
+    }
+  }
+
+  .button-secondary,
+  .relay-dropdown-button {
+    background-color: var(--primary);
+    color: var(--text);
+
+    &:hover {
+      filter: brightness(1.2);
+    }
+  }
+
+  // Connect group (split button)
+  .connect-group {
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .connect-button {
+    border: none;
+    border-radius: 0;
+  }
+
+  .notify-toggle {
+    border: none;
+    border-radius: 0;
+    background-color: var(--bg-highlight);
+    color: var(--text-dim);
+    border-left: 1px solid var(--border);
+
+    &:hover {
+      background-color: var(--bg-highlight-dim);
+      color: var(--text);
+    }
+
+    &.enabled {
+      background-color: var(--primary);
+      color: var(--text);
+    }
+  }
+
+  // Footer
+  .footer {
+    background-color: var(--section-bg);
+    border: none;
+    box-shadow: none;
+    padding: 8px 12px;
+  }
+
+  // Account info
+  .account-avatar {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background-color: var(--bg-highlight);
+    color: var(--text);
+  }
+
+  .account-name {
+    color: var(--text);
+    font-weight: normal;
+  }
+
+  .account-status {
+    color: var(--text-dim);
+  }
+
+  // Social links
+  .social-link-button {
+    color: var(--text-dim);
+
+    &:hover {
+      color: var(--text);
+    }
+  }
+
+  // Relay dropdown
+  .relay-dropdown-menu {
+    background-color: #2a2a2a;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .relay-option {
+    &:hover:not(.disabled) {
+      background-color: var(--bg-highlight);
+    }
+
+    &.selected {
+      background-color: var(--bg-highlight-dim);
+    }
+
+    input[type="radio"] {
+      border-color: var(--text-dim);
+      border-radius: 50%;
+
+      &:checked {
+        background-color: var(--primary);
+        border-color: var(--primary);
+        box-shadow: none;
+      }
+    }
+  }
+
+  .relay-name {
+    color: var(--text);
+  }
+
+  .relay-ping {
+    color: var(--text-dim);
+  }
+
+  // Modals
+  .auth-modal-overlay,
+  .settings-modal-overlay {
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .game-connection-overlay {
+    background: rgba(0, 0, 0, 0.85);
+  }
+
+  .auth-modal,
+  .settings-modal {
+    background: #2a2a2a;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+    h2 {
+      color: var(--text);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    p {
+      color: var(--text-dim);
+    }
+  }
+
+  .settings-modal-header {
+    border-bottom-color: var(--border);
+
+    h2 {
+      font-size: 14px;
+    }
+
+    .help-link {
+      color: var(--text-dim);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+  }
+
+  .settings-modal-footer {
+    border-top-color: var(--border);
+  }
+
+  .settings-section {
+    h3 {
+      color: var(--text);
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+    }
+  }
+
+  .settings-description {
+    color: var(--text-dim);
+  }
+
+  // Auth/Theme options
+  .auth-mode-option,
+  .theme-option {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.03);
+
+    &:hover {
+      background-color: var(--bg-highlight);
+      border-color: var(--border);
+    }
+
+    &.selected {
+      border-color: var(--primary);
+      background-color: var(--bg-highlight);
+    }
+
+    input[type="radio"]:checked {
+      box-shadow: none;
+    }
+  }
+
+  .auth-mode-name,
+  .theme-name {
+    color: var(--text);
+    font-weight: normal;
+  }
+
+  .auth-mode-desc,
+  .theme-desc {
+    color: var(--text-dim);
+  }
+
+  // Toggle settings
+  .toggle-setting {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background-color: rgba(255, 255, 255, 0.03);
+
+    &:hover {
+      background-color: var(--bg-highlight);
+      border-color: var(--border);
+    }
+
+    input[type="checkbox"] {
+      border-color: var(--text-dim);
+      border-radius: 2px;
+
+      &:checked {
+        background-color: var(--primary);
+        border-color: var(--primary);
+        box-shadow: none;
+      }
+    }
+  }
+
+  .toggle-name {
+    color: var(--text);
+    font-weight: normal;
+  }
+
+  .toggle-desc {
+    color: var(--text-dim);
+  }
+
+  // Close button
+  .modal-close-button {
+    border: none;
+    border-radius: 2px;
+    color: var(--text-dim);
+
+    &:hover {
+      background-color: hsl(0, 100%, 40%);
+      color: #fff;
+    }
+  }
+
+  // Error notifications
+  .error-popup {
+    background-color: #2a2020;
+    border: 1px solid var(--error);
+    border-radius: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .error-popup-dismiss {
+    border: none;
+    border-radius: 2px;
+  }
+
+  // Spinners
+  .auth-spinner,
+  .game-connection-spinner,
+  .singleplayer-spinner {
+    border-color: var(--border);
+    border-top-color: var(--primary);
+  }
+
+  // Progress bars
+  .game-connection-progress,
+  .wine-progress-bar {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+
+  .game-connection-progress-bar,
+  .wine-progress-fill {
+    background: var(--primary);
+  }
+
+  .refresh-bar {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .refresh-bar-fill {
+    background: var(--primary);
+    opacity: 0.6;
+  }
+
+  // Game connection modal
+  .game-connection-status h2 {
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  // Single player panel
+  .singleplayer-header h3 {
+    color: var(--text);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .singleplayer-description {
+    color: var(--text-dim);
+  }
+
+  .singleplayer-error {
+    border-radius: 2px;
+  }
+
+  .singleplayer-size-hint {
+    color: var(--text-dim);
+  }
+
+  // Dev section
+  .dev-section {
+    border-top-color: var(--border);
+  }
+
+  .dev-input-group {
+    label {
+      color: var(--text-dim);
+    }
+
+    input {
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text);
+
+      &:focus {
+        border-color: var(--primary);
+      }
+    }
+  }
+
+  .dev-error {
+    border-radius: 2px;
+  }
+
+  // Wine settings
+  .wine-status-info {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.03);
+
+    p {
+      color: var(--text);
+    }
+  }
+
+  // Auth warning
+  .auth-mode-warning {
+    border-radius: 2px;
+  }
+
+  // Search and filters
+  .search-input {
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text);
+
+    &::placeholder {
+      color: var(--text-dim);
+    }
+
+    &:focus {
+      border-color: var(--primary);
+    }
+  }
+
+  .filters-button {
+    border: none;
+    border-radius: 2px;
+    background-color: var(--primary);
+    color: var(--text);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+
+    &:hover {
+      filter: brightness(1.2);
+      color: var(--text);
+    }
+  }
+
+  .filters-menu {
+    background-color: #2a2a2a;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .filter-checkbox {
+    color: var(--text-dim);
+
+    input[type="checkbox"] {
+      border-color: var(--text-dim);
+      border-radius: 2px;
+
+      &:checked {
+        background-color: var(--primary);
+        border-color: var(--primary);
+      }
+    }
+
+    &:hover {
+      color: var(--text);
+    }
+  }
+
+  // Server stats
+  .stat-label {
+    color: var(--text-dim);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .stat-value {
+    color: var(--text);
+    font-weight: normal;
+  }
+
+  // Scrollbar - TGUI style
+  // Use scrollbar-color for modern browsers
+  * {
+    scrollbar-color: #4a4a4a #1a1a1a;
+    scrollbar-width: thin;
+  }
+
+  // WebKit fallback
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #4a4a4a;
+    border: 2px solid #1a1a1a;
+    border-radius: 5px;
+
+    &:hover {
+      background: #5a5a5a;
+    }
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: #1a1a1a;
+  }
+}

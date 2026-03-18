@@ -122,7 +122,6 @@ export const WineSetupModal = ({
   onClose,
   onRetry,
 }: WineSetupModalProps) => {
-  // Determine which state to show
   const wineError = status.error || !status.installed;
   const setupComplete =
     status.prefix_initialized &&
@@ -131,7 +130,6 @@ export const WineSetupModal = ({
     progress?.stage === "complete";
   const setupFailed = progress?.stage === "error";
 
-  // Don't allow closing during setup
   const canClose = !isSettingUp;
 
   return (

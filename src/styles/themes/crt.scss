@@ -1,0 +1,139 @@
+// CRT Theme - Classic green terminal with CRT effects
+
+.theme-crt {
+  --primary: #00eb4e;
+  --primary-dim: #00eb4e99;
+  --primary-faint: #00eb4e44;
+  --bg: #1a1919;
+  --bg-dark: rgba(0, 15, 0, 0.7);
+  --bg-darker: rgba(0, 15, 0, 0.9);
+  --bg-highlight: rgba(0, 235, 78, 0.2);
+  --bg-highlight-dim: rgba(0, 235, 78, 0.15);
+  --bg-highlight-faint: rgba(0, 235, 78, 0.05);
+  --text: #00eb4e;
+  --text-dim: #00eb4e99;
+  --border: #00eb4e;
+
+  #root {
+    background: radial-gradient(var(--bg-highlight), var(--bg-highlight-faint));
+  }
+
+  .crt-bezel {
+    display: block;
+    border: 3px solid #0a0a0a;
+    box-shadow:
+      inset 0 0 0 1px #333,
+      inset 0 0 0 2px #1a1a1a,
+      inset 0 0 20px rgba(0, 0, 0, 0.8),
+      inset 0 0 3px 1px rgba(0, 235, 78, 0.3);
+    border-radius: 2px;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(0, 235, 78, 0.2);
+      border-radius: 1px;
+    }
+  }
+
+  .crt {
+    display: block;
+
+    &::before,
+    &::after {
+      content: "";
+      display: block;
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    &::before {
+      background:
+        linear-gradient(hsla(0, 6%, 7%, 0) 50%, hsla(0, 0%, 0%, 0.25) 50%),
+        linear-gradient(
+          90deg,
+          hsla(0, 100%, 50%, 0.06),
+          hsla(120, 100%, 50%, 0.02),
+          hsla(240, 100%, 50%, 0.06)
+        );
+      background-size:
+        100% 8px,
+        6px 100%;
+    }
+
+    &::after {
+      background: hsla(0, 6%, 7%, 0.1);
+      opacity: 0;
+      box-shadow: 0 0 100px 5px hsla(0, 0%, 0%, 0.9) inset;
+    }
+  }
+
+  // Glowing elements
+  .section {
+    box-shadow: 0 0 15px var(--primary);
+    border: 2px solid var(--primary);
+  }
+
+  .launcher {
+    padding-bottom: 12px;
+  }
+
+  .status-indicator {
+    box-shadow: 0 0 8px var(--primary);
+
+    &.offline {
+      box-shadow: 0 0 8px var(--error);
+    }
+  }
+
+  .relay-dropdown-menu {
+    box-shadow: 0 0 15px var(--primary);
+  }
+
+  .auth-modal,
+  .settings-modal {
+    box-shadow: 0 0 10px var(--primary);
+  }
+
+  .relay-option input[type="radio"]:checked,
+  .auth-mode-option input[type="radio"]:checked,
+  .theme-option input[type="radio"]:checked {
+    box-shadow: 0 0 8px var(--primary);
+  }
+
+  .toggle-setting input[type="checkbox"]:checked {
+    box-shadow: 0 0 8px var(--primary);
+  }
+
+  // Text styling
+  .titlebar-title {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .category-tab {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .button,
+  .button-secondary {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 900;
+  }
+
+  .settings-section h3 {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .auth-modal h2,
+  .settings-modal-header h2 {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+}

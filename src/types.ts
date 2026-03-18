@@ -15,7 +15,7 @@ export interface AuthState {
 
 export type AuthMode = "cm_ss13" | "byond" | "steam";
 
-export type Theme = "default" | "ntos";
+export type Theme = "tgui" | "crt";
 
 export interface SteamUserInfo {
   steam_id: string;
@@ -74,13 +74,20 @@ export interface ServerData {
   round_duration: number;
   gamestate: number;
   players: number;
+  admins?: number;
+  popcap?: number;
+  security_level?: string;
 }
 
 export interface Server {
   name: string;
   url: string;
   status: string;
+  hub_status: string;
+  players: number;
   data?: ServerData;
+  is_18_plus: boolean;
+  version?: string;
   recommended_byond_version?: string;
   tags?: string[];
 }

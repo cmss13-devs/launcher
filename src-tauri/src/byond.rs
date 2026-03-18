@@ -81,9 +81,10 @@ pub fn build_connect_url(
 }
 
 pub fn get_byond_base_dir(_app: &AppHandle) -> Result<PathBuf, String> {
+    let config = crate::config::get_config();
     let local_data = dirs::data_local_dir()
         .ok_or("Failed to get local data directory")?
-        .join("com.cm-ss13.launcher");
+        .join(config.app_identifier);
 
     Ok(local_data.join("byond"))
 }
@@ -114,6 +115,12 @@ fn get_dreamseeker_path(app: &AppHandle, version: &str) -> Result<PathBuf, Strin
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 fn get_dreamseeker_path(_app: &AppHandle, _version: &str) -> Result<PathBuf, String> {
     Err("BYOND is only supported on Windows and Linux (via Wine)".to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn get_byond_pager_path(app: &AppHandle, version: &str) -> Result<PathBuf, String> {
+    let version_dir = get_byond_version_dir(app, version)?;
+    Ok(version_dir.join("byond").join("bin").join("byond.exe"))
 }
 
 #[tauri::command]
@@ -179,7 +186,15 @@ struct ByondHashResponse {
 }
 
 async fn fetch_expected_hash(version: &str) -> Result<Option<String>, String> {
-    let url = format!("https://db.cm-ss13.com/api/ByondHash?byond_ver={}", version);
+    let config = crate::config::get_config();
+
+    // If no BYOND hash API is configured for this variant, skip verification
+    let Some(base_url) = config.urls.byond_hash_api else {
+        tracing::debug!("No BYOND hash API configured for this variant");
+        return Ok(None);
+    };
+
+    let url = format!("{}?byond_ver={}", base_url, version);
 
     let response = reqwest::get(&url)
         .await
@@ -443,13 +458,17 @@ async fn get_auth_for_connection(
 
             match tokens {
                 Some(t) if !TokenStorage::is_expired() => {
-                    Ok((Some("cm_ss13".to_string()), Some(t.access_token)))
+                    let config = crate::config::get_config();
+                    Ok((Some(config.variant.to_string()), Some(t.access_token)))
                 }
-                _ => Err(AuthError {
-                    code: "auth_required".to_string(),
-                    message: "Please log in to CM-SS13".to_string(),
-                    linking_url: None,
-                }),
+                _ => {
+                    let config = crate::config::get_config();
+                    Err(AuthError {
+                        code: "auth_required".to_string(),
+                        message: config.strings.login_prompt.to_string(),
+                        linking_url: None,
+                    })
+                }
             }
         }
         AuthMode::Steam => {
@@ -500,7 +519,9 @@ async fn get_auth_for_connection(
             }
         }
         AuthMode::Byond => {
-            if !check_byond_pager_running() {
+            let config = crate::config::get_config();
+            // If auto_launch_byond is enabled, we'll launch BYOND later in the connection flow
+            if !config.features.auto_launch_byond && !check_byond_pager_running() {
                 return Err(AuthError {
                     code: "byond_pager_not_running".to_string(),
                     message: "BYOND pager is not running. Please open BYOND and log in before connecting.".to_string(),
@@ -532,22 +553,43 @@ pub async fn connect_to_server(
 
     let version = server
         .recommended_byond_version
-        .ok_or("Server has no recommended BYOND version")?;
+        .or_else(|| {
+            crate::config::get_config()
+                .default_byond_version
+                .map(|s| s.to_string())
+        })
+        .ok_or("Server has no recommended BYOND version and no default configured")?;
 
-    let port = server
-        .url
-        .split(':')
-        .nth(1)
-        .ok_or("Invalid server URL format")?
-        .to_string();
+    let config = crate::config::get_config();
 
-    let relay_state = app
-        .try_state::<Arc<RelayState>>()
-        .ok_or("Relay state not available")?;
-    let host = relay_state
-        .get_selected_host()
-        .await
-        .ok_or("No relay selected")?;
+    // Parse host and port from server URL (format: byond://host:port)
+    let address = server.url.strip_prefix("byond://").unwrap_or(&server.url);
+
+    let (host, port) = if config.features.relay_selector {
+        // CM mode: use relay for host, extract port from server URL
+        let port = address
+            .split(':')
+            .nth(1)
+            .ok_or("Invalid server URL format")?
+            .to_string();
+
+        let relay_state = app
+            .try_state::<Arc<RelayState>>()
+            .ok_or("Relay state not available")?;
+        let host = relay_state
+            .get_selected_host()
+            .await
+            .ok_or("No relay selected")?;
+
+        (host, port)
+    } else {
+        // SS13 mode: use host:port directly from server URL
+        let parts: Vec<&str> = address.split(':').collect();
+        if parts.len() != 2 {
+            return Err(format!("Invalid server URL format: {}", server.url));
+        }
+        (parts[0].to_string(), parts[1].to_string())
+    };
 
     let (access_type, access_token) = match get_auth_for_connection(&app).await {
         Ok((t, tok)) => (t, tok),
@@ -607,6 +649,25 @@ async fn connect_to_server_impl(
 
     #[cfg(target_os = "windows")]
     {
+        // Auto-launch BYOND pager if enabled and not already running
+        let config = crate::config::get_config();
+        if config.features.auto_launch_byond && !check_byond_pager_running() {
+            let byond_pager_path = get_byond_pager_path(&app, &version)?;
+            if byond_pager_path.exists() {
+                tracing::info!("Auto-launching BYOND pager: {:?}", byond_pager_path);
+                Command::new(&byond_pager_path)
+                    .spawn()
+                    .map_err(|e| format!("Failed to launch BYOND pager: {}", e))?;
+                // Exit early - user needs to log in to BYOND before connecting
+                return Ok(ConnectionResult {
+                    success: false,
+                    message: "BYOND has been launched. Please log in and try connecting again."
+                        .to_string(),
+                    auth_error: None,
+                });
+            }
+        }
+
         if let Some(control_server) = app.try_state::<ControlServer>() {
             control_server.reset_connected_flag();
         }
@@ -651,7 +712,24 @@ async fn connect_to_server_impl(
                 map_name: map_name.clone(),
             });
 
-            manager.start_game_session(server_name, map_name, child);
+            manager.start_game_session(server_name.clone(), map_name, child);
+        }
+
+        // If connection_timeout_fallback is enabled, emit game-connected after 30s
+        // regardless of whether the control server was pinged (but only if game still running)
+        if config.features.connection_timeout_fallback {
+            if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
+                let app_clone = app.clone();
+                let server_name_clone = server_name.clone();
+                let manager_clone = Arc::clone(&manager);
+                tokio::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    // Only emit if the game session is still active
+                    if manager_clone.get_game_session().is_some() {
+                        app_clone.emit("game-connected", &server_name_clone).ok();
+                    }
+                });
+            }
         }
 
         Ok(ConnectionResult {
@@ -722,7 +800,25 @@ async fn connect_to_server_impl(
                 map_name: map_name.clone(),
             });
 
-            manager.start_game_session(server_name, map_name, child);
+            manager.start_game_session(server_name.clone(), map_name, child);
+        }
+
+        // If connection_timeout_fallback is enabled, emit game-connected after 30s
+        // regardless of whether the control server was pinged (but only if game still running)
+        let config = crate::config::get_config();
+        if config.features.connection_timeout_fallback {
+            if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
+                let app_clone = app.clone();
+                let server_name_clone = server_name.clone();
+                let manager_clone = Arc::clone(&manager);
+                tokio::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    // Only emit if the game session is still active
+                    if manager_clone.get_game_session().is_some() {
+                        app_clone.emit("game-connected", &server_name_clone).ok();
+                    }
+                });
+            }
         }
 
         Ok(ConnectionResult {
@@ -734,7 +830,6 @@ async fn connect_to_server_impl(
 
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
-        // Suppress unused warnings
         let _ = (
             dreamseeker_path,
             host,
@@ -819,6 +914,41 @@ fn check_byond_pager_running() -> bool {
 pub async fn is_byond_pager_running() -> Result<bool, String> {
     Ok(check_byond_pager_running())
 }
+
+/// Get the logged-in BYOND username from Documents/BYOND/key.txt
+#[tauri::command]
+pub async fn get_byond_username() -> Result<Option<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let documents = dirs::document_dir().ok_or("Could not find Documents directory")?;
+        let key_path = documents.join("BYOND").join("key.txt");
+
+        if !key_path.exists() {
+            return Ok(None);
+        }
+
+        let contents =
+            fs::read_to_string(&key_path).map_err(|e| format!("Failed to read key.txt: {}", e))?;
+
+        // Look for "BEGIN KEY <username>" but not "BEGIN KEY Guest"
+        for line in contents.lines() {
+            let line = line.trim();
+            if let Some(username) = line.strip_prefix("BEGIN KEY ") {
+                if !username.eq_ignore_ascii_case("Guest") {
+                    return Ok(Some(username.to_string()));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(None)
+    }
+}
+
 #[tauri::command]
 pub fn is_dev_mode() -> bool {
     cfg!(feature = "dev")
@@ -849,7 +979,6 @@ pub async fn connect_to_url(
         let host = parts[0].to_string();
         let port = parts[1].to_string();
 
-        // Get auth
         let (access_type, access_token) = match get_auth_for_connection(&app).await {
             Ok((t, tok)) => (t, tok),
             Err(auth_error) => {
@@ -876,7 +1005,7 @@ pub async fn connect_to_url(
             access_type,
             access_token,
             format!("Dev Server ({})", url),
-            None, // No map_name for dev server connections
+            None,
             source,
         )
         .await

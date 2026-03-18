@@ -1,8 +1,10 @@
 import { faMinus, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useConfigStore } from "../stores";
 
 export const Titlebar = () => {
+  const config = useConfigStore((s) => s.config);
   const handleMinimize = async () => {
     const window = getCurrentWindow();
     await window.minimize();
@@ -15,7 +17,7 @@ export const Titlebar = () => {
 
   return (
     <div className="titlebar" data-tauri-drag-region>
-      <div className="titlebar-title">CM-SS13 Launcher</div>
+      <div className="titlebar-title">{config?.product_name || "SS13 Launcher"}</div>
       <div className="titlebar-buttons">
         <button
           type="button"
