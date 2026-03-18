@@ -157,10 +157,7 @@ pub async fn toggle_server_notifications(
 }
 
 #[tauri::command]
-pub async fn set_fullscreen_overlay(
-    app: AppHandle,
-    enabled: bool,
-) -> Result<AppSettings, String> {
+pub async fn set_fullscreen_overlay(app: AppHandle, enabled: bool) -> Result<AppSettings, String> {
     let mut settings = load_settings(&app)?;
     settings.fullscreen_overlay = enabled;
     save_settings(&app, &settings)?;

@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use crate::config::{get_config, OidcConfig};
 
 fn get_oidc_config() -> Result<OidcConfig, String> {
-    get_config()
-        .oidc
-        .ok_or_else(|| "OIDC authentication is not configured for this launcher variant".to_string())
+    get_config().oidc.ok_or_else(|| {
+        "OIDC authentication is not configured for this launcher variant".to_string()
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -523,13 +523,19 @@ async fn refresh_auth_token(
         }
         Some(access_type) if access_type == crate::config::get_config().variant => {
             let config = crate::config::get_config();
-            tracing::info!("Fetching current {} access token", config.strings.auth_provider_name);
+            tracing::info!(
+                "Fetching current {} access token",
+                config.strings.auth_provider_name
+            );
             match crate::auth::TokenStorage::get_tokens()? {
                 Some(tokens) if !crate::auth::TokenStorage::is_expired() => {
                     params.access_token = Some(tokens.access_token);
                     Ok(params)
                 }
-                _ => Err(format!("{} authentication expired or not available", config.strings.auth_provider_name)),
+                _ => Err(format!(
+                    "{} authentication expired or not available",
+                    config.strings.auth_provider_name
+                )),
             }
         }
         _ => Ok(params),

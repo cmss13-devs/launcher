@@ -3,14 +3,14 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+#[cfg(feature = "steam")]
+use discord_sdk::activity::Button;
 use discord_sdk::{
     activity::{ActivityBuilder, Assets},
     registration::{Application, LaunchCommand},
     wheel::{UserState, Wheel},
     Discord, Subscriptions,
 };
-#[cfg(feature = "steam")]
-use discord_sdk::activity::Button;
 use tokio::sync::{mpsc, watch};
 
 #[cfg(feature = "steam")]
@@ -81,8 +81,11 @@ impl DiscordState {
         let mut user_spoke = wheel.user();
 
         let config = crate::config::get_config();
-        let discord = match Discord::new(config.discord_app_id, Subscriptions::ACTIVITY, Box::new(handler))
-        {
+        let discord = match Discord::new(
+            config.discord_app_id,
+            Subscriptions::ACTIVITY,
+            Box::new(handler),
+        ) {
             Ok(d) => d,
             Err(e) => {
                 tracing::warn!("Discord not available: {:?}", e);

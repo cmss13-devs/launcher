@@ -32,7 +32,11 @@ pub fn init_logging() -> WorkerGuard {
 
     tracing::info!("Logging initialized, log directory: {}", log_dir.display());
     let config = crate::config::get_config();
-    tracing::info!("{} version: {}", config.product_name, env!("CARGO_PKG_VERSION"));
+    tracing::info!(
+        "{} version: {}",
+        config.product_name,
+        env!("CARGO_PKG_VERSION")
+    );
 
     cleanup_old_logs(&log_dir, 7);
 

@@ -120,10 +120,7 @@ fn get_dreamseeker_path(_app: &AppHandle, _version: &str) -> Result<PathBuf, Str
 #[cfg(target_os = "windows")]
 fn get_byond_pager_path(app: &AppHandle, version: &str) -> Result<PathBuf, String> {
     let version_dir = get_byond_version_dir(app, version)?;
-    Ok(version_dir
-        .join("byond")
-        .join("bin")
-        .join("byond.exe"))
+    Ok(version_dir.join("byond").join("bin").join("byond.exe"))
 }
 
 #[tauri::command]
@@ -556,15 +553,17 @@ pub async fn connect_to_server(
 
     let version = server
         .recommended_byond_version
-        .or_else(|| crate::config::get_config().default_byond_version.map(|s| s.to_string()))
+        .or_else(|| {
+            crate::config::get_config()
+                .default_byond_version
+                .map(|s| s.to_string())
+        })
         .ok_or("Server has no recommended BYOND version and no default configured")?;
 
     let config = crate::config::get_config();
 
     // Parse host and port from server URL (format: byond://host:port)
-    let address = server.url
-        .strip_prefix("byond://")
-        .unwrap_or(&server.url);
+    let address = server.url.strip_prefix("byond://").unwrap_or(&server.url);
 
     let (host, port) = if config.features.relay_selector {
         // CM mode: use relay for host, extract port from server URL
@@ -662,7 +661,8 @@ async fn connect_to_server_impl(
                 // Exit early - user needs to log in to BYOND before connecting
                 return Ok(ConnectionResult {
                     success: false,
-                    message: "BYOND has been launched. Please log in and try connecting again.".to_string(),
+                    message: "BYOND has been launched. Please log in and try connecting again."
+                        .to_string(),
                     auth_error: None,
                 });
             }
@@ -908,24 +908,23 @@ pub async fn is_byond_pager_running() -> Result<bool, String> {
 pub async fn get_byond_username() -> Result<Option<String>, String> {
     #[cfg(target_os = "windows")]
     {
-        let documents = dirs::document_dir()
-            .ok_or("Could not find Documents directory")?;
+        let documents = dirs::document_dir().ok_or("Could not find Documents directory")?;
         let key_path = documents.join("BYOND").join("key.txt");
 
         if !key_path.exists() {
             return Ok(None);
         }
 
-        let contents = fs::read_to_string(&key_path)
-            .map_err(|e| format!("Failed to read key.txt: {}", e))?;
+        let contents =
+            fs::read_to_string(&key_path).map_err(|e| format!("Failed to read key.txt: {}", e))?;
 
-        // Look for "BEGIN KEY <username>" but not "BEGIN KEY GUEST"
+        // Look for "BEGIN KEY <username>" but not "BEGIN KEY Guest"
         for line in contents.lines() {
             let line = line.trim();
-            if line.starts_with("BEGIN KEY ") && line != "BEGIN KEY GUEST" {
-                let username = line.strip_prefix("BEGIN KEY ")
-                    .map(|s| s.to_string());
-                return Ok(username);
+            if let Some(username) = line.strip_prefix("BEGIN KEY ") {
+                if !username.eq_ignore_ascii_case("Guest") {
+                    return Ok(Some(username.to_string()));
+                }
             }
         }
 

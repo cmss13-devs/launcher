@@ -159,28 +159,50 @@ async fn fetch_servers_internal() -> Result<Vec<Server>, String> {
             .into_iter()
             .map(|hub| {
                 let data = hub.topic_status.as_ref().and_then(|ts| {
-                    ts.get("round_id").and_then(|v| v.as_i64()).map(|round_id| ServerData {
-                        round_id,
-                        mode: ts.get("mode").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        map_name: ts.get("map_name")
-                            .and_then(|v| v.as_str())
-                            .or_else(|| ts.get("map").and_then(|v| v.as_str()))
-                            .unwrap_or("")
-                            .to_string(),
-                        round_duration: ts.get("round_duration").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                        gamestate: ts.get("gamestate").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                        players: ts.get("players").and_then(|v| v.as_i64()).unwrap_or(hub.players as i64) as i32,
-                        admins: ts.get("admins").and_then(|v| v.as_i64()).map(|v| v as i32),
-                        popcap: ts.get("popcap").and_then(|v| v.as_i64()).map(|v| v as i32),
-                        security_level: ts.get("security_level").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                    })
+                    ts.get("round_id")
+                        .and_then(|v| v.as_i64())
+                        .map(|round_id| ServerData {
+                            round_id,
+                            mode: ts
+                                .get("mode")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string(),
+                            map_name: ts
+                                .get("map_name")
+                                .and_then(|v| v.as_str())
+                                .or_else(|| ts.get("map").and_then(|v| v.as_str()))
+                                .unwrap_or("")
+                                .to_string(),
+                            round_duration: ts
+                                .get("round_duration")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0),
+                            gamestate: ts.get("gamestate").and_then(|v| v.as_i64()).unwrap_or(0)
+                                as i32,
+                            players: ts
+                                .get("players")
+                                .and_then(|v| v.as_i64())
+                                .unwrap_or(hub.players as i64)
+                                as i32,
+                            admins: ts.get("admins").and_then(|v| v.as_i64()).map(|v| v as i32),
+                            popcap: ts.get("popcap").and_then(|v| v.as_i64()).map(|v| v as i32),
+                            security_level: ts
+                                .get("security_level")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string()),
+                        })
                 });
 
-                let address = hub.topic_status.as_ref()
+                let address = hub
+                    .topic_status
+                    .as_ref()
                     .and_then(|ts| ts.get("public_address").and_then(|v| v.as_str()))
                     .unwrap_or(&hub.address);
 
-                let version = hub.topic_status.as_ref()
+                let version = hub
+                    .topic_status
+                    .as_ref()
                     .and_then(|ts| ts.get("version").and_then(|v| v.as_str()))
                     .map(|s| s.to_string());
 
@@ -189,7 +211,11 @@ async fn fetch_servers_internal() -> Result<Vec<Server>, String> {
                 Server {
                     name: hub.name,
                     url: format!("byond://{}", address),
-                    status: if hub.online { "available".to_string() } else { "offline".to_string() },
+                    status: if hub.online {
+                        "available".to_string()
+                    } else {
+                        "offline".to_string()
+                    },
                     hub_status: hub.status,
                     players: hub.players,
                     data,
@@ -209,12 +235,11 @@ async fn fetch_servers_internal() -> Result<Vec<Server>, String> {
             .await
             .map_err(|e| format!("Failed to parse server response: {}", e))?;
 
-        let servers = cm_response.servers
+        let servers = cm_response
+            .servers
             .into_iter()
             .map(|cm| {
-                let players = cm.data.as_ref()
-                    .and_then(|d| d.players)
-                    .unwrap_or(0);
+                let players = cm.data.as_ref().and_then(|d| d.players).unwrap_or(0);
 
                 let data = cm.data.as_ref().and_then(|d| {
                     d.round_id.map(|round_id| ServerData {

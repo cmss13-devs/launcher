@@ -9,10 +9,10 @@ use std::io;
 use std::path::PathBuf;
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use std::sync::Arc;
-#[cfg(any(target_os = "windows", target_os = "linux"))]
-use tauri::{AppHandle, Emitter, Manager};
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 use tauri::AppHandle;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::byond::get_byond_base_dir;
@@ -25,9 +25,13 @@ const VERSION_FILE: &str = ".version";
 
 fn get_singleplayer_config() -> Result<(String, String), String> {
     let config = crate::config::get_config();
-    let repo = config.singleplayer.github_repo
+    let repo = config
+        .singleplayer
+        .github_repo
         .ok_or("Singleplayer is not available for this launcher variant")?;
-    let asset = config.singleplayer.build_asset_name
+    let asset = config
+        .singleplayer
+        .build_asset_name
         .ok_or("Singleplayer is not available for this launcher variant")?;
     Ok((repo.to_string(), asset.to_string()))
 }

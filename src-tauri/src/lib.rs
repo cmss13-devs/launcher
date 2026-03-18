@@ -35,7 +35,9 @@ use byond::{
 };
 use relays::{get_relays, get_selected_relay, set_selected_relay};
 use servers::get_servers;
-use settings::{get_settings, set_auth_mode, set_fullscreen_overlay, set_theme, toggle_server_notifications};
+use settings::{
+    get_settings, set_auth_mode, set_fullscreen_overlay, set_theme, toggle_server_notifications,
+};
 
 use singleplayer::{
     delete_singleplayer, get_latest_singleplayer_release, get_singleplayer_status,
