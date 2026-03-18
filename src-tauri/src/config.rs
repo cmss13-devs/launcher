@@ -12,6 +12,7 @@ pub struct LauncherConfig {
     pub urls: LauncherUrls,
     pub strings: LauncherStrings,
     pub singleplayer: SingleplayerConfig,
+    pub oidc: Option<OidcConfig>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,6 +32,14 @@ pub struct LauncherFeatures {
 pub struct SingleplayerConfig {
     pub github_repo: Option<&'static str>,
     pub build_asset_name: Option<&'static str>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct OidcConfig {
+    pub client_id: &'static str,
+    pub auth_url: &'static str,
+    pub token_url: &'static str,
+    pub userinfo_url: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -81,6 +90,12 @@ pub fn get_config() -> LauncherConfig {
             github_repo: Some("cmss13-devs/cmss13"),
             build_asset_name: Some("colonialmarines-build.tar.zst"),
         },
+        oidc: Some(OidcConfig {
+            client_id: "6hm46av41Q5fb47CU8en8B9zZzDsIsKw3BRhSlyo",
+            auth_url: "https://login.cm-ss13.com/application/o/authorize/",
+            token_url: "https://login.cm-ss13.com/application/o/token/",
+            userinfo_url: "https://login.cm-ss13.com/application/o/userinfo/",
+        }),
     }
 }
 
@@ -117,6 +132,7 @@ pub fn get_config() -> LauncherConfig {
             github_repo: None,
             build_asset_name: None,
         },
+        oidc: None,
     }
 }
 

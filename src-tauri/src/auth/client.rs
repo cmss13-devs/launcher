@@ -4,14 +4,12 @@ use oauth2::{
 };
 use serde::{Deserialize, Serialize};
 
-const CLIENT_ID: &str = "6hm46av41Q5fb47CU8en8B9zZzDsIsKw3BRhSlyo";
+use crate::config::{get_config, OidcConfig};
 
-fn get_auth_urls() -> (&'static str, &'static str, &'static str) {
-    (
-        "https://login.cm-ss13.com/application/o/authorize/",
-        "https://login.cm-ss13.com/application/o/token/",
-        "https://login.cm-ss13.com/application/o/userinfo/",
-    )
+fn get_oidc_config() -> Result<OidcConfig, String> {
+    get_config()
+        .oidc
+        .ok_or_else(|| "OIDC authentication is not configured for this launcher variant".to_string())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,15 +57,15 @@ impl OidcClient {
             "Creating authorization request with redirect_uri: {}",
             redirect_uri
         );
-        let (auth_url_str, token_url_str, _) = get_auth_urls();
-        let auth_url = AuthUrl::new(auth_url_str.to_string())
+        let oidc = get_oidc_config()?;
+        let auth_url = AuthUrl::new(oidc.auth_url.to_string())
             .map_err(|e| format!("Invalid auth URL: {}", e))?;
-        let token_url = TokenUrl::new(token_url_str.to_string())
+        let token_url = TokenUrl::new(oidc.token_url.to_string())
             .map_err(|e| format!("Invalid token URL: {}", e))?;
         let redirect_url = RedirectUrl::new(redirect_uri.to_string())
             .map_err(|e| format!("Invalid redirect URI: {}", e))?;
 
-        let client = BasicClient::new(ClientId::new(CLIENT_ID.to_string()))
+        let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
             .set_token_uri(token_url)
             .set_redirect_uri(redirect_url);
@@ -97,15 +95,15 @@ impl OidcClient {
         pkce_verifier: PkceCodeVerifier,
     ) -> Result<TokenResult, String> {
         tracing::debug!("Exchanging authorization code for tokens");
-        let (auth_url_str, token_url_str, _) = get_auth_urls();
-        let auth_url = AuthUrl::new(auth_url_str.to_string())
+        let oidc = get_oidc_config()?;
+        let auth_url = AuthUrl::new(oidc.auth_url.to_string())
             .map_err(|e| format!("Invalid auth URL: {}", e))?;
-        let token_url = TokenUrl::new(token_url_str.to_string())
+        let token_url = TokenUrl::new(oidc.token_url.to_string())
             .map_err(|e| format!("Invalid token URL: {}", e))?;
         let redirect_url = RedirectUrl::new(redirect_uri.to_string())
             .map_err(|e| format!("Invalid redirect URI: {}", e))?;
 
-        let client = BasicClient::new(ClientId::new(CLIENT_ID.to_string()))
+        let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
             .set_token_uri(token_url)
             .set_redirect_uri(redirect_url);
@@ -140,13 +138,13 @@ impl OidcClient {
 
     pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<TokenResult, String> {
         tracing::debug!("Refreshing tokens");
-        let (auth_url_str, token_url_str, _) = get_auth_urls();
-        let auth_url = AuthUrl::new(auth_url_str.to_string())
+        let oidc = get_oidc_config()?;
+        let auth_url = AuthUrl::new(oidc.auth_url.to_string())
             .map_err(|e| format!("Invalid auth URL: {}", e))?;
-        let token_url = TokenUrl::new(token_url_str.to_string())
+        let token_url = TokenUrl::new(oidc.token_url.to_string())
             .map_err(|e| format!("Invalid token URL: {}", e))?;
 
-        let client = BasicClient::new(ClientId::new(CLIENT_ID.to_string()))
+        let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
             .set_token_uri(token_url);
 
@@ -180,10 +178,10 @@ impl OidcClient {
 
     pub async fn get_userinfo(&self, access_token: &str) -> Result<UserInfo, String> {
         tracing::debug!("Fetching user info");
-        let (_, _, userinfo_url) = get_auth_urls();
+        let oidc = get_oidc_config()?;
         let client = reqwest::Client::new();
         let response = client
-            .get(userinfo_url)
+            .get(oidc.userinfo_url)
             .bearer_auth(access_token)
             .send()
             .await
