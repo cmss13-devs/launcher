@@ -5,7 +5,6 @@ export interface LauncherFeatures {
   social_links: boolean;
   relay_selector: boolean;
   hub_server_list: boolean;
-  cm_auth: boolean;
   singleplayer: boolean;
   server_search: boolean;
   server_filters: boolean;
@@ -35,6 +34,13 @@ export interface LauncherStrings {
   discord_game_name: string;
 }
 
+export interface OidcConfig {
+  client_id: string;
+  auth_url: string;
+  token_url: string;
+  userinfo_url: string;
+}
+
 export interface LauncherConfig {
   variant: string;
   product_name: string;
@@ -46,6 +52,7 @@ export interface LauncherConfig {
   urls: LauncherUrls;
   strings: LauncherStrings;
   singleplayer: SingleplayerConfig;
+  oidc: OidcConfig | null;
 }
 
 interface ConfigStore {

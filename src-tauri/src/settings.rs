@@ -10,7 +10,8 @@ const SETTINGS_FILE: &str = "settings.json";
 #[serde(rename_all = "snake_case")]
 pub enum AuthMode {
     #[default]
-    CmSs13,
+    #[serde(alias = "cm_ss13")]
+    Oidc,
     Byond,
     Steam,
 }
@@ -51,8 +52,8 @@ impl Default for AppSettings {
         #[cfg(feature = "steam")]
         let auth_mode = AuthMode::Steam;
         #[cfg(not(feature = "steam"))]
-        let auth_mode = if config.features.cm_auth {
-            AuthMode::CmSs13
+        let auth_mode = if config.oidc.is_some() {
+            AuthMode::Oidc
         } else {
             AuthMode::Byond
         };

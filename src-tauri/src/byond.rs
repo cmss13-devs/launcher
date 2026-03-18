@@ -449,7 +449,7 @@ async fn get_auth_for_connection(
     })?;
 
     match settings.auth_mode {
-        AuthMode::CmSs13 => {
+        AuthMode::Oidc => {
             let tokens = TokenStorage::get_tokens().map_err(|e| AuthError {
                 code: "token_error".to_string(),
                 message: e,

@@ -327,9 +327,9 @@ export const SettingsModal = ({
             </div>
           )}
           <div className="auth-mode-options">
-            {config?.features.cm_auth && (
+            {config?.oidc && (
               <AuthModeOption
-                mode="cm_ss13"
+                mode="oidc"
                 currentMode={authMode}
                 name={`${config.strings.auth_provider_name} Authentication`}
                 description={`Login with your ${config.strings.auth_provider_name} account for server access`}

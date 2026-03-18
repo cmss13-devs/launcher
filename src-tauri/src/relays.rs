@@ -67,6 +67,7 @@ impl RelayState {
             .map(|r| r.relay.host.clone())
     }
 
+    #[allow(dead_code)]
     pub async fn all_relays_pinged(&self) -> bool {
         let relays = self.relays.read().await;
         relays.iter().all(|r| !r.checking)

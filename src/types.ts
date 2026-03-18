@@ -13,7 +13,7 @@ export interface AuthState {
   error: string | null;
 }
 
-export type AuthMode = "cm_ss13" | "byond" | "steam";
+export type AuthMode = "oidc" | "byond" | "steam";
 
 export type Theme = "tgui" | "crt";
 

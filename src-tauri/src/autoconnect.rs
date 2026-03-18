@@ -89,7 +89,7 @@ mod implementation {
         auth_mode: AuthMode,
     ) -> Result<(Option<String>, Option<String>), String> {
         match auth_mode {
-            AuthMode::CmSs13 => {
+            AuthMode::Oidc => {
                 let tokens = TokenStorage::get_tokens()?;
                 match tokens {
                     Some(t) if !TokenStorage::is_expired() => {

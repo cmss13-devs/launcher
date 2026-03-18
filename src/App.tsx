@@ -303,8 +303,8 @@ const AppContent = () => {
         setAuthMode(settings.auth_mode);
       } else if (steamAvail) {
         setAuthMode("steam");
-      } else if (launcherConfig.features.cm_auth) {
-        setAuthMode("cm_ss13");
+      } else if (launcherConfig.oidc) {
+        setAuthMode("oidc");
       } else {
         setAuthMode("byond");
       }

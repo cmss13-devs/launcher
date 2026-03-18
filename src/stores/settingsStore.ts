@@ -20,7 +20,7 @@ interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
-  authMode: "cm_ss13",
+  authMode: "oidc",
   theme: "tgui",
   devMode: false,
   notificationServers: new Set<string>(),
