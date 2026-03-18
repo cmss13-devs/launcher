@@ -1,6 +1,6 @@
 [package]
 name = "CM_Launcher"
-version = "0.16.4"
+version = "0.16.5"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
