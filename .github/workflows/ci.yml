@@ -68,8 +68,19 @@ jobs:
         if: matrix.platform == 'ubuntu-24.04' && steps.cache-wine.outputs.cache-hit != 'true'
         run: ./scripts/download-wine.sh
 
+      - name: Prepare sidecar files for AppImage (ubuntu only)
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          mkdir -p "/tmp/lib/SS13 Launcher"
+          cp src-tauri/wine.tar.zst "/tmp/lib/SS13 Launcher/"
+          cp src-tauri/winetricks "/tmp/lib/SS13 Launcher/"
+          cp src-tauri/cabextract "/tmp/lib/SS13 Launcher/"
+          chmod +x "/tmp/lib/SS13 Launcher/winetricks" "/tmp/lib/SS13 Launcher/cabextract"
+
       - name: Install frontend dependencies
         run: npm install
 
       - name: Build Tauri app
         run: npm run tauri -- build --features cm_ss13 --config src-tauri/tauri.cm.conf.json ${{ matrix.args }}
+        env:
+          ADD_DIR: "/tmp/lib/SS13 Launcher"

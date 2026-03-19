@@ -135,6 +135,14 @@ jobs:
         if: steps.cache-wine.outputs.cache-hit != 'true'
         run: ./scripts/download-wine.sh
 
+      - name: Prepare sidecar files for AppImage
+        run: |
+          mkdir -p "/tmp/lib/SS13 Launcher"
+          cp src-tauri/wine.tar.zst "/tmp/lib/SS13 Launcher/"
+          cp src-tauri/winetricks "/tmp/lib/SS13 Launcher/"
+          cp src-tauri/cabextract "/tmp/lib/SS13 Launcher/"
+          chmod +x "/tmp/lib/SS13 Launcher/winetricks" "/tmp/lib/SS13 Launcher/cabextract"
+
       - name: Cache Steamworks SDK
         id: cache-steamworks
         uses: actions/cache@v4
@@ -167,6 +175,7 @@ jobs:
           LD_LIBRARY_PATH: /usr/lib:${{ github.workspace }}/src-tauri/resources
           STEAM_APP_ID: "4313790"
           STEAM_APP_NAME: "production"
+          ADD_DIR: "/tmp/lib/SS13 Launcher"
         with:
           args: --features cm_ss13,steam --config src-tauri/tauri.cm.conf.json --config src-tauri/tauri.steam.conf.json --config src-tauri/tauri.linux.conf.json
 
