@@ -168,17 +168,29 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Cache custom tauri-cli
+        id: cache-tauri-cli
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri
+          key: tauri-cli-feat-truly-portable-appimage-${{ runner.os }}
+
+      - name: Install custom tauri-cli
+        if: steps.cache-tauri-cli.outputs.cache-hit != 'true'
+        run: cargo install tauri-cli --git https://github.com/tauri-apps/tauri --branch feat/truly-portable-appimage --force
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPIMAGE_EXTRACT_AND_RUN: 1
           LD_LIBRARY_PATH: /usr/lib:${{ github.workspace }}/src-tauri/resources
           STEAM_APP_ID: "4313790"
           STEAM_APP_NAME: "production"
+          TAURI_BUNDLER_NEW_APPIMAGE_FORMAT: "true"
           ADD_DIR: "/tmp/lib/SS13 Launcher"
         with:
           args: --features cm_ss13,steam --config src-tauri/tauri.cm.conf.json --config src-tauri/tauri.steam.conf.json --config src-tauri/tauri.linux.conf.json
+          tauriScript: cargo tauri
 
       - name: Extract AppImage and prepare artifacts
         run: |
@@ -187,19 +199,9 @@ jobs:
           "$APPIMAGE" --appimage-extract
 
           mkdir -p steam-build/linux
+          cp -r AppDir/* steam-build/linux/
 
-          cp -r squashfs-root/* steam-build/linux/
-
-          cp src-tauri/resources/libsteam_api.so steam-build/linux/usr/lib/
-
-          LIB_DIR="steam-build/linux/usr/lib/x86_64-linux-gnu"
-          mkdir -p "$LIB_DIR"
-          for lib in libfreetype libfontconfig libharfbuzz libpng libbrotlidec libbrotlicommon; do
-            cp -L /usr/lib/x86_64-linux-gnu/${lib}.so* "$LIB_DIR/" 2>/dev/null || true
-          done
-
-          mkdir -p steam-build/linux/usr/etc/fonts
-          cp -r /etc/fonts/* steam-build/linux/usr/etc/fonts/ 2>/dev/null || true
+          cp src-tauri/resources/libsteam_api.so steam-build/linux/shared/lib/
 
           cp scripts/steam-launch.sh steam-build/linux/launch.sh
           chmod +x steam-build/linux/launch.sh
