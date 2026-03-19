@@ -165,7 +165,7 @@ jobs:
           releaseName: "v__VERSION__"
           releaseBody: "See the assets to download this version and install."
           args: ${{ matrix.args }} ${{ matrix.platform == 'ubuntu-24.04' && '--config src-tauri/tauri.linux.conf.json' || '' }}
-          updaterJsonKeepUniversal: true
+          updaterJsonPreferNsis: true
 
       - name: Scan with Windows Defender
         if: matrix.platform == 'windows-latest'
