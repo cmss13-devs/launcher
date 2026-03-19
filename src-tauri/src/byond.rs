@@ -754,6 +754,26 @@ async fn connect_to_server_impl(
             );
         }
 
+        let config = crate::config::get_config();
+        if config.features.auto_launch_byond && !check_byond_pager_running() {
+            let version_dir = get_byond_version_dir(&app, &version)?;
+            let byond_pager_path = version_dir.join("byond").join("bin").join("byond.exe");
+            if byond_pager_path.exists() {
+                tracing::info!(
+                    "Auto-launching BYOND pager via Wine: {:?}",
+                    byond_pager_path
+                );
+                wine::launch_with_wine(&app, &byond_pager_path, &[], &[])
+                    .map_err(|e| format!("Failed to launch BYOND pager: {}", e))?;
+                return Ok(ConnectionResult {
+                    success: false,
+                    message: "BYOND has been launched. Please log in and try connecting again."
+                        .to_string(),
+                    auth_error: None,
+                });
+            }
+        }
+
         if let Some(control_server) = app.try_state::<ControlServer>() {
             control_server.reset_connected_flag();
         }
@@ -894,7 +914,6 @@ fn check_byond_pager_running() -> bool {
     #[cfg(target_os = "windows")]
     {
         use sysinfo::System;
-
         let s = System::new_all();
         s.processes().values().any(|p| {
             p.name()
@@ -904,7 +923,21 @@ fn check_byond_pager_running() -> bool {
         })
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    {
+        use sysinfo::System;
+
+        let s = System::new_all();
+        s.processes().values().any(|p| {
+            p.cmd().iter().any(|arg| {
+                arg.to_str()
+                    .map(|a| a.to_lowercase().ends_with("byond.exe"))
+                    .unwrap_or(false)
+            })
+        })
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         false
     }

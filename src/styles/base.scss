@@ -1055,26 +1055,9 @@ body {
 
 .settings-modal-content {
   padding: 24px;
-  overflow-y: scroll;
+  overflow-y: auto;
   flex: 1;
   min-height: 0;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: var(--bg-highlight-faint);
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: var(--primary);
-
-    &:hover {
-      background: var(--primary);
-      filter: brightness(1.2);
-    }
-  }
 }
 
 .settings-modal-footer {

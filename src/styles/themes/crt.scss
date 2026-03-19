@@ -136,4 +136,31 @@
     text-transform: uppercase;
     letter-spacing: 2px;
   }
+
+  * {
+    scrollbar-color: var(--primary) var(--bg-highlight-faint);
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-highlight-faint);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    box-shadow: 0 0 4px var(--primary);
+
+    &:hover {
+      filter: brightness(1.2);
+    }
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: var(--bg-highlight-faint);
+  }
 }
