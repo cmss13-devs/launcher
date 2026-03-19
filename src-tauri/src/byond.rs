@@ -763,8 +763,17 @@ async fn connect_to_server_impl(
                     "Auto-launching BYOND pager via Wine: {:?}",
                     byond_pager_path
                 );
-                wine::launch_with_wine(&app, &byond_pager_path, &[], &[])
-                    .map_err(|e| format!("Failed to launch BYOND pager: {}", e))?;
+                let webview2_data_dir = get_byond_base_dir(&app)?.join("webview2_data");
+                wine::launch_with_wine(
+                    &app,
+                    &byond_pager_path,
+                    &[],
+                    &[(
+                        "WEBVIEW2_USER_DATA_FOLDER",
+                        webview2_data_dir.to_str().unwrap(),
+                    )],
+                )
+                .map_err(|e| format!("Failed to launch BYOND pager: {}", e))?;
                 return Ok(ConnectionResult {
                     success: false,
                     message: "BYOND has been launched. Please log in and try connecting again."
