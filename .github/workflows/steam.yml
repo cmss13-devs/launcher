@@ -138,11 +138,11 @@ jobs:
 
       - name: Prepare sidecar files for AppImage
         run: |
-          mkdir -p "/tmp/lib/SS13 Launcher"
-          cp src-tauri/wine.tar.zst "/tmp/lib/SS13 Launcher/"
-          cp src-tauri/winetricks "/tmp/lib/SS13 Launcher/"
-          cp src-tauri/cabextract "/tmp/lib/SS13 Launcher/"
-          chmod +x "/tmp/lib/SS13 Launcher/winetricks" "/tmp/lib/SS13 Launcher/cabextract"
+          mkdir -p "/tmp/lib/CM-SS13 Launcher"
+          cp src-tauri/wine.tar.zst "/tmp/lib/CM-SS13 Launcher/"
+          cp src-tauri/winetricks "/tmp/lib/CM-SS13 Launcher/"
+          cp src-tauri/cabextract "/tmp/lib/CM-SS13 Launcher/"
+          chmod +x "/tmp/lib/CM-SS13 Launcher/winetricks" "/tmp/lib/CM-SS13 Launcher/cabextract"
 
       - name: Cache Steamworks SDK
         id: cache-steamworks
@@ -187,7 +187,7 @@ jobs:
           STEAM_APP_ID: "4313790"
           STEAM_APP_NAME: "production"
           TAURI_BUNDLER_NEW_APPIMAGE_FORMAT: "true"
-          ADD_DIR: "/tmp/lib/SS13 Launcher"
+          ADD_DIR: "/tmp/lib/CM-SS13 Launcher"
         with:
           args: --features cm_ss13,steam --config src-tauri/tauri.cm.conf.json --config src-tauri/tauri.steam.conf.json --config src-tauri/tauri.linux.conf.json
           tauriScript: cargo tauri

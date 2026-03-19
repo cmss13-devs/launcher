@@ -5,15 +5,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 export APPDIR="$SCRIPT_DIR"
 
+# Create path compatibility symlink for x86_64-linux-gnu
 if [ ! -e "$SCRIPT_DIR/lib/x86_64-linux-gnu" ]; then
     ln -sf . "$SCRIPT_DIR/lib/x86_64-linux-gnu"
 fi
 
-mkdir -p "$SCRIPT_DIR/usr/lib/CM-SS13 Launcher"
-for file in wine.tar.zst winetricks cabextract; do
-    if [ ! -e "$SCRIPT_DIR/usr/lib/CM-SS13 Launcher/$file" ]; then
-        ln -sf "$SCRIPT_DIR/lib/SS13 Launcher/$file" "$SCRIPT_DIR/usr/lib/CM-SS13 Launcher/$file"
+# Read the random path mapping string from the hook and create APPDIR/tmp symlink
+# (quick-sharun.sh patches /usr/lib to /tmp/{random}, but Tauri resolves it as $APPDIR/tmp/{random})
+if [ -f "$SCRIPT_DIR/bin/path-mapping-hardcoded.hook" ]; then
+    _tmp_lib=$(grep '_tmp_lib=' "$SCRIPT_DIR/bin/path-mapping-hardcoded.hook" | cut -d'=' -f2 | tr -d '"')
+    if [ -n "$_tmp_lib" ]; then
+        mkdir -p "$SCRIPT_DIR/tmp"
+        if [ ! -e "$SCRIPT_DIR/tmp/$_tmp_lib" ]; then
+            ln -sf "$SCRIPT_DIR/lib" "$SCRIPT_DIR/tmp/$_tmp_lib"
+        fi
     fi
-done
+fi
 
 exec "$SCRIPT_DIR/AppRun" "$@"
