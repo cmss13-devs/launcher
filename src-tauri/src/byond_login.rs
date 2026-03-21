@@ -292,10 +292,7 @@ impl WebIdFetchState {
 
 #[tauri::command]
 pub fn byond_webid_complete(app: AppHandle, web_id: Option<String>) {
-    tracing::info!(
-        "BYOND web_id fetch complete: {:?}",
-        web_id.as_ref().map(|s| &s[..s.len().min(20)])
-    );
+    tracing::info!("BYOND web_id fetch complete: {:?}", web_id);
 
     if let Some(state) = app.try_state::<WebIdFetchState>() {
         match web_id {

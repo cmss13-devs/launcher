@@ -678,16 +678,20 @@ async fn connect_to_server_impl(
             let web_id = fetch_byond_web_id(app.clone()).await?;
             tracing::info!("Got web_id, launching byond.exe with web authentication");
 
-            // Build URL with web_id: byond://host:port##webid={web_id}
-            let mut connect_url = format!("byond://{}:{}##webid={}", host, port, web_id);
-
-            // Append launcher ports as query params after the webid
+            // Build URL with web_id: byond://host:port?params##webid={web_id}
+            let mut query_params = Vec::new();
             if let Some(lp) = &control_port {
-                connect_url.push_str(&format!("&launcher_port={}", lp));
+                query_params.push(format!("launcher_port={}", lp));
             }
             if let Some(wp) = &websocket_port {
-                connect_url.push_str(&format!("&websocket_port={}", wp));
+                query_params.push(format!("websocket_port={}", wp));
             }
+
+            let connect_url = if query_params.is_empty() {
+                format!("byond://{}:{}##webid={}", host, port, web_id)
+            } else {
+                format!("byond://{}:{}?{}##webid={}", host, port, query_params.join("&"), web_id)
+            };
 
             let byond_pager_path = get_byond_pager_path(&app, &version)?;
             Command::new(&byond_pager_path)
@@ -790,16 +794,20 @@ async fn connect_to_server_impl(
             let web_id = fetch_byond_web_id(app.clone()).await?;
             tracing::info!("Got web_id, launching byond.exe with web authentication");
 
-            // Build URL with web_id: byond://host:port##webid={web_id}
-            let mut url = format!("byond://{}:{}##webid={}", host, port, web_id);
-
-            // Append launcher ports
+            // Build URL with web_id: byond://host:port?params##webid={web_id}
+            let mut query_params = Vec::new();
             if let Some(lp) = &control_port {
-                url.push_str(&format!("&launcher_port={}", lp));
+                query_params.push(format!("launcher_port={}", lp));
             }
             if let Some(wp) = &websocket_port {
-                url.push_str(&format!("&websocket_port={}", wp));
+                query_params.push(format!("websocket_port={}", wp));
             }
+
+            let url = if query_params.is_empty() {
+                format!("byond://{}:{}##webid={}", host, port, web_id)
+            } else {
+                format!("byond://{}:{}?{}##webid={}", host, port, query_params.join("&"), web_id)
+            };
 
             let version_dir = get_byond_version_dir(&app, &version)?;
             (version_dir.join("byond").join("bin").join("byond.exe"), url)
