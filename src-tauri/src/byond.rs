@@ -14,19 +14,14 @@ use crate::relays::RelayState;
 use crate::servers::ServerState;
 use crate::settings::{load_settings, AuthMode};
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::byond_login::{check_byond_web_session, start_byond_login};
-#[cfg(target_os = "windows")]
-use crate::control_server::ControlServer;
-#[cfg(target_os = "windows")]
-use crate::presence::{ConnectionParams, PresenceManager};
-#[cfg(target_os = "windows")]
-use std::process::Command;
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 use tauri::Emitter;
 
-#[cfg(target_os = "linux")]
-use crate::byond_login::{check_byond_web_session, start_byond_login};
+#[cfg(target_os = "windows")]
+use std::process::Command;
+
 #[cfg(target_os = "linux")]
 use crate::wine;
 
@@ -651,8 +646,23 @@ async fn connect_to_server_impl(
 
     let dreamseeker_path = version_info.path.ok_or("DreamSeeker path not found")?;
 
-    #[cfg(target_os = "windows")]
+    #[cfg(target_os = "linux")]
     {
+        let status = wine::check_prefix_status(&app).await;
+        if !status.prefix_initialized || !status.webview2_installed {
+            return Err(
+                "Wine environment not fully configured. Please complete setup first.".to_string(),
+            );
+        }
+    }
+
+    #[cfg(any(target_os = "windows", target_os = "linux"))]
+    {
+        use std::sync::Arc;
+
+        use crate::control_server::ControlServer;
+        use crate::presence::{ConnectionParams, PresenceManager};
+
         let config = crate::config::get_config();
 
         if let Some(control_server) = app.try_state::<ControlServer>() {
@@ -668,7 +678,6 @@ async fn connect_to_server_impl(
             .try_state::<ControlServer>()
             .map(|s| s.ws_port.to_string());
 
-        // Set a unique WebView2 user data folder to avoid conflicts with the system BYOND pager.
         let webview2_data_dir = get_byond_base_dir(&app)?.join("webview2_data");
 
         let is_byond_auth = access_type.as_deref() == Some("byond");
@@ -686,7 +695,6 @@ async fn connect_to_server_impl(
                 true
             }
             _ if !pager_running && is_byond_auth => {
-                // Not logged in and pager not running - need to login
                 tracing::info!("Not logged in to BYOND and pager not running, opening login flow");
                 let login_result = start_byond_login(app.clone()).await;
                 if login_result.is_err() {
@@ -701,22 +709,21 @@ async fn connect_to_server_impl(
         };
 
         if using_webid {
-            // Re-check session after potential login, or use cached result
             let session = if session_check.as_ref().map(|s| s.logged_in).unwrap_or(false) {
                 session_check.unwrap()
             } else {
                 check_byond_web_session(app.clone()).await?
             };
-            let web_id = session.web_id.ok_or("BYOND login failed - still not authenticated")?;
+            let web_id = session
+                .web_id
+                .ok_or("BYOND login failed - still not authenticated")?;
             if !session.logged_in {
                 return Err("BYOND login failed - still not authenticated".to_string());
             }
             tracing::info!("Got web_id, launching byond.exe with web authentication");
 
-            // Snapshot existing dreamseeker PIDs before launching
             let existing_pids = get_dreamseeker_pids();
 
-            // Build URL with web_id: byond://host:port?params##webid={web_id}
             let mut query_params = Vec::new();
             if let Some(lp) = &control_port {
                 query_params.push(format!("launcher_port={}", lp));
@@ -737,12 +744,31 @@ async fn connect_to_server_impl(
                 )
             };
 
-            let byond_pager_path = get_byond_pager_path(&app, &version)?;
-            let mut pager_child = Command::new(&byond_pager_path)
-                .arg(&connect_url)
-                .env("WEBVIEW2_USER_DATA_FOLDER", &webview2_data_dir)
-                .spawn()
-                .map_err(|e| format!("Failed to launch BYOND: {}", e))?;
+            #[cfg(target_os = "windows")]
+            let mut pager_child = {
+                let byond_pager_path = get_byond_pager_path(&app, &version)?;
+                Command::new(&byond_pager_path)
+                    .arg(&connect_url)
+                    .env("WEBVIEW2_USER_DATA_FOLDER", &webview2_data_dir)
+                    .spawn()
+                    .map_err(|e| format!("Failed to launch BYOND: {}", e))?
+            };
+
+            #[cfg(target_os = "linux")]
+            let mut pager_child = {
+                let version_dir = get_byond_version_dir(&app, &version)?;
+                let exe_path = version_dir.join("byond").join("bin").join("byond.exe");
+                wine::launch_with_wine(
+                    &app,
+                    &exe_path,
+                    &[&connect_url],
+                    &[(
+                        "WEBVIEW2_USER_DATA_FOLDER",
+                        webview2_data_dir.to_str().unwrap(),
+                    )],
+                )
+                .map_err(|e| format!("Failed to launch BYOND via Wine: {}", e))?
+            };
 
             let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
 
@@ -773,7 +799,6 @@ async fn connect_to_server_impl(
                 }
             }
         } else {
-            // Normal flow: use dreamseeker with standard auth
             let connect_url = build_connect_url(
                 &host,
                 &port,
@@ -783,199 +808,14 @@ async fn connect_to_server_impl(
                 websocket_port.as_deref(),
             );
 
+            #[cfg(target_os = "windows")]
             let child = Command::new(&dreamseeker_path)
                 .arg(&connect_url)
                 .env("WEBVIEW2_USER_DATA_FOLDER", &webview2_data_dir)
                 .spawn()
                 .map_err(|e| format!("Failed to launch DreamSeeker: {}", e))?;
 
-            if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
-                manager.set_last_connection_params(ConnectionParams {
-                    version: version.clone(),
-                    host: host.clone(),
-                    port: port.clone(),
-                    access_type,
-                    access_token,
-                    server_name: server_name.clone(),
-                    map_name: map_name.clone(),
-                });
-
-                manager.start_game_session(server_name.clone(), map_name.clone(), child);
-            }
-        }
-
-        // If connection_timeout_fallback is enabled, emit game-connected after 30s
-        // regardless of whether the control server was pinged (but only if game still running)
-        if config.features.connection_timeout_fallback {
-            if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
-                let app_clone = app.clone();
-                let server_name_clone = server_name.clone();
-                let manager_clone = Arc::clone(&manager);
-                tokio::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                    // Only emit if the game session is still active
-                    if manager_clone.get_game_session().is_some() {
-                        app_clone.emit("game-connected", &server_name_clone).ok();
-                    }
-                });
-            }
-        }
-
-        Ok(ConnectionResult {
-            success: true,
-            message: format!("Connecting to {} with BYOND {}", host, version),
-            auth_error: None,
-        })
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        use std::sync::Arc;
-        use tauri::Emitter;
-
-        use crate::control_server::ControlServer;
-        use crate::presence::{ConnectionParams, PresenceManager};
-
-        let status = wine::check_prefix_status(&app).await;
-        if !status.prefix_initialized || !status.webview2_installed {
-            return Err(
-                "Wine environment not fully configured. Please complete setup first.".to_string(),
-            );
-        }
-
-        if let Some(control_server) = app.try_state::<ControlServer>() {
-            control_server.reset_connected_flag();
-        }
-
-        if source.as_deref() != Some("control_server_restart") {
-            app.emit("game-connecting", &server_name).ok();
-        }
-
-        let control_port = app.try_state::<ControlServer>().map(|s| s.port.to_string());
-        let websocket_port = app
-            .try_state::<ControlServer>()
-            .map(|s| s.ws_port.to_string());
-
-        let webview2_data_dir = get_byond_base_dir(&app)?.join("webview2_data");
-
-        let is_byond_auth = access_type.as_deref() == Some("byond");
-        let pager_running = check_byond_pager_running();
-
-        let session_check = if is_byond_auth {
-            check_byond_web_session(app.clone()).await.ok()
-        } else {
-            None
-        };
-
-        let using_webid = match &session_check {
-            Some(session) if session.logged_in => {
-                tracing::info!("User logged in via web (web_id present), using web authentication");
-                true
-            }
-            _ if !pager_running && is_byond_auth => {
-                tracing::info!("Not logged in to BYOND and pager not running, opening login flow");
-                let login_result = start_byond_login(app.clone()).await;
-                if login_result.is_err() {
-                    return Err("BYOND login required but was cancelled or failed".to_string());
-                }
-                true
-            }
-            _ => {
-                tracing::info!("Using BYOND pager for authentication");
-                false
-            }
-        };
-
-        if using_webid {
-            // Re-check session after potential login, or use cached result
-            let session = if session_check.as_ref().map(|s| s.logged_in).unwrap_or(false) {
-                session_check.unwrap()
-            } else {
-                check_byond_web_session(app.clone()).await?
-            };
-            let web_id = session.web_id.ok_or("BYOND login failed - still not authenticated")?;
-            if !session.logged_in {
-                return Err("BYOND login failed - still not authenticated".to_string());
-            }
-            tracing::info!("Got web_id, launching byond.exe with web authentication");
-
-            // Snapshot existing dreamseeker PIDs before launching
-            let existing_pids = get_dreamseeker_pids();
-
-            // Build URL with web_id: byond://host:port?params##webid={web_id}
-            let mut query_params = Vec::new();
-            if let Some(lp) = &control_port {
-                query_params.push(format!("launcher_port={}", lp));
-            }
-            if let Some(wp) = &websocket_port {
-                query_params.push(format!("websocket_port={}", wp));
-            }
-
-            let connect_url = if query_params.is_empty() {
-                format!("byond://{}:{}##webid={}", host, port, web_id)
-            } else {
-                format!(
-                    "byond://{}:{}?{}##webid={}",
-                    host,
-                    port,
-                    query_params.join("&"),
-                    web_id
-                )
-            };
-
-            let version_dir = get_byond_version_dir(&app, &version)?;
-            let exe_path = version_dir.join("byond").join("bin").join("byond.exe");
-
-            let mut pager_child = wine::launch_with_wine(
-                &app,
-                &exe_path,
-                &[&connect_url],
-                &[(
-                    "WEBVIEW2_USER_DATA_FOLDER",
-                    webview2_data_dir.to_str().unwrap(),
-                )],
-            )
-            .map_err(|e| format!("Failed to launch BYOND via Wine: {}", e))?;
-
-            let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
-
-            if dreamseeker_pid.is_some() {
-                tracing::info!("Waiting 5s for dreamseeker to authenticate before killing pager");
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                tracing::info!("Killing byond.exe pager");
-                let _ = pager_child.kill();
-            }
-
-            if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
-                manager.set_last_connection_params(ConnectionParams {
-                    version: version.clone(),
-                    host: host.clone(),
-                    port: port.clone(),
-                    access_type,
-                    access_token,
-                    server_name: server_name.clone(),
-                    map_name: map_name.clone(),
-                });
-
-                if let Some(pid) = dreamseeker_pid {
-                    manager.start_game_session_by_pid(server_name.clone(), map_name.clone(), pid);
-                } else {
-                    tracing::warn!(
-                        "Could not find dreamseeker.exe, presence tracking may not work"
-                    );
-                }
-            }
-        } else {
-            // Normal flow: use dreamseeker with standard auth
-            let connect_url = build_connect_url(
-                &host,
-                &port,
-                access_type.as_deref(),
-                access_token.as_deref(),
-                control_port.as_deref(),
-                websocket_port.as_deref(),
-            );
-
+            #[cfg(target_os = "linux")]
             let child = wine::launch_with_wine(
                 &app,
                 Path::new(&dreamseeker_path),
@@ -1002,9 +842,6 @@ async fn connect_to_server_impl(
             }
         }
 
-        // If connection_timeout_fallback is enabled, emit game-connected after 30s
-        // regardless of whether the control server was pinged (but only if game still running)
-        let config = crate::config::get_config();
         if config.features.connection_timeout_fallback {
             if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
                 let app_clone = app.clone();
@@ -1012,7 +849,6 @@ async fn connect_to_server_impl(
                 let manager_clone = Arc::clone(&manager);
                 tokio::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-                    // Only emit if the game session is still active
                     if manager_clone.get_game_session().is_some() {
                         app_clone.emit("game-connected", &server_name_clone).ok();
                     }
@@ -1020,11 +856,16 @@ async fn connect_to_server_impl(
             }
         }
 
-        Ok(ConnectionResult {
+        #[cfg(target_os = "windows")]
+        let message = format!("Connecting to {} with BYOND {}", host, version);
+        #[cfg(target_os = "linux")]
+        let message = format!("Connecting to {} with BYOND {} (via Wine)", host, version);
+
+        return Ok(ConnectionResult {
             success: true,
-            message: format!("Connecting to {} with BYOND {} (via Wine)", host, version),
+            message,
             auth_error: None,
-        })
+        });
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
