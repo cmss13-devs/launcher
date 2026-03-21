@@ -6,7 +6,9 @@
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use tauri::{webview::PageLoadEvent, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    webview::PageLoadEvent, AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
+};
 use tokio::sync::oneshot;
 
 /// Get user agent string for BYOND webviews.
@@ -84,13 +86,14 @@ impl ByondLoginState {
 pub fn byond_login_complete(app: AppHandle, username: Option<String>) {
     tracing::info!("BYOND login complete - username: {:?}", username);
 
-    // Store username in memory
     if let Some(ref name) = username {
         if let Some(session_state) = app.try_state::<ByondSessionState>() {
             session_state.set_username(name.clone());
             tracing::info!("BYOND session stored for user: {}", name);
         }
     }
+
+    let _ = app.emit("byond-session-changed", username.clone());
 
     if let Some(state) = app.try_state::<ByondLoginState>() {
         state.complete(Ok(ByondLoginResult { username }));
@@ -122,7 +125,6 @@ pub fn clear_byond_session(app: AppHandle) {
 pub async fn logout_byond_web(app: AppHandle) -> Result<(), String> {
     tracing::info!("Logging out from BYOND web session");
 
-    // Clear local session state
     if let Some(state) = app.try_state::<ByondSessionState>() {
         state.clear_session();
     }
@@ -139,6 +141,9 @@ pub async fn logout_byond_web(app: AppHandle) -> Result<(), String> {
             .map_err(|e| format!("Failed to delete webview data: {}", e))?;
         tracing::info!("Deleted BYOND webview data at {:?}", data_dir);
     }
+
+    // Emit event to notify frontend of session change
+    let _ = app.emit("byond-session-changed", None::<String>);
 
     tracing::info!("BYOND web logout complete");
     Ok(())

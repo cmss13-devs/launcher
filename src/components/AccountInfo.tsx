@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { useAuthStore, useSettingsStore, useSteamStore } from "../stores";
 import type { ByondSessionCheck } from "../types";
@@ -59,6 +60,16 @@ export const AccountInfo = ({
   const [byondUsername, setByondUsername] = useState<string | null>(null);
   const [byondWebUsername, setByondWebUsername] = useState<string | null>(null);
   const [sessionCheckDone, setSessionCheckDone] = useState(false);
+
+  // Listen for session changes from backend
+  useEffect(() => {
+    const unlisten = listen<string | null>("byond-session-changed", (event) => {
+      setByondWebUsername(event.payload);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   useEffect(() => {
     if (authMode === "byond") {
