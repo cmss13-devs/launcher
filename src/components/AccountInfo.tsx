@@ -1,8 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
-import { useAuthStore, useSettingsStore, useSteamStore } from "../stores";
-import type { ByondSessionCheck } from "../types";
+import { useAuthStore, useByondStore, useSettingsStore, useSteamStore } from "../stores";
 
 interface AccountDisplayProps {
   avatar: string;
@@ -55,82 +53,34 @@ export const AccountInfo = ({
   const authState = useAuthStore((s) => s.authState);
   const steamUser = useSteamStore((s) => s.user);
   const steamAccessToken = useSteamStore((s) => s.accessToken);
+  const byondWebUsername = useByondStore((s) => s.username);
+  const byondPagerRunning = useByondStore((s) => s.pagerRunning);
+  const checkByondStatus = useByondStore((s) => s.checkStatus);
 
-  const [byondPagerRunning, setByondPagerRunning] = useState<boolean | null>(null);
-  const [byondUsername, setByondUsername] = useState<string | null>(null);
-  const [byondWebUsername, setByondWebUsername] = useState<string | null>(null);
-  const [sessionCheckDone, setSessionCheckDone] = useState(false);
+  const [byondPagerUsername, setByondPagerUsername] = useState<string | null>(null);
 
-  // Listen for session changes from backend
-  useEffect(() => {
-    const unlisten = listen<string | null>("byond-session-changed", (event) => {
-      setByondWebUsername(event.payload);
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
+  // Poll for pager username when pager is running
   useEffect(() => {
     if (authMode === "byond") {
-      // On initial load or mode change, check if already logged in via cookies
-      const checkExistingSession = async () => {
-        if (sessionCheckDone) return;
-
-        try {
-          // First check in-memory session
-          const memoryUsername = await invoke<string | null>("get_byond_session_status");
-          if (memoryUsername) {
-            setByondWebUsername(memoryUsername);
-            setSessionCheckDone(true);
-            return;
-          }
-
-          // Check for existing cookie-based session
-          const sessionCheck = await invoke<ByondSessionCheck>("check_byond_web_session");
-          if (sessionCheck.logged_in && sessionCheck.username) {
-            setByondWebUsername(sessionCheck.username);
-          }
-          setSessionCheckDone(true);
-        } catch (err) {
-          console.error("Failed to check BYOND session:", err);
-          setSessionCheckDone(true);
-        }
-      };
-
-      checkExistingSession();
-
-      const checkByondStatus = async () => {
-        try {
-          // Check for web-based BYOND session first
-          const webUsername = await invoke<string | null>("get_byond_session_status");
-          setByondWebUsername(webUsername);
-
-          // Also check pager status
-          const running = await invoke<boolean>("is_byond_pager_running");
-          setByondPagerRunning(running);
-
-          if (running) {
+      const checkPagerUsername = async () => {
+        checkByondStatus();
+        if (byondPagerRunning) {
+          try {
             const username = await invoke<string | null>("get_byond_username");
-            setByondUsername(username);
-          } else {
-            setByondUsername(null);
+            setByondPagerUsername(username);
+          } catch {
+            setByondPagerUsername(null);
           }
-        } catch {
-          setByondPagerRunning(null);
-          setByondUsername(null);
+        } else {
+          setByondPagerUsername(null);
         }
       };
 
-      checkByondStatus();
-      // Poll every 5 seconds
-      const interval = setInterval(checkByondStatus, 5000);
+      checkPagerUsername();
+      const interval = setInterval(checkPagerUsername, 5000);
       return () => clearInterval(interval);
-    } else {
-      // Reset session check when switching away from BYOND mode
-      setSessionCheckDone(false);
     }
-  }, [authMode, sessionCheckDone]);
+  }, [authMode, byondPagerRunning, checkByondStatus]);
 
   if (authMode === "byond") {
     // Web-based BYOND login takes priority
@@ -145,11 +95,11 @@ export const AccountInfo = ({
       );
     }
     // Fall back to pager-based login
-    if (byondPagerRunning === true && byondUsername) {
+    if (byondPagerRunning === true && byondPagerUsername) {
       return (
         <AccountDisplay
-          avatar={byondUsername.charAt(0).toUpperCase()}
-          name={byondUsername}
+          avatar={byondPagerUsername.charAt(0).toUpperCase()}
+          name={byondPagerUsername}
           status="Logged in via BYOND"
         />
       );

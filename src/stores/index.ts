@@ -1,4 +1,5 @@
 export { useAuthStore } from "./authStore";
+export { useByondStore } from "./byondStore";
 export { useConfigStore } from "./configStore";
 export type { LauncherConfig, LauncherFeatures } from "./configStore";
 export { useServerStore } from "./serverStore";

@@ -2,7 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import type { ConnectionResult } from "../hooks/useConnect";
-import { useConfigStore } from "../stores";
+import { useByondStore, useConfigStore } from "../stores";
 import type { AuthMode, ByondLoginResult, Platform, Theme, WineStatus } from "../types";
 import { Modal, ModalCloseButton } from "./Modal";
 
@@ -252,15 +252,15 @@ export const SettingsModal = ({
   onClose,
 }: SettingsModalProps) => {
   const config = useConfigStore((s) => s.config);
-  const [byondPagerRunning, setByondPagerRunning] = useState<boolean | null>(
-    null,
-  );
+  const byondWebUsername = useByondStore((s) => s.username);
+  const byondPagerRunning = useByondStore((s) => s.pagerRunning);
+  const checkByondStatus = useByondStore((s) => s.checkStatus);
+
   const [appVersion, setAppVersion] = useState<string>("");
   const [byondLoginState, setByondLoginState] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
   const [byondLoginError, setByondLoginError] = useState<string | null>(null);
-  const [byondUsername, setByondUsername] = useState<string | null>(null);
 
   useEffect(() => {
     getVersion().then(setAppVersion);
@@ -268,11 +268,9 @@ export const SettingsModal = ({
 
   useEffect(() => {
     if (visible && authMode === "byond") {
-      invoke<boolean>("is_byond_pager_running")
-        .then(setByondPagerRunning)
-        .catch(() => setByondPagerRunning(null));
+      checkByondStatus();
     }
-  }, [visible, authMode]);
+  }, [visible, authMode, checkByondStatus]);
 
   const handleByondWebLogin = async () => {
     setByondLoginState("loading");
@@ -280,7 +278,6 @@ export const SettingsModal = ({
     try {
       const result = await invoke<ByondLoginResult>("start_byond_login");
       console.log("BYOND login successful, username:", result.username);
-      setByondUsername(result.username);
       setByondLoginState("success");
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
@@ -341,7 +338,7 @@ export const SettingsModal = ({
           <p className="settings-description">
             Choose how you want to authenticate when connecting to servers.
           </p>
-          {authMode === "byond" && byondPagerRunning === false && (
+          {authMode === "byond" && byondPagerRunning === false && !byondWebUsername && (
             <div className="byond-login-section">
               <div className="auth-mode-warning">
                 BYOND pager is not running. You can either open BYOND and log
@@ -365,7 +362,7 @@ export const SettingsModal = ({
                 {byondLoginState === "success" && (
                   <p className="byond-login-status success">
                     Logged in to BYOND successfully!
-                    {byondUsername && ` (${byondUsername})`}
+                    {byondWebUsername && ` (${byondWebUsername})`}
                   </p>
                 )}
                 {byondLoginState === "error" && (
@@ -406,7 +403,7 @@ export const SettingsModal = ({
               mode="byond"
               currentMode={authMode}
               name="BYOND Authentication"
-              description="Use BYOND's built-in authentication (no login required)"
+              description="Login with your BYOND account, or via the pager"
               onChange={onAuthModeChange}
             />
           </div>
