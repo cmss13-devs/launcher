@@ -1171,6 +1171,9 @@ body {
 
 .byond-web-login {
   margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 
   .byond-login-status {
     color: var(--primary-dim);

@@ -15,7 +15,7 @@ use crate::servers::ServerState;
 use crate::settings::{load_settings, AuthMode};
 
 #[cfg(target_os = "windows")]
-use crate::byond_login::{fetch_byond_web_id, start_byond_login};
+use crate::byond_login::{check_byond_web_session, start_byond_login};
 #[cfg(target_os = "windows")]
 use crate::control_server::ControlServer;
 #[cfg(target_os = "windows")]
@@ -26,7 +26,7 @@ use std::process::Command;
 use tauri::Emitter;
 
 #[cfg(target_os = "linux")]
-use crate::byond_login::{fetch_byond_web_id, start_byond_login};
+use crate::byond_login::{check_byond_web_session, start_byond_login};
 #[cfg(target_os = "linux")]
 use crate::wine;
 
@@ -674,19 +674,19 @@ async fn connect_to_server_impl(
         let is_byond_auth = access_type.as_deref() == Some("byond");
         let pager_running = check_byond_pager_running();
 
-        let web_id_check = if is_byond_auth {
-            fetch_byond_web_id(app.clone()).await.ok()
+        let session_check = if is_byond_auth {
+            check_byond_web_session(app.clone()).await.ok()
         } else {
             None
         };
 
-        let using_webid = match &web_id_check {
-            Some(id) if id != "guest" => {
+        let using_webid = match &session_check {
+            Some(session) if session.logged_in => {
                 tracing::info!("User logged in via web (web_id present), using web authentication");
                 true
             }
             _ if !pager_running && is_byond_auth => {
-                // web_id is "guest" or fetch failed, and pager not running - need to login
+                // Not logged in and pager not running - need to login
                 tracing::info!("Not logged in to BYOND and pager not running, opening login flow");
                 let login_result = start_byond_login(app.clone()).await;
                 if login_result.is_err() {
@@ -701,8 +701,14 @@ async fn connect_to_server_impl(
         };
 
         if using_webid {
-            let web_id = fetch_byond_web_id(app.clone()).await?;
-            if web_id == "guest" {
+            // Re-check session after potential login, or use cached result
+            let session = if session_check.as_ref().map(|s| s.logged_in).unwrap_or(false) {
+                session_check.unwrap()
+            } else {
+                check_byond_web_session(app.clone()).await?
+            };
+            let web_id = session.web_id.ok_or("BYOND login failed - still not authenticated")?;
+            if !session.logged_in {
                 return Err("BYOND login failed - still not authenticated".to_string());
             }
             tracing::info!("Got web_id, launching byond.exe with web authentication");
@@ -855,14 +861,14 @@ async fn connect_to_server_impl(
         let is_byond_auth = access_type.as_deref() == Some("byond");
         let pager_running = check_byond_pager_running();
 
-        let web_id_check = if is_byond_auth {
-            fetch_byond_web_id(app.clone()).await.ok()
+        let session_check = if is_byond_auth {
+            check_byond_web_session(app.clone()).await.ok()
         } else {
             None
         };
 
-        let using_webid = match &web_id_check {
-            Some(id) if id != "guest" => {
+        let using_webid = match &session_check {
+            Some(session) if session.logged_in => {
                 tracing::info!("User logged in via web (web_id present), using web authentication");
                 true
             }
@@ -881,8 +887,14 @@ async fn connect_to_server_impl(
         };
 
         if using_webid {
-            let web_id = fetch_byond_web_id(app.clone()).await?;
-            if web_id == "guest" {
+            // Re-check session after potential login, or use cached result
+            let session = if session_check.as_ref().map(|s| s.logged_in).unwrap_or(false) {
+                session_check.unwrap()
+            } else {
+                check_byond_web_session(app.clone()).await?
+            };
+            let web_id = session.web_id.ok_or("BYOND login failed - still not authenticated")?;
+            if !session.logged_in {
                 return Err("BYOND login failed - still not authenticated".to_string());
             }
             tracing::info!("Got web_id, launching byond.exe with web authentication");

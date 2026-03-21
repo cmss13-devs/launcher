@@ -35,9 +35,9 @@ use byond::{
     list_installed_byond_versions,
 };
 use byond_login::{
-    byond_login_complete, byond_session_check_complete, byond_webid_complete, check_byond_web_session,
-    clear_byond_session, fetch_byond_web_id, get_byond_session_status, logout_byond_web,
-    start_byond_login, ByondSessionState,
+    byond_login_complete, byond_session_check_complete, check_byond_web_session,
+    clear_byond_session, get_byond_session_status, logout_byond_web, start_byond_login,
+    ByondSessionState,
 };
 use relays::{get_relays, get_selected_relay, set_selected_relay};
 use servers::get_servers;
@@ -214,8 +214,6 @@ pub fn run() {
             get_byond_session_status,
             clear_byond_session,
             logout_byond_web,
-            fetch_byond_web_id,
-            byond_webid_complete,
             check_byond_web_session,
             byond_session_check_complete,
         ]);
@@ -271,8 +269,6 @@ pub fn run() {
             get_byond_session_status,
             clear_byond_session,
             logout_byond_web,
-            fetch_byond_web_id,
-            byond_webid_complete,
             check_byond_web_session,
             byond_session_check_complete,
         ]);

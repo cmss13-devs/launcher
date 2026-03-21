@@ -2,6 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 
+interface ByondSessionCheck {
+  logged_in: boolean;
+  username: string | null;
+  web_id: string | null;
+}
+
 interface ByondStore {
   username: string | null;
   pagerRunning: boolean | null;
@@ -11,7 +17,7 @@ interface ByondStore {
   initListener: () => Promise<() => void>;
 }
 
-export const useByondStore = create<ByondStore>()((set, get) => ({
+export const useByondStore = create<ByondStore>()((set) => ({
   username: null,
   pagerRunning: null,
 
@@ -20,18 +26,29 @@ export const useByondStore = create<ByondStore>()((set, get) => ({
 
   checkStatus: async () => {
     try {
-      const [username, pagerRunning] = await Promise.all([
-        invoke<string | null>("get_byond_session_status"),
-        invoke<boolean>("is_byond_pager_running"),
-      ]);
-      set({ username, pagerRunning });
+      const pagerRunning = await invoke<boolean>("is_byond_pager_running");
+      set({ pagerRunning });
     } catch {
       // Ignore errors
     }
   },
 
   initListener: async () => {
-    await get().checkStatus();
+    try {
+      const pagerRunning = await invoke<boolean>("is_byond_pager_running");
+      set({ pagerRunning });
+    } catch {
+      // Ignore errors
+    }
+
+    try {
+      const sessionCheck = await invoke<ByondSessionCheck>("check_byond_web_session");
+      if (sessionCheck.logged_in && sessionCheck.username) {
+        set({ username: sessionCheck.username });
+      }
+    } catch {
+      // Ignore errors - user may not be logged in
+    }
 
     const unlisten = await listen<string | null>(
       "byond-session-changed",
