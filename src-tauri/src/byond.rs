@@ -671,29 +671,40 @@ async fn connect_to_server_impl(
         // Set a unique WebView2 user data folder to avoid conflicts with the system BYOND pager.
         let webview2_data_dir = get_byond_base_dir(&app)?.join("webview2_data");
 
-        // If using BYOND auth and pager is not running, use web_id authentication via byond.exe
-        let using_webid = access_type.as_deref() == Some("byond") && !check_byond_pager_running();
+        let is_byond_auth = access_type.as_deref() == Some("byond");
+        let pager_running = check_byond_pager_running();
 
-        if using_webid {
-            tracing::info!("BYOND pager not running, using web authentication");
+        let web_id_check = if is_byond_auth {
+            fetch_byond_web_id(app.clone()).await.ok()
+        } else {
+            None
+        };
 
-            // Fetch web_id - will be "guest" if not logged in
-            let mut web_id = fetch_byond_web_id(app.clone()).await?;
-
-            // If web_id is "guest", user needs to login
-            if web_id == "guest" {
-                tracing::info!("Not logged in to BYOND (web_id=guest), opening login flow");
+        let using_webid = match &web_id_check {
+            Some(id) if id != "guest" => {
+                tracing::info!("User logged in via web (web_id present), using web authentication");
+                true
+            }
+            _ if !pager_running && is_byond_auth => {
+                // web_id is "guest" or fetch failed, and pager not running - need to login
+                tracing::info!("Not logged in to BYOND and pager not running, opening login flow");
                 let login_result = start_byond_login(app.clone()).await;
                 if login_result.is_err() {
                     return Err("BYOND login required but was cancelled or failed".to_string());
                 }
-                // Fetch web_id again after login
-                web_id = fetch_byond_web_id(app.clone()).await?;
-                if web_id == "guest" {
-                    return Err("BYOND login failed - still not authenticated".to_string());
-                }
+                true
             }
+            _ => {
+                tracing::info!("Using BYOND pager for authentication");
+                false
+            }
+        };
 
+        if using_webid {
+            let web_id = fetch_byond_web_id(app.clone()).await?;
+            if web_id == "guest" {
+                return Err("BYOND login failed - still not authenticated".to_string());
+            }
             tracing::info!("Got web_id, launching byond.exe with web authentication");
 
             // Snapshot existing dreamseeker PIDs before launching
@@ -841,29 +852,39 @@ async fn connect_to_server_impl(
 
         let webview2_data_dir = get_byond_base_dir(&app)?.join("webview2_data");
 
-        // If using BYOND auth and pager is not running, use web_id authentication via byond.exe
-        let using_webid = access_type.as_deref() == Some("byond") && !check_byond_pager_running();
+        let is_byond_auth = access_type.as_deref() == Some("byond");
+        let pager_running = check_byond_pager_running();
 
-        if using_webid {
-            tracing::info!("BYOND pager not running, using web authentication");
+        let web_id_check = if is_byond_auth {
+            fetch_byond_web_id(app.clone()).await.ok()
+        } else {
+            None
+        };
 
-            // Fetch web_id - will be "guest" if not logged in
-            let mut web_id = fetch_byond_web_id(app.clone()).await?;
-
-            // If web_id is "guest", user needs to login
-            if web_id == "guest" {
-                tracing::info!("Not logged in to BYOND (web_id=guest), opening login flow");
+        let using_webid = match &web_id_check {
+            Some(id) if id != "guest" => {
+                tracing::info!("User logged in via web (web_id present), using web authentication");
+                true
+            }
+            _ if !pager_running && is_byond_auth => {
+                tracing::info!("Not logged in to BYOND and pager not running, opening login flow");
                 let login_result = start_byond_login(app.clone()).await;
                 if login_result.is_err() {
                     return Err("BYOND login required but was cancelled or failed".to_string());
                 }
-                // Fetch web_id again after login
-                web_id = fetch_byond_web_id(app.clone()).await?;
-                if web_id == "guest" {
-                    return Err("BYOND login failed - still not authenticated".to_string());
-                }
+                true
             }
+            _ => {
+                tracing::info!("Using BYOND pager for authentication");
+                false
+            }
+        };
 
+        if using_webid {
+            let web_id = fetch_byond_web_id(app.clone()).await?;
+            if web_id == "guest" {
+                return Err("BYOND login failed - still not authenticated".to_string());
+            }
             tracing::info!("Got web_id, launching byond.exe with web authentication");
 
             // Snapshot existing dreamseeker PIDs before launching
