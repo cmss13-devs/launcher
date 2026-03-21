@@ -59,7 +59,6 @@ export const AccountInfo = ({
 
   const [byondPagerUsername, setByondPagerUsername] = useState<string | null>(null);
 
-  // Poll for pager username when pager is running
   useEffect(() => {
     if (authMode === "byond") {
       const checkPagerUsername = async () => {
@@ -94,30 +93,25 @@ export const AccountInfo = ({
         />
       );
     }
-    // Fall back to pager-based login
-    if (byondPagerRunning === true && byondPagerUsername) {
+    // Logged in via pager - no need for web login
+    if (byondPagerUsername) {
       return (
         <AccountDisplay
           avatar={byondPagerUsername.charAt(0).toUpperCase()}
           name={byondPagerUsername}
-          status="Logged in via BYOND"
+          status="Logged in via BYOND Pager"
         />
       );
     }
-    if (byondPagerRunning === true) {
-      return (
-        <AccountDisplay
-          avatar="B"
-          name="BYOND"
-          status="Open (not logged in)"
-        />
-      );
-    }
+    // Not logged in via web or pager - show login button
+    const status = byondPagerRunning === true
+      ? "Pager open (not logged in)"
+      : "Not logged in";
     return (
       <AccountDisplay
         avatar="B"
         name="BYOND"
-        status="Not logged in"
+        status={status}
         action={{ label: "Login", onClick: onByondLogin, primary: true }}
       />
     );

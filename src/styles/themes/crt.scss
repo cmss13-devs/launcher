@@ -1,5 +1,3 @@
-// CRT Theme - Classic green terminal with CRT effects
-
 .theme-crt {
   --primary: #00eb4e;
   --primary-dim: #00eb4e99;
@@ -71,7 +69,6 @@
     }
   }
 
-  // Glowing elements
   .section {
     box-shadow: 0 0 15px var(--primary);
     border: 2px solid var(--primary);
@@ -108,7 +105,6 @@
     box-shadow: 0 0 8px var(--primary);
   }
 
-  // Text styling
   .titlebar-title {
     text-transform: uppercase;
     letter-spacing: 2px;

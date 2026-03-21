@@ -1,8 +1,4 @@
-// TGUI Theme - Mimics the SS13 TGUI interface style
-// Based on the standard TGUI library used in SS13
-
 .theme-tgui {
-  // TGUI color variables
   --primary: #466086;
   --primary-dim: color-mix(in srgb, var(--primary) 70%, transparent);
   --primary-faint: color-mix(in srgb, var(--primary) 30%, transparent);
@@ -17,10 +13,8 @@
   --border: rgba(255, 255, 255, 0.1);
   --section-bg: rgba(0, 0, 0, 0.33);
 
-  // TGUI uses Verdana
   font-family: Verdana, monospace;
 
-  // Hide CRT effects
   #root {
     background: var(--bg);
   }
@@ -30,7 +24,6 @@
     display: none;
   }
 
-  // Titlebar - TGUI style
   .titlebar {
     background-color: #363636;
     border-bottom: 1px solid #171717;
@@ -62,7 +55,6 @@
     color: #fff;
   }
 
-  // Sections - TGUI style flat design
   .section {
     border: none;
     box-shadow: none;
@@ -74,7 +66,6 @@
     background-color: var(--section-bg);
   }
 
-  // Category tabs - TGUI tab style
   .category-tabs {
     background-color: transparent;
     padding: 4px 4px 0;
@@ -107,7 +98,6 @@
     }
   }
 
-  // Server list items
   .server-list {
     gap: 2px;
   }
@@ -149,7 +139,6 @@
     font-size: 13px;
   }
 
-  // Buttons - TGUI flat button style
   .button,
   .button-secondary,
   .relay-dropdown-button {
@@ -184,7 +173,6 @@
     }
   }
 
-  // Connect group (split button)
   .connect-group {
     border-radius: 2px;
     overflow: hidden;
@@ -213,7 +201,6 @@
     }
   }
 
-  // Footer
   .footer {
     background-color: var(--section-bg);
     border: none;
@@ -221,7 +208,6 @@
     padding: 8px 12px;
   }
 
-  // Account info
   .account-avatar {
     border: 1px solid var(--border);
     border-radius: 2px;
@@ -238,7 +224,6 @@
     color: var(--text-dim);
   }
 
-  // Social links
   .social-link-button {
     color: var(--text-dim);
 
@@ -247,7 +232,6 @@
     }
   }
 
-  // Relay dropdown
   .relay-dropdown-menu {
     background-color: #2a2a2a;
     border: 1px solid var(--border);
@@ -284,7 +268,6 @@
     color: var(--text-dim);
   }
 
-  // Modals
   .auth-modal-overlay,
   .settings-modal-overlay {
     background: rgba(0, 0, 0, 0.6);
@@ -343,7 +326,6 @@
     color: var(--text-dim);
   }
 
-  // Auth/Theme options
   .auth-mode-option,
   .theme-option {
     border: 1px solid var(--border);
@@ -376,7 +358,6 @@
     color: var(--text-dim);
   }
 
-  // Toggle settings
   .toggle-setting {
     border: 1px solid var(--border);
     border-radius: 2px;
@@ -408,7 +389,6 @@
     color: var(--text-dim);
   }
 
-  // Close button
   .modal-close-button {
     border: none;
     border-radius: 2px;
@@ -420,7 +400,6 @@
     }
   }
 
-  // Error notifications
   .error-popup {
     background-color: #2a2020;
     border: 1px solid var(--error);
@@ -433,7 +412,6 @@
     border-radius: 2px;
   }
 
-  // Spinners
   .auth-spinner,
   .game-connection-spinner,
   .singleplayer-spinner {
@@ -441,7 +419,6 @@
     border-top-color: var(--primary);
   }
 
-  // Progress bars
   .game-connection-progress,
   .wine-progress-bar {
     background: rgba(255, 255, 255, 0.1);
@@ -462,14 +439,12 @@
     opacity: 0.6;
   }
 
-  // Game connection modal
   .game-connection-status h2 {
     color: var(--text);
     text-transform: none;
     letter-spacing: 0;
   }
 
-  // Single player panel
   .singleplayer-header h3 {
     color: var(--text);
     text-transform: none;
@@ -488,7 +463,6 @@
     color: var(--text-dim);
   }
 
-  // Dev section
   .dev-section {
     border-top-color: var(--border);
   }
@@ -514,7 +488,6 @@
     border-radius: 2px;
   }
 
-  // Wine settings
   .wine-status-info {
     border: 1px solid var(--border);
     border-radius: 2px;
@@ -525,12 +498,10 @@
     }
   }
 
-  // Auth warning
   .auth-mode-warning {
     border-radius: 2px;
   }
 
-  // Search and filters
   .search-input {
     border: 1px solid var(--border);
     border-radius: 2px;
@@ -586,7 +557,6 @@
     }
   }
 
-  // Server stats
   .stat-label {
     color: var(--text-dim);
     text-transform: none;
@@ -598,7 +568,6 @@
     font-weight: normal;
   }
 
-  // Update notification
   .update-notification {
     background: #363636;
     border-bottom: 1px solid var(--primary);
@@ -612,14 +581,11 @@
     border-radius: 2px;
   }
 
-  // Scrollbar - TGUI style
-  // Use scrollbar-color for modern browsers
   * {
     scrollbar-color: #4a4a4a #1a1a1a;
     scrollbar-width: thin;
   }
 
-  // WebKit fallback
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;

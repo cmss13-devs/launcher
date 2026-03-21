@@ -25,7 +25,6 @@ body {
   flex-direction: column;
 }
 
-// Main frame container
 .launcher-frame {
   position: relative;
   width: 100%;
@@ -35,7 +34,6 @@ body {
   overflow-x: hidden;
 }
 
-// CRT overlay elements (styled in themes/crt.scss, hidden by default)
 .crt-bezel,
 .crt {
   display: none;
@@ -52,7 +50,6 @@ body {
   z-index: 1000;
 }
 
-// Layout
 .launcher {
   display: flex;
   flex-direction: column;
@@ -69,7 +66,6 @@ body {
   overflow: hidden;
 }
 
-// Titlebar
 .titlebar {
   display: flex;
   align-items: center;
@@ -131,7 +127,6 @@ body {
   line-height: 1;
 }
 
-// Sections
 .section {
   box-shadow: 0 0 15px var(--primary);
   border: 2px solid var(--primary);
@@ -163,7 +158,6 @@ body {
   }
 }
 
-// Category tabs
 .category-tabs {
   display: flex;
   margin-bottom: 12px;
@@ -201,7 +195,6 @@ body {
   }
 }
 
-// Server header with stats and filters
 .server-header {
   display: flex;
   align-items: center;
@@ -338,7 +331,6 @@ body {
   }
 }
 
-// Server list
 .server-list {
   display: flex;
   flex-direction: column;
@@ -560,7 +552,6 @@ body {
   }
 }
 
-// Buttons
 .button,
 .button-secondary,
 .relay-dropdown-button {
@@ -603,7 +594,6 @@ body {
   }
 }
 
-// Footer
 .footer {
   display: flex;
   align-items: center;
@@ -611,7 +601,6 @@ body {
   padding: 8px 16px;
 }
 
-// Social links
 .social-links {
   display: flex;
   gap: 2px;
@@ -680,7 +669,6 @@ body {
   gap: 8px;
 }
 
-// Relay dropdown
 .relay-dropdown {
   position: relative;
 }
@@ -790,7 +778,6 @@ body {
   font-size: 11px;
 }
 
-// Text and dividers
 .text {
   color: var(--primary);
   text-align: center;
@@ -801,7 +788,6 @@ body {
   margin-bottom: 5px;
 }
 
-// Error notifications
 .error-notifications {
   position: fixed;
   top: 48px;
@@ -854,7 +840,6 @@ body {
   }
 }
 
-// Animations
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -890,7 +875,6 @@ body {
   }
 }
 
-// Modal close button
 .modal-close-button {
   position: absolute;
   top: 12px;
@@ -916,7 +900,6 @@ body {
   }
 }
 
-// Auth Modal
 .auth-modal-overlay {
   position: fixed;
   top: var(--titlebar-height);
@@ -986,7 +969,6 @@ body {
   margin: 16px auto 0;
 }
 
-// Settings Modal
 .settings-modal-overlay {
   position: fixed;
   top: var(--titlebar-height);
@@ -1211,7 +1193,6 @@ body {
   }
 }
 
-// Toggle setting (checkbox)
 .toggle-setting {
   display: flex;
   align-items: flex-start;
@@ -1280,7 +1261,6 @@ body {
   font-size: 12px;
 }
 
-// Dev connect section
 .dev-section {
   border-top: 1px dashed var(--primary-dim);
   padding-top: 16px;
@@ -1329,12 +1309,10 @@ body {
   align-self: flex-start;
 }
 
-// Settings button in footer
 .settings-button {
   padding: 8px 16px;
 }
 
-// Game Connection Modal
 .game-connection-overlay {
   position: fixed;
   top: var(--titlebar-height);
@@ -1403,7 +1381,6 @@ body {
   transition: width 1s linear;
 }
 
-// Wine Setup Modal
 .wine-progress-bar {
   width: 100%;
   height: 8px;
@@ -1426,7 +1403,6 @@ body {
   margin: 0;
 }
 
-// Wine Settings (in Settings Modal)
 .wine-status-info {
   padding: 12px 16px;
   background: var(--bg-highlight-faint);
@@ -1458,7 +1434,6 @@ body {
   margin-top: 8px;
 }
 
-// Single Player Panel
 .singleplayer-panel {
   flex: 1;
   display: flex;
