@@ -679,10 +679,7 @@ async fn connect_to_server_impl(
 
             // Check if already logged in via cookies
             let session_check = check_byond_web_session(app.clone()).await;
-            let is_logged_in = session_check
-                .as_ref()
-                .map(|s| s.logged_in)
-                .unwrap_or(false);
+            let is_logged_in = session_check.as_ref().map(|s| s.logged_in).unwrap_or(false);
 
             // If not logged in, open login flow
             if !is_logged_in {
@@ -711,7 +708,13 @@ async fn connect_to_server_impl(
             let connect_url = if query_params.is_empty() {
                 format!("byond://{}:{}##webid={}", host, port, web_id)
             } else {
-                format!("byond://{}:{}?{}##webid={}", host, port, query_params.join("&"), web_id)
+                format!(
+                    "byond://{}:{}?{}##webid={}",
+                    host,
+                    port,
+                    query_params.join("&"),
+                    web_id
+                )
             };
 
             let byond_pager_path = get_byond_pager_path(&app, &version)?;
@@ -721,12 +724,12 @@ async fn connect_to_server_impl(
                 .spawn()
                 .map_err(|e| format!("Failed to launch BYOND: {}", e))?;
 
-            // Wait for dreamseeker.exe to spawn (up to 30 seconds)
             let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
 
-            // Kill byond.exe pager now that dreamseeker is running
             if dreamseeker_pid.is_some() {
-                tracing::info!("Killing byond.exe pager after dreamseeker spawned");
+                tracing::info!("Waiting 5s for dreamseeker to authenticate before killing pager");
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                tracing::info!("Killing byond.exe pager");
                 let _ = pager_child.kill();
             }
 
@@ -744,7 +747,9 @@ async fn connect_to_server_impl(
                 if let Some(pid) = dreamseeker_pid {
                     manager.start_game_session_by_pid(server_name.clone(), map_name.clone(), pid);
                 } else {
-                    tracing::warn!("Could not find dreamseeker.exe, presence tracking may not work");
+                    tracing::warn!(
+                        "Could not find dreamseeker.exe, presence tracking may not work"
+                    );
                 }
             }
         } else {
@@ -841,10 +846,7 @@ async fn connect_to_server_impl(
 
             // Check if already logged in via cookies
             let session_check = check_byond_web_session(app.clone()).await;
-            let is_logged_in = session_check
-                .as_ref()
-                .map(|s| s.logged_in)
-                .unwrap_or(false);
+            let is_logged_in = session_check.as_ref().map(|s| s.logged_in).unwrap_or(false);
 
             // If not logged in, open login flow
             if !is_logged_in {
@@ -873,7 +875,13 @@ async fn connect_to_server_impl(
             let connect_url = if query_params.is_empty() {
                 format!("byond://{}:{}##webid={}", host, port, web_id)
             } else {
-                format!("byond://{}:{}?{}##webid={}", host, port, query_params.join("&"), web_id)
+                format!(
+                    "byond://{}:{}?{}##webid={}",
+                    host,
+                    port,
+                    query_params.join("&"),
+                    web_id
+                )
             };
 
             let version_dir = get_byond_version_dir(&app, &version)?;
@@ -890,12 +898,12 @@ async fn connect_to_server_impl(
             )
             .map_err(|e| format!("Failed to launch BYOND via Wine: {}", e))?;
 
-            // Wait for dreamseeker.exe to spawn (up to 30 seconds)
             let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
 
-            // Kill byond.exe pager now that dreamseeker is running
             if dreamseeker_pid.is_some() {
-                tracing::info!("Killing byond.exe pager after dreamseeker spawned");
+                tracing::info!("Waiting 5s for dreamseeker to authenticate before killing pager");
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                tracing::info!("Killing byond.exe pager");
                 let _ = pager_child.kill();
             }
 
@@ -913,7 +921,9 @@ async fn connect_to_server_impl(
                 if let Some(pid) = dreamseeker_pid {
                     manager.start_game_session_by_pid(server_name.clone(), map_name.clone(), pid);
                 } else {
-                    tracing::warn!("Could not find dreamseeker.exe, presence tracking may not work");
+                    tracing::warn!(
+                        "Could not find dreamseeker.exe, presence tracking may not work"
+                    );
                 }
             }
         } else {
@@ -1075,8 +1085,8 @@ fn check_byond_pager_running() -> bool {
 
 /// Get PIDs of all running dreamseeker.exe processes
 fn get_dreamseeker_pids() -> std::collections::HashSet<u32> {
-    use sysinfo::System;
     use std::collections::HashSet;
+    use sysinfo::System;
 
     let s = System::new_all();
 
