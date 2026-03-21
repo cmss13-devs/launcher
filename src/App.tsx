@@ -1,6 +1,8 @@
+import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import type { ByondCookies } from "./types";
 
 import {
   AccountInfo,
@@ -388,6 +390,14 @@ const AppContent = () => {
     }
   }, [logout, showError]);
 
+  const handleByondLogin = useCallback(async () => {
+    try {
+      await invoke<ByondCookies>("start_byond_login");
+    } catch (err) {
+      showError(err instanceof Error ? err.message : String(err));
+    }
+  }, [showError]);
+
   const handleAuthModalClose = useCallback(() => {
     setAuthModal({ visible: false, state: "idle", error: undefined });
   }, []);
@@ -703,6 +713,7 @@ const AppContent = () => {
               onLogin={handleLogin}
               onLogout={handleLogout}
               onSteamLogout={handleSteamLogout}
+              onByondLogin={handleByondLogin}
             />
           </div>
           <div className="footer-actions">

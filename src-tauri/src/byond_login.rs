@@ -10,6 +10,14 @@ use std::sync::Arc;
 use tauri::{webview::PageLoadEvent, AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::oneshot;
 
+/// Get user agent string for BYOND webviews.
+/// BYOND requires a Windows user agent to show the .join_link element.
+fn get_user_agent() -> String {
+    let config = crate::config::get_config();
+    let version = env!("CARGO_PKG_VERSION");
+    format!("{}/{} (Windows)", config.product_name, version)
+}
+
 /// In-memory storage for BYOND session (not persisted)
 #[derive(Debug, Clone, Default)]
 pub struct ByondSession {
@@ -179,7 +187,19 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondCookies, String> {
                 };
             }
 
+            function isCloudflareChallenge() {
+                const title = document.title || '';
+                return title.toLowerCase().includes('just a moment');
+            }
+
             function checkLogin() {
+                // Wait for Cloudflare challenge to complete
+                if (isCloudflareChallenge()) {
+                    console.log('[BYOND Login] Cloudflare challenge in progress, waiting...');
+                    setTimeout(checkLogin, CHECK_INTERVAL);
+                    return;
+                }
+
                 const cookies = extractCookies();
                 const path = window.location.pathname.toLowerCase();
                 const onLoginPage = path.includes('login');
@@ -222,6 +242,7 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondCookies, String> {
     .title("BYOND Login")
     .inner_size(985.0, 475.0)
     .center()
+    .user_agent(&get_user_agent())
     .data_directory(data_dir)
     .initialization_script(init_script)
     .on_page_load(move |_webview, payload| {
@@ -331,21 +352,49 @@ pub async fn fetch_byond_web_id(app: AppHandle) -> Result<String, String> {
 
     let init_script = r#"
         if (window.location.hostname === 'www.byond.com' || window.location.hostname === 'byond.com') {
+            const CHECK_INTERVAL = 500;
+            const MAX_RETRIES = 60; // 30 seconds max
+            let retries = 0;
+
+            function isCloudflareChallenge() {
+                const title = document.title || '';
+                return title.toLowerCase().includes('just a moment');
+            }
+
             function extractWebId() {
+                // Wait for Cloudflare challenge to complete
+                if (isCloudflareChallenge()) {
+                    console.log('[BYOND WebID] Cloudflare challenge in progress, waiting...');
+                    if (retries++ < MAX_RETRIES) {
+                        setTimeout(extractWebId, CHECK_INTERVAL);
+                    } else {
+                        console.log('[BYOND WebID] Timeout waiting for Cloudflare');
+                        window.__TAURI_INTERNALS__.invoke('byond_webid_complete', { webId: null });
+                    }
+                    return;
+                }
+
                 const joinLink = document.querySelector('.join_link');
                 if (!joinLink) {
-                    console.log('[BYOND WebID] No .join_link found');
+                    // Element might not be loaded yet, retry a few times
+                    if (retries++ < MAX_RETRIES) {
+                        console.log('[BYOND WebID] No .join_link found, retrying...');
+                        setTimeout(extractWebId, CHECK_INTERVAL);
+                        return;
+                    }
+                    console.log('[BYOND WebID] No .join_link found after retries');
                     window.__TAURI_INTERNALS__.invoke('byond_webid_complete', { webId: null });
                     return;
                 }
 
                 const href = joinLink.getAttribute('href') || '';
+                console.log('[BYOND WebID] Full href:', href);
 
-                const match = href.match(/webid=([a-f0-9]+)/i);
+                const match = href.match(/webid=([a-fA-F0-9]+)/);
                 const webId = match ? match[1] : null;
 
-                console.log('[BYOND WebID] href:', href);
-                console.log('[BYOND WebID] Extracted:', webId);
+                console.log('[BYOND WebID] Extracted webId:', webId);
+                console.log('[BYOND WebID] webId length:', webId ? webId.length : 0);
                 window.__TAURI_INTERNALS__.invoke('byond_webid_complete', { webId });
             }
 
@@ -373,6 +422,7 @@ pub async fn fetch_byond_web_id(app: AppHandle) -> Result<String, String> {
     .title("Fetching BYOND Web ID...")
     .inner_size(400.0, 300.0)
     .visible(false) // Hidden window
+    .user_agent(&get_user_agent())
     .data_directory(data_dir)
     .initialization_script(init_script)
     .build()
@@ -396,6 +446,184 @@ pub async fn fetch_byond_web_id(app: AppHandle) -> Result<String, String> {
                 let _ = w.close();
             }
             Err("Fetch timed out".to_string())
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ByondSessionCheck {
+    pub logged_in: bool,
+    pub username: Option<String>,
+    pub web_id: Option<String>,
+}
+
+pub struct SessionCheckState {
+    result_tx: Arc<Mutex<Option<oneshot::Sender<ByondSessionCheck>>>>,
+}
+
+impl SessionCheckState {
+    pub fn new() -> Self {
+        Self {
+            result_tx: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn complete(&self, result: ByondSessionCheck) {
+        let tx: Option<oneshot::Sender<ByondSessionCheck>> = self.result_tx.lock().take();
+        if let Some(tx) = tx {
+            let _ = tx.send(result);
+        }
+    }
+}
+
+/// Called from JS when session check is complete
+#[tauri::command]
+pub fn byond_session_check_complete(
+    app: AppHandle,
+    web_id: Option<String>,
+    username: Option<String>,
+) {
+    tracing::info!(
+        "BYOND session check complete: web_id={:?}, username={:?}",
+        web_id,
+        username
+    );
+
+    let is_guest = web_id.as_ref().map(|id| id == "guest").unwrap_or(true);
+    let logged_in = !is_guest && web_id.is_some();
+
+    if logged_in {
+        if let (Some(uname), Some(_wid)) = (&username, &web_id) {
+            if let Some(session_state) = app.try_state::<ByondSessionState>() {
+                session_state.set_session(uname.clone(), "cookie_session".to_string());
+            }
+        }
+    }
+
+    if let Some(state) = app.try_state::<SessionCheckState>() {
+        state.complete(ByondSessionCheck {
+            logged_in,
+            username: if logged_in { username } else { None },
+            web_id: if logged_in { web_id } else { None },
+        });
+    }
+
+    if let Some(window) = app.get_webview_window("byond_session_check") {
+        let _ = window.close();
+    }
+}
+
+#[tauri::command]
+pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck, String> {
+    if app.get_webview_window("byond_session_check").is_some() {
+        return Err("Session check already in progress".to_string());
+    }
+
+    tracing::info!("Checking BYOND web session");
+
+    let (tx, rx) = oneshot::channel();
+
+    let check_state = SessionCheckState::new();
+    *check_state.result_tx.lock() = Some(tx);
+    app.manage(check_state);
+
+    let init_script = r#"
+        if (window.location.hostname === 'www.byond.com' || window.location.hostname === 'byond.com') {
+            const CHECK_INTERVAL = 500;
+            const MAX_RETRIES = 60;
+            let retries = 0;
+
+            function isCloudflareChallenge() {
+                const title = document.title || '';
+                return title.toLowerCase().includes('just a moment');
+            }
+
+            function checkSession() {
+                if (isCloudflareChallenge()) {
+                    console.log('[BYOND Session] Cloudflare challenge in progress, waiting...');
+                    if (retries++ < MAX_RETRIES) {
+                        setTimeout(checkSession, CHECK_INTERVAL);
+                    } else {
+                        window.__TAURI_INTERNALS__.invoke('byond_session_check_complete', { webId: null, username: null });
+                    }
+                    return;
+                }
+
+                const joinLink = document.querySelector('.join_link');
+                if (!joinLink) {
+                    if (retries++ < MAX_RETRIES) {
+                        console.log('[BYOND Session] No .join_link found, retrying...');
+                        setTimeout(checkSession, CHECK_INTERVAL);
+                        return;
+                    }
+                    window.__TAURI_INTERNALS__.invoke('byond_session_check_complete', { webId: null, username: null });
+                    return;
+                }
+
+                const href = joinLink.getAttribute('href') || '';
+                const match = href.match(/webid=([a-fA-F0-9]+|guest)/i);
+                const webId = match ? match[1] : null;
+
+                // Extract username from topbar
+                const nameLink = document.querySelector('.topbar_name_link');
+                let username = null;
+                if (nameLink) {
+                    const text = nameLink.textContent.trim();
+                    username = text.split('\n')[0].trim();
+                }
+
+                console.log('[BYOND Session] webId:', webId, 'username:', username);
+                window.__TAURI_INTERNALS__.invoke('byond_session_check_complete', { webId, username });
+            }
+
+            if (document.readyState === 'complete') {
+                checkSession();
+            } else {
+                window.addEventListener('load', checkSession);
+            }
+        }
+    "#;
+
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .join("byond_webview");
+
+    let url = "https://www.byond.com/games/Exadv1.SpaceStation13";
+
+    let _window = WebviewWindowBuilder::new(
+        &app,
+        "byond_session_check",
+        WebviewUrl::External(url.parse().unwrap()),
+    )
+    .title("Checking BYOND Session...")
+    .inner_size(400.0, 300.0)
+    .visible(false)
+    .user_agent(&get_user_agent())
+    .data_directory(data_dir)
+    .initialization_script(init_script)
+    .build()
+    .map_err(|e| format!("Failed to create webview: {}", e))?;
+
+    match tokio::time::timeout(std::time::Duration::from_secs(30), rx).await {
+        Ok(Ok(result)) => {
+            tracing::info!("BYOND session check completed");
+            Ok(result)
+        }
+        Ok(Err(_)) => {
+            tracing::warn!("BYOND session check channel closed");
+            if let Some(w) = app.get_webview_window("byond_session_check") {
+                let _ = w.close();
+            }
+            Err("Session check channel closed".to_string())
+        }
+        Err(_) => {
+            tracing::warn!("BYOND session check timed out");
+            if let Some(w) = app.get_webview_window("byond_session_check") {
+                let _ = w.close();
+            }
+            Err("Session check timed out".to_string())
         }
     }
 }

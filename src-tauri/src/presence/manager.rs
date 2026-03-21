@@ -14,6 +14,7 @@ pub struct PresenceManager {
     providers: Vec<Box<dyn PresenceProvider>>,
     game_session: Arc<Mutex<Option<GameSession>>>,
     game_process: Arc<Mutex<Option<Child>>>,
+    game_process_pid: Arc<Mutex<Option<u32>>>,
     last_connection_params: Arc<Mutex<Option<ConnectionParams>>>,
 }
 
@@ -23,6 +24,7 @@ impl PresenceManager {
             providers: Vec::new(),
             game_session: Arc::new(Mutex::new(None)),
             game_process: Arc::new(Mutex::new(None)),
+            game_process_pid: Arc::new(Mutex::new(None)),
             last_connection_params: Arc::new(Mutex::new(None)),
         }
     }
@@ -61,7 +63,39 @@ impl PresenceManager {
         });
     }
 
+    #[cfg_attr(not(any(target_os = "windows", target_os = "linux")), allow(dead_code))]
+    pub fn start_game_session_by_pid(
+        &self,
+        server_name: String,
+        map_name: Option<String>,
+        pid: u32,
+    ) {
+        tracing::info!(
+            "Starting game session on {} (tracking PID {})",
+            server_name,
+            pid
+        );
+        {
+            let mut session = self.game_session.lock().unwrap();
+            *session = Some(GameSession {
+                server_name: server_name.clone(),
+                map_name: map_name.clone(),
+            });
+        }
+        {
+            let mut pid_guard = self.game_process_pid.lock().unwrap();
+            *pid_guard = Some(pid);
+        }
+
+        self.update_all_presence(&PresenceState::Playing {
+            server_name,
+            player_count: 0,
+            map_name,
+        });
+    }
+
     pub fn check_game_running(&self) -> bool {
+        // First check if we're tracking a Child process
         let mut proc_guard = self.game_process.lock().unwrap();
 
         if let Some(ref mut child) = *proc_guard {
@@ -69,18 +103,38 @@ impl PresenceManager {
                 Ok(Some(_status)) => {
                     drop(proc_guard);
                     self.clear_game_session();
-                    false
+                    return false;
                 }
-                Ok(None) => true,
+                Ok(None) => return true,
                 Err(_) => {
                     drop(proc_guard);
                     self.clear_game_session();
-                    false
+                    return false;
                 }
             }
-        } else {
-            false
         }
+        drop(proc_guard);
+
+        // Check if we're tracking by PID instead
+        let pid_guard = self.game_process_pid.lock().unwrap();
+        if let Some(pid) = *pid_guard {
+            drop(pid_guard);
+            if Self::is_process_running(pid) {
+                return true;
+            } else {
+                self.clear_game_session();
+                return false;
+            }
+        }
+
+        false
+    }
+
+    /// Check if a process with the given PID is still running
+    fn is_process_running(pid: u32) -> bool {
+        use sysinfo::{Pid, System};
+        let s = System::new_all();
+        s.process(Pid::from_u32(pid)).is_some()
     }
 
     pub fn get_game_session(&self) -> Option<GameSession> {
@@ -95,6 +149,10 @@ impl PresenceManager {
         {
             let mut proc = self.game_process.lock().unwrap();
             *proc = None;
+        }
+        {
+            let mut pid = self.game_process_pid.lock().unwrap();
+            *pid = None;
         }
         self.update_all_presence(&PresenceState::InLauncher);
     }

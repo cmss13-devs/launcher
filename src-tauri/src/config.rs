@@ -172,7 +172,7 @@ pub fn get_config() -> LauncherConfig {
             auth_base: None,
             steam_auth: None,
             byond_hash_api: None,
-            help_url: "https://github.com/user/ss13-launcher/issues",
+            help_url: "https://github.com/hry-gh/ss13-launcher/issues",
         },
         strings: LauncherStrings {
             auth_provider_name: "SS13",

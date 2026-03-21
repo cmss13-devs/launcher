@@ -133,3 +133,9 @@ export interface ByondCookies {
   sbyondcert: string | null;
   username: string | null;
 }
+
+export interface ByondSessionCheck {
+  logged_in: boolean;
+  username: string | null;
+  web_id: string | null;
+}
