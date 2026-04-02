@@ -133,6 +133,7 @@ impl HubClient {
         token: &str,
         server_ip: &str,
         server_port: i32,
+        hwid: Option<&str>,
     ) -> Result<String, HubAuthError> {
         let client = Self::from_config().map_err(HubAuthError::Config)?;
 
@@ -143,6 +144,7 @@ impl HubClient {
             .json(&serde_json::json!({
                 "server_ip": server_ip,
                 "server_port": server_port,
+                "hwid": hwid,
             }))
             .send()
             .await

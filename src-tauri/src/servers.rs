@@ -45,6 +45,8 @@ pub struct Server {
     pub recommended_byond_version: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
+    #[serde(default)]
+    pub auth_methods: Vec<String>,
 }
 
 trait ServerApi: Send + Sync {
@@ -63,6 +65,8 @@ struct HubServer {
     online: bool,
     #[serde(default)]
     players: i32,
+    #[serde(default)]
+    auth_methods: Vec<String>,
 }
 
 impl ServerApi for HubApi {
@@ -114,6 +118,7 @@ impl HubApi {
                 .and_then(|ts| ts.get("tags"))
                 .and_then(|v| serde_json::from_value::<Vec<String>>(v.clone()).ok())
                 .unwrap_or_default(),
+            auth_methods: hub.auth_methods,
         }
     }
 
@@ -213,6 +218,7 @@ impl CmApi {
             version: None,
             recommended_byond_version: cm.recommended_byond_version,
             tags: cm.tags.unwrap_or_default(),
+            auth_methods: Vec::new(),
         }
     }
 }

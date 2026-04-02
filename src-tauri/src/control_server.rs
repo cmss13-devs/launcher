@@ -449,7 +449,7 @@ impl ControlServer {
     }
 }
 
-fn generate_hwid() -> Option<String> {
+pub fn generate_hwid() -> Option<String> {
     use sha2::{Digest, Sha256};
     use sysinfo::{Motherboard, Product, System};
 
@@ -489,7 +489,8 @@ fn generate_hwid() -> Option<String> {
     hasher.update(format!("{}-hwid-v1", config.variant).as_bytes());
 
     if has_data {
-        Some(hex::encode(hasher.finalize()))
+        use base64::Engine;
+        Some(base64::engine::general_purpose::STANDARD.encode(hasher.finalize()))
     } else {
         None
     }

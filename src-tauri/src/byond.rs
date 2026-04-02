@@ -602,7 +602,8 @@ pub async fn connect_to_server(
             let port_num: i32 = port
                 .parse()
                 .map_err(|_| format!("Invalid port: {port}"))?;
-            match crate::auth::hub_client::HubClient::join(session_token, &host, port_num).await {
+            let hwid = crate::control_server::generate_hwid();
+            match crate::auth::hub_client::HubClient::join(session_token, &host, port_num, hwid.as_deref()).await {
                 Ok(ticket) => (Some("auth_ticket".to_string()), Some(ticket)),
                 Err(e) => {
                     return Ok(ConnectionResult {

@@ -90,6 +90,7 @@ export interface Server {
   version?: string;
   recommended_byond_version?: string;
   tags?: string[];
+  auth_methods?: string[];
 }
 
 export interface WineStatus {
