@@ -139,6 +139,13 @@ export const ServerItem = ({
                       )}
                   </div>
                 )}
+                {server.tags && server.tags.length > 0 && (
+                  <div className="server-tags">
+                    {server.tags.map((tag) => (
+                      <span key={tag} className="badge badge-tag">{tag}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : !isOnline ? (
               <div className="server-details">

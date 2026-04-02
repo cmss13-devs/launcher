@@ -14,6 +14,7 @@ interface ByondStore {
   setUsername: (username: string | null) => void;
   setPagerRunning: (running: boolean | null) => void;
   checkStatus: () => Promise<void>;
+  checkSession: () => Promise<void>;
   initListener: () => Promise<() => void>;
 }
 
@@ -33,14 +34,7 @@ export const useByondStore = create<ByondStore>()((set) => ({
     }
   },
 
-  initListener: async () => {
-    try {
-      const pagerRunning = await invoke<boolean>("is_byond_pager_running");
-      set({ pagerRunning });
-    } catch {
-      // Ignore errors
-    }
-
+  checkSession: async () => {
     try {
       const sessionCheck = await invoke<ByondSessionCheck>("check_byond_web_session");
       if (sessionCheck.logged_in && sessionCheck.username) {
@@ -48,6 +42,15 @@ export const useByondStore = create<ByondStore>()((set) => ({
       }
     } catch {
       // Ignore errors - user may not be logged in
+    }
+  },
+
+  initListener: async () => {
+    try {
+      const pagerRunning = await invoke<boolean>("is_byond_pager_running");
+      set({ pagerRunning });
+    } catch {
+      // Ignore errors
     }
 
     const unlisten = await listen<string | null>(

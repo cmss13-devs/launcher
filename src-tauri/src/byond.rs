@@ -57,6 +57,7 @@ pub fn build_connect_url(
     access_type: Option<&str>,
     access_token: Option<&str>,
     launcher_port: Option<&str>,
+    launcher_key: Option<&str>,
     websocket_port: Option<&str>,
 ) -> String {
     let mut query_params = Vec::new();
@@ -66,6 +67,10 @@ pub fn build_connect_url(
 
     if let Some(port) = launcher_port {
         query_params.push(format!("launcher_port={port}"));
+    }
+
+    if let Some(key) = launcher_key {
+        query_params.push(format!("launcher_key={key}"));
     }
 
     if let Some(port) = websocket_port {
@@ -698,6 +703,7 @@ async fn connect_to_server_impl(
         }
 
         let control_port = app.try_state::<ControlServer>().map(|s| s.port.to_string());
+        let launcher_key = app.try_state::<ControlServer>().map(|s| s.rotate_key());
         let websocket_port = app
             .try_state::<ControlServer>()
             .map(|s| s.ws_port.to_string());
@@ -753,6 +759,9 @@ async fn connect_to_server_impl(
             let mut query_params = Vec::new();
             if let Some(lp) = &control_port {
                 query_params.push(format!("launcher_port={}", lp));
+            }
+            if let Some(lk) = &launcher_key {
+                query_params.push(format!("launcher_key={}", lk));
             }
             if let Some(wp) = &websocket_port {
                 query_params.push(format!("websocket_port={}", wp));
@@ -831,6 +840,7 @@ async fn connect_to_server_impl(
                 access_type.as_deref(),
                 access_token.as_deref(),
                 control_port.as_deref(),
+                launcher_key.as_deref(),
                 websocket_port.as_deref(),
             );
 

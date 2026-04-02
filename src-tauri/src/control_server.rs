@@ -1,4 +1,5 @@
 use futures_util::{SinkExt, StreamExt};
+use rand::Rng;
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -18,7 +19,7 @@ fn cors_headers() -> Vec<tiny_http::Header> {
         tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
         tiny_http::Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, OPTIONS"[..])
             .unwrap(),
-        tiny_http::Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"Content-Type"[..])
+        tiny_http::Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"Content-Type, Launcher-Key"[..])
             .unwrap(),
     ]
 }
@@ -54,9 +55,22 @@ pub struct ControlServer {
     #[allow(dead_code)]
     pub game_connected: Arc<AtomicBool>,
 
+    /// The current launcher key, rotated per server connection.
+    /// Requests must include this in the `Launcher-Key` header.
+    launcher_key: Arc<std::sync::Mutex<String>>,
+
     /// Broadcast channel for sending events to connected WebSocket clients
     #[allow(dead_code)]
     event_tx: broadcast::Sender<String>,
+}
+
+fn generate_launcher_key() -> String {
+    use rand::distributions::Alphanumeric;
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect()
 }
 
 impl ControlServer {
@@ -112,8 +126,11 @@ impl ControlServer {
         let game_connected = Arc::new(AtomicBool::new(false));
         let game_connected_clone = Arc::clone(&game_connected);
 
+        let launcher_key = Arc::new(std::sync::Mutex::new(generate_launcher_key()));
+        let launcher_key_clone = Arc::clone(&launcher_key);
+
         thread::spawn(move || {
-            Self::run_server(server, app_handle, presence_manager, game_connected_clone);
+            Self::run_server(server, app_handle, presence_manager, game_connected_clone, launcher_key_clone);
         });
 
         let event_tx_ws = event_tx;
@@ -133,8 +150,22 @@ impl ControlServer {
             port,
             ws_port,
             game_connected,
+            launcher_key,
             event_tx: event_tx_clone,
         })
+    }
+
+    /// Generate a new launcher key for a new server connection.
+    /// Returns the new key to be passed to the game.
+    pub fn rotate_key(&self) -> String {
+        let new_key = generate_launcher_key();
+        *self.launcher_key.lock().unwrap() = new_key.clone();
+        new_key
+    }
+
+    /// Get the current launcher key.
+    pub fn get_key(&self) -> String {
+        self.launcher_key.lock().unwrap().clone()
     }
 
     /// Send an event to all connected WebSocket clients
@@ -258,11 +289,30 @@ impl ControlServer {
         app_handle: tauri::AppHandle,
         presence_manager: Arc<PresenceManager>,
         game_connected: Arc<AtomicBool>,
+        launcher_key: Arc<std::sync::Mutex<String>>,
     ) {
         for request in server.incoming_requests() {
             if request.method() == &tiny_http::Method::Options {
                 request.respond(preflight_response()).ok();
                 continue;
+            }
+
+            // Validate the Launcher-Key header
+            let provided_key = request
+                .headers()
+                .iter()
+                .find(|h| h.field.as_str() == "Launcher-Key" || h.field.as_str() == "launcher-key")
+                .map(|h| h.value.as_str().to_owned());
+
+            let expected_key = launcher_key.lock().unwrap().clone();
+            match provided_key {
+                Some(ref key) if key == &expected_key => {}
+                _ => {
+                    tracing::warn!("Control server request rejected: invalid or missing Launcher-Key");
+                    let response = json_response(403, serde_json::json!({"error": "Forbidden"}));
+                    request.respond(response).ok();
+                    continue;
+                }
             }
 
             let full_url = format!("http://127.0.0.1{}", request.url());
@@ -294,6 +344,9 @@ impl ControlServer {
                 }
                 "/status" => {
                     Self::handle_status(request, &presence_manager);
+                }
+                "/auth-ticket" => {
+                    Self::handle_auth_ticket(request, &app_handle, &presence_manager);
                 }
                 _ => {
                     let response = json_response(404, serde_json::json!({"error": "Not found"}));
@@ -404,6 +457,9 @@ impl ControlServer {
             let control_port = app_handle
                 .try_state::<ControlServer>()
                 .map(|s| s.port.to_string());
+            let launcher_key = app_handle
+                .try_state::<ControlServer>()
+                .map(|s| s.rotate_key());
             let websocket_port = app_handle
                 .try_state::<ControlServer>()
                 .map(|s| s.ws_port.to_string());
@@ -414,6 +470,7 @@ impl ControlServer {
                 fresh_params.access_type.as_deref(),
                 fresh_params.access_token.as_deref(),
                 control_port.as_deref(),
+                launcher_key.as_deref(),
                 websocket_port.as_deref(),
             );
 
@@ -446,6 +503,63 @@ impl ControlServer {
             }),
         );
         request.respond(response).ok();
+    }
+
+    fn handle_auth_ticket(
+        request: tiny_http::Request,
+        _app_handle: &tauri::AppHandle,
+        presence_manager: &Arc<PresenceManager>,
+    ) {
+        tracing::info!("Auth ticket request received");
+
+        let Some(params) = presence_manager.get_last_connection_params() else {
+            let response = json_response(
+                400,
+                serde_json::json!({"error": "No previous connection available"}),
+            );
+            request.respond(response).ok();
+            return;
+        };
+
+        let result: Result<String, String> =
+            tauri::async_runtime::block_on(async {
+                let session_token = match crate::auth::TokenStorage::get_tokens() {
+                    Ok(Some(tokens)) if !crate::auth::TokenStorage::is_expired() => {
+                        tokens.access_token
+                    }
+                    Ok(_) => return Err("Hub authentication expired or not available".to_string()),
+                    Err(e) => return Err(format!("Failed to read auth tokens: {e}")),
+                };
+
+                let port_num: i32 = params
+                    .port
+                    .parse()
+                    .map_err(|_| format!("Invalid port: {}", params.port))?;
+
+                let hwid = generate_hwid();
+
+                crate::auth::hub_client::HubClient::join(
+                    &session_token,
+                    &params.host,
+                    port_num,
+                    hwid.as_deref(),
+                )
+                .await
+                .map_err(|e| format!("Failed to get auth ticket: {e}"))
+            });
+
+        match result {
+            Ok(ticket) => {
+                let response =
+                    json_response(200, serde_json::json!({"auth_ticket": ticket}));
+                request.respond(response).ok();
+            }
+            Err(e) => {
+                tracing::error!("Auth ticket request failed: {e}");
+                let response = json_response(500, serde_json::json!({"error": e}));
+                request.respond(response).ok();
+            }
+        }
     }
 }
 

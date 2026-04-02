@@ -93,9 +93,10 @@ const AppContent = () => {
     })),
   );
 
-  const { initListener: initByondListener } = useByondStore(
+  const { initListener: initByondListener, checkSession: checkByondSession } = useByondStore(
     useShallow((s) => ({
       initListener: s.initListener,
+      checkSession: s.checkSession,
     })),
   );
 
@@ -326,6 +327,12 @@ const AppContent = () => {
     };
     loadInitialState();
   }, [loadConfig, loadSettings, initializeSteam, setAuthMode]);
+
+  useEffect(() => {
+    if (authMode === "byond") {
+      checkByondSession();
+    }
+  }, [authMode, checkByondSession]);
 
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
