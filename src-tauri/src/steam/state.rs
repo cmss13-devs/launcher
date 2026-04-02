@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)] // Mutex unwraps are idiomatic - poisoned mutex is unrecoverable
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use steamworks::{AuthTicket, Client, GameOverlayActivated, TicketForWebApiResponse};
@@ -9,9 +11,9 @@ pub struct SteamState {
     active_ticket: Arc<Mutex<Option<AuthTicket>>>,
     /// Channel sender for pending web API ticket response
     pending_ticket_tx: Arc<Mutex<Option<oneshot::Sender<TicketForWebApiResponse>>>>,
-    /// Broadcast sender for overlay events (set after ControlServer is available)
+    /// Broadcast sender for overlay events (set after `ControlServer` is available)
     overlay_event_tx: Arc<Mutex<Option<broadcast::Sender<bool>>>>,
-    /// Callback handles kept alive for the lifetime of SteamState
+    /// Callback handles kept alive for the lifetime of `SteamState`
     _callback_handle: steamworks::CallbackHandle,
     _overlay_callback_handle: steamworks::CallbackHandle,
 }

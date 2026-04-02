@@ -12,6 +12,7 @@ use url::Url;
 
 use crate::presence::{ConnectionParams, PresenceManager};
 
+#[allow(clippy::unwrap_used)] // static bytes never fail
 fn cors_headers() -> Vec<tiny_http::Header> {
     vec![
         tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
@@ -22,6 +23,7 @@ fn cors_headers() -> Vec<tiny_http::Header> {
     ]
 }
 
+#[allow(clippy::unwrap_used)] // static bytes never fail
 fn json_response(status: u16, body: serde_json::Value) -> Response<std::io::Cursor<Vec<u8>>> {
     let mut response = Response::from_string(body.to_string())
         .with_header(
@@ -76,9 +78,8 @@ impl ControlServer {
                 On Windows, check Windows Firewall settings and any third-party security software."
             );
             format!(
-                "Failed to start control server: {}. \
-                Please check your firewall and antivirus settings.",
-                e
+                "Failed to start control server: {e}. \
+                Please check your firewall and antivirus settings."
             )
         })?;
 
@@ -95,10 +96,10 @@ impl ControlServer {
         );
 
         let ws_listener = TcpListener::bind("127.0.0.1:0")
-            .map_err(|e| format!("Failed to bind WebSocket server: {}", e))?;
+            .map_err(|e| format!("Failed to bind WebSocket server: {e}"))?;
         let ws_port = ws_listener
             .local_addr()
-            .map_err(|e| format!("Failed to get WebSocket server address: {}", e))?
+            .map_err(|e| format!("Failed to get WebSocket server address: {e}"))?
             .port();
         tracing::info!(
             "WebSocket server started on 127.0.0.1:{} (for launcher events)",
@@ -115,8 +116,9 @@ impl ControlServer {
             Self::run_server(server, app_handle, presence_manager, game_connected_clone);
         });
 
-        let event_tx_ws = event_tx.clone();
+        let event_tx_ws = event_tx;
         std::thread::spawn(move || {
+            #[allow(clippy::expect_used)] // Runtime creation is required for the server
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -157,6 +159,7 @@ impl ControlServer {
 
     async fn run_websocket_server(listener: TcpListener, event_tx: broadcast::Sender<String>) {
         listener.set_nonblocking(true).ok();
+        #[allow(clippy::expect_used)] // Listener conversion required for async server
         let listener =
             TokioTcpListener::from_std(listener).expect("Failed to convert TcpListener to tokio");
 
@@ -324,7 +327,9 @@ impl ControlServer {
             return;
         }
 
-        let params = connection_params.unwrap();
+        let Some(params) = connection_params else {
+            return;
+        };
 
         if presence_manager.kill_game_process() {
             tracing::info!("Killed existing game process");
@@ -490,6 +495,7 @@ fn generate_hwid() -> Option<String> {
     }
 }
 
+#[allow(clippy::unused_async)] // Uses await when steam feature is enabled
 async fn refresh_auth_token(
     #[allow(unused_variables)] app_handle: &tauri::AppHandle,
     mut params: ConnectionParams,

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    ss13_launcher_rs_lib::run()
+    ss13_launcher_rs_lib::run();
 }

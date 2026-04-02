@@ -51,22 +51,21 @@ fn get_log_directory() -> std::path::PathBuf {
         .join("logs");
 
     if let Err(e) = std::fs::create_dir_all(&log_dir) {
-        eprintln!("Warning: Failed to create log directory: {}", e);
+        eprintln!("Warning: Failed to create log directory: {e}");
     }
 
     log_dir
 }
 
 fn cleanup_old_logs(log_dir: &std::path::Path, keep_days: u64) {
-    let cutoff =
-        std::time::SystemTime::now() - std::time::Duration::from_secs(keep_days * 24 * 60 * 60);
+    let secs_per_day: u64 = 24 * 60 * 60;
+    #[allow(clippy::arithmetic_side_effects)] // Subtracting past duration from now is safe
+    let cutoff = std::time::SystemTime::now()
+        - std::time::Duration::from_secs(keep_days.saturating_mul(secs_per_day));
 
-    let entries = match std::fs::read_dir(log_dir) {
-        Ok(entries) => entries,
-        Err(e) => {
-            tracing::warn!("Failed to read log directory for cleanup: {}", e);
-            return;
-        }
+    let Ok(entries) = std::fs::read_dir(log_dir) else {
+        tracing::warn!("Failed to read log directory for cleanup");
+        return;
     };
 
     for entry in entries.flatten() {
@@ -81,14 +80,12 @@ fn cleanup_old_logs(log_dir: &std::path::Path, keep_days: u64) {
             continue;
         }
 
-        let metadata = match entry.metadata() {
-            Ok(m) => m,
-            Err(_) => continue,
+        let Ok(metadata) = entry.metadata() else {
+            continue;
         };
 
-        let modified = match metadata.modified() {
-            Ok(m) => m,
-            Err(_) => continue,
+        let Ok(modified) = metadata.modified() else {
+            continue;
         };
 
         if modified < cutoff {

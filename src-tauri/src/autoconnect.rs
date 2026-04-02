@@ -59,13 +59,12 @@ mod implementation {
     }
 
     fn parse_server_url(url: &str) -> Option<String> {
-        url.split(':').nth(1).map(|s| s.to_string())
+        url.split(':').nth(1).map(ToString::to_string)
     }
 
     async fn get_steam_access_token(handle: &AppHandle) -> Result<Option<String>, String> {
-        let steam_state = match handle.try_state::<Arc<SteamState>>() {
-            Some(state) => state,
-            None => return Err("Steam not available".to_string()),
+        let Some(steam_state) = handle.try_state::<Arc<SteamState>>() else {
+            return Err("Steam not available".to_string());
         };
 
         let result = authenticate_with_steam(&steam_state, false).await?;
@@ -117,20 +116,18 @@ mod implementation {
             None,
         );
 
-        let server_state = match handle.try_state::<Arc<ServerState>>() {
-            Some(state) => state.inner().clone(),
-            None => {
-                tracing::error!("ServerState not available");
-                emit_status(
-                    &handle,
-                    &server_name,
-                    AutoConnectStatus::Error,
-                    Some("Server state not available".to_string()),
-                    None,
-                );
-                return;
-            }
+        let Some(state) = handle.try_state::<Arc<ServerState>>() else {
+            tracing::error!("ServerState not available");
+            emit_status(
+                &handle,
+                &server_name,
+                AutoConnectStatus::Error,
+                Some("Server state not available".to_string()),
+                None,
+            );
+            return;
         };
+        let server_state = Arc::clone(state.inner());
 
         let servers = server_state.get_servers().await;
         if servers.is_empty() {
@@ -152,19 +149,16 @@ mod implementation {
             return;
         }
 
-        let server = match find_server(&servers, &server_name) {
-            Some(s) => s,
-            None => {
-                tracing::error!("Server not found: {}", server_name);
-                emit_status(
-                    &handle,
-                    &server_name,
-                    AutoConnectStatus::ServerNotFound,
-                    Some(format!("Server \"{}\" not found", server_name)),
-                    None,
-                );
-                return;
-            }
+        let Some(server) = find_server(&servers, &server_name) else {
+            tracing::error!("Server not found: {}", server_name);
+            emit_status(
+                &handle,
+                &server_name,
+                AutoConnectStatus::ServerNotFound,
+                Some(format!("Server \"{server_name}\" not found")),
+                None,
+            );
+            return;
         };
 
         if server.status != "available" {
@@ -177,49 +171,40 @@ mod implementation {
                 &handle,
                 &server_name,
                 AutoConnectStatus::ServerUnavailable,
-                Some(format!(
-                    "Server \"{}\" is currently unavailable",
-                    server_name
-                )),
+                Some(format!("Server \"{server_name}\" is currently unavailable")),
                 None,
             );
             return;
         }
 
-        let port = match parse_server_url(&server.url) {
-            Some(p) => p,
-            None => {
-                tracing::error!("Could not parse server URL: {}", server.url);
+        let Some(port) = parse_server_url(&server.url) else {
+            tracing::error!("Could not parse server URL: {}", server.url);
+            emit_status(
+                &handle,
+                &server_name,
+                AutoConnectStatus::Error,
+                Some("Invalid server configuration".to_string()),
+                None,
+            );
+            return;
+        };
+
+        let version = if let Some(v) = &server.recommended_byond_version {
+            v.clone()
+        } else {
+            // Fall back to launcher's default BYOND version if configured
+            let Some(v) = crate::config::get_config().default_byond_version else {
+                tracing::error!("No BYOND version specified for server");
                 emit_status(
                     &handle,
                     &server_name,
                     AutoConnectStatus::Error,
-                    Some("Invalid server configuration".to_string()),
+                    Some("No BYOND version specified".to_string()),
                     None,
                 );
                 return;
-            }
-        };
-
-        let version = match &server.recommended_byond_version {
-            Some(v) => v.clone(),
-            None => {
-                // Fall back to launcher's default BYOND version if configured
-                match crate::config::get_config().default_byond_version {
-                    Some(v) => v.to_string(),
-                    None => {
-                        tracing::error!("No BYOND version specified for server");
-                        emit_status(
-                            &handle,
-                            &server_name,
-                            AutoConnectStatus::Error,
-                            Some("No BYOND version specified".to_string()),
-                            None,
-                        );
-                        return;
-                    }
-                }
-            }
+            };
+            v.to_string()
         };
 
         let settings = match load_settings(&handle) {
@@ -253,7 +238,7 @@ mod implementation {
                     return;
                 }
                 Err(e) if e.starts_with("LINKING_REQUIRED:") => {
-                    let linking_url = e.strip_prefix("LINKING_REQUIRED:").map(|s| s.to_string());
+                    let linking_url = e.strip_prefix("LINKING_REQUIRED:").map(ToString::to_string);
                     tracing::info!("Steam linking required");
                     emit_status(
                         &handle,
@@ -277,20 +262,18 @@ mod implementation {
                 }
             };
 
-        let relay_state = match handle.try_state::<Arc<RelayState>>() {
-            Some(state) => state.inner().clone(),
-            None => {
-                tracing::error!("RelayState not available");
-                emit_status(
-                    &handle,
-                    &server_name,
-                    AutoConnectStatus::Error,
-                    Some("Relay state not available".to_string()),
-                    None,
-                );
-                return;
-            }
+        let Some(state) = handle.try_state::<Arc<RelayState>>() else {
+            tracing::error!("RelayState not available");
+            emit_status(
+                &handle,
+                &server_name,
+                AutoConnectStatus::Error,
+                Some("Relay state not available".to_string()),
+                None,
+            );
+            return;
         };
+        let relay_state = Arc::clone(state.inner());
 
         emit_status(
             &handle,
@@ -300,9 +283,9 @@ mod implementation {
             None,
         );
 
-        let mut attempts = 0;
+        let mut attempts: u32 = 0;
         while !relay_state.all_relays_pinged().await {
-            attempts += 1;
+            attempts = attempts.saturating_add(1);
             if attempts >= 60 {
                 tracing::error!("Timed out waiting for relays to be pinged");
                 emit_status(
@@ -317,19 +300,16 @@ mod implementation {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
 
-        let relay_host = match relay_state.get_selected_host().await {
-            Some(host) => host,
-            None => {
-                tracing::error!("No relay selected after pinging");
-                emit_status(
-                    &handle,
-                    &server_name,
-                    AutoConnectStatus::Error,
-                    Some("No relay available".to_string()),
-                    None,
-                );
-                return;
-            }
+        let Some(relay_host) = relay_state.get_selected_host().await else {
+            tracing::error!("No relay selected after pinging");
+            emit_status(
+                &handle,
+                &server_name,
+                AutoConnectStatus::Error,
+                Some("No relay available".to_string()),
+                None,
+            );
+            return;
         };
 
         tracing::info!("Connecting to {} via {}", server_name, relay_host);
@@ -390,12 +370,9 @@ mod implementation {
     }
 
     pub fn check_and_start_autoconnect(handle: AppHandle) {
-        let steam_state = match handle.try_state::<Arc<SteamState>>() {
-            Some(state) => state,
-            None => {
-                tracing::debug!("Steam not available, skipping auto-connect check");
-                return;
-            }
+        let Some(steam_state) = handle.try_state::<Arc<SteamState>>() else {
+            tracing::debug!("Steam not available, skipping auto-connect check");
+            return;
         };
 
         let launch_command = steam_state.get_launch_command_line();

@@ -1,4 +1,5 @@
 //! Manages multiple presence providers and game session state
+#![allow(clippy::unwrap_used)] // Mutex::lock().unwrap() is idiomatic - panic on poison
 
 use std::process::Child;
 use std::sync::{Arc, Mutex};
@@ -121,10 +122,9 @@ impl PresenceManager {
             drop(pid_guard);
             if Self::is_process_running(pid) {
                 return true;
-            } else {
-                self.clear_game_session();
-                return false;
             }
+            self.clear_game_session();
+            return false;
         }
 
         false
@@ -258,10 +258,11 @@ pub fn start_presence_background_task(
 
                     if player_count != last_player_count || map_name != last_map_name {
                         last_player_count = player_count;
-                        last_map_name = map_name.clone();
+                        last_map_name.clone_from(&map_name);
 
                         presence_manager.update_all_presence(&PresenceState::Playing {
                             server_name: session.server_name.clone(),
+                            #[allow(clippy::cast_sign_loss)] // Player count is non-negative
                             player_count: player_count.unwrap_or(0) as u32,
                             map_name,
                         });

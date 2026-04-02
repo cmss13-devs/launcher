@@ -2,7 +2,7 @@
 //!
 //! This module handles logging into BYOND's website through a webview,
 //! storing the username and using persistent cookies to fetch the user's
-//! web_id for automatic BYOND authentication.
+//! `web_id` for automatic BYOND authentication.
 
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use tauri::{
 use tokio::sync::oneshot;
 
 /// Get user agent string for BYOND webviews.
-/// BYOND requires a Windows user agent to show the .join_link element.
+/// BYOND requires a Windows user agent to show the `.join_link` element.
 fn get_user_agent() -> String {
     let config = crate::config::get_config();
     let version = env!("CARGO_PKG_VERSION");
@@ -133,12 +133,12 @@ pub async fn logout_byond_web(app: AppHandle) -> Result<(), String> {
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .map_err(|e| format!("Failed to get app data dir: {e}"))?
         .join("byond_webview");
 
     if data_dir.exists() {
         std::fs::remove_dir_all(&data_dir)
-            .map_err(|e| format!("Failed to delete webview data: {}", e))?;
+            .map_err(|e| format!("Failed to delete webview data: {e}"))?;
         tracing::info!("Deleted BYOND webview data at {:?}", data_dir);
     }
 
@@ -169,7 +169,7 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
         app.manage(login_state);
     }
 
-    let init_script = r#"
+    let init_script = r"
         if (window.location.hostname === 'secure.byond.com' || window.location.hostname === 'www.byond.com' || window.location.hostname === 'byond.com') {
             const CHECK_INTERVAL = 500;
 
@@ -211,7 +211,7 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
                 window.addEventListener('DOMContentLoaded', () => setTimeout(checkLogin, 1000));
             }
         }
-    "#;
+    ";
 
     let app_for_close = app.clone();
     let app_for_nav = app.clone();
@@ -220,13 +220,17 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .map_err(|e| format!("Failed to get app data dir: {e}"))?
         .join("byond_webview");
 
     let window = WebviewWindowBuilder::new(
         &app,
         "byond_login",
-        WebviewUrl::External("https://secure.byond.com/login.cgi".parse().unwrap()),
+        WebviewUrl::External(
+            "https://secure.byond.com/login.cgi"
+                .parse()
+                .map_err(|e| format!("{e}"))?,
+        ),
     )
     .title("BYOND Login")
     .inner_size(990.0, 480.0)
@@ -250,7 +254,7 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
         true
     })
     .build()
-    .map_err(|e| format!("Failed to create login window: {}", e))?;
+    .map_err(|e| format!("Failed to create login window: {e}"))?;
 
     window.on_window_event(move |event| {
         if let tauri::WindowEvent::CloseRequested { .. } = event {
@@ -323,7 +327,7 @@ pub fn byond_session_check_complete(
         username
     );
 
-    let is_guest = web_id.as_ref().map(|id| id == "guest").unwrap_or(true);
+    let is_guest = web_id.as_ref().is_none_or(|id| id == "guest");
     let logged_in = !is_guest && web_id.is_some();
 
     if logged_in {
@@ -365,7 +369,7 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
         app.manage(check_state);
     }
 
-    let init_script = r#"
+    let init_script = r"
         if (window.location.hostname === 'www.byond.com' || window.location.hostname === 'byond.com') {
             const CHECK_INTERVAL = 500;
             const MAX_RETRIES = 60;
@@ -416,12 +420,12 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
                 window.addEventListener('load', checkSession);
             }
         }
-    "#;
+    ";
 
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?
+        .map_err(|e| format!("Failed to get app data dir: {e}"))?
         .join("byond_webview");
 
     let url = "https://www.byond.com/games/Exadv1.SpaceStation13";
@@ -434,7 +438,7 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
     let window = WebviewWindowBuilder::new(
         &app,
         "byond_session_check",
-        WebviewUrl::External(url.parse().unwrap()),
+        WebviewUrl::External(url.parse().map_err(|e| format!("{e}"))?),
     )
     .title("Checking BYOND Session...")
     .inner_size(400.0, 300.0)
@@ -453,7 +457,7 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
         }
     })
     .build()
-    .map_err(|e| format!("Failed to create webview: {}", e))?;
+    .map_err(|e| format!("Failed to create webview: {e}"))?;
 
     tracing::info!("Session check webview created successfully");
 

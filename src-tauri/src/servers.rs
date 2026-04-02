@@ -68,7 +68,7 @@ struct HubServer {
 impl ServerApi for HubApi {
     fn parse(&self, body: &str) -> Result<Vec<Server>, String> {
         let hub_servers: Vec<HubServer> =
-            serde_json::from_str(body).map_err(|e| format!("Failed to parse response: {}", e))?;
+            serde_json::from_str(body).map_err(|e| format!("Failed to parse response: {e}"))?;
 
         Ok(hub_servers.into_iter().map(Self::convert).collect())
     }
@@ -80,7 +80,7 @@ impl HubApi {
 
         let data = topic.and_then(|ts| {
             ts.get("round_id")
-                .and_then(|v| v.as_i64())
+                .and_then(serde_json::Value::as_i64)
                 .map(|round_id| ServerData {
                     round_id,
                     mode: Self::get_str(ts, "mode").unwrap_or_default(),
@@ -102,7 +102,7 @@ impl HubApi {
 
         Server {
             name: hub.name,
-            url: format!("byond://{}", address),
+            url: format!("byond://{address}"),
             status: if hub.online { "available" } else { "offline" }.to_string(),
             hub_status: hub.status.clone(),
             players: hub.players,
@@ -118,12 +118,16 @@ impl HubApi {
         value.get(key).and_then(|v| v.as_str()).map(String::from)
     }
 
+    #[allow(clippy::cast_possible_truncation)] // server data fits in i32
     fn get_i32(value: &Value, key: &str) -> Option<i32> {
-        value.get(key).and_then(|v| v.as_i64()).map(|v| v as i32)
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_i64)
+            .map(|v| v as i32)
     }
 
     fn get_f64(value: &Value, key: &str) -> Option<f64> {
-        value.get(key).and_then(|v| v.as_f64())
+        value.get(key).and_then(serde_json::Value::as_f64)
     }
 }
 
@@ -171,7 +175,7 @@ struct CmServerData {
 impl ServerApi for CmApi {
     fn parse(&self, body: &str) -> Result<Vec<Server>, String> {
         let response: CmApiResponse =
-            serde_json::from_str(body).map_err(|e| format!("Failed to parse response: {}", e))?;
+            serde_json::from_str(body).map_err(|e| format!("Failed to parse response: {e}"))?;
 
         Ok(response.servers.into_iter().map(Self::convert).collect())
     }
@@ -256,7 +260,7 @@ async fn fetch_servers_internal() -> Result<Vec<Server>, String> {
 
     let response = reqwest::get(config.urls.server_api)
         .await
-        .map_err(|e| format!("Failed to fetch servers: {}", e))?;
+        .map_err(|e| format!("Failed to fetch servers: {e}"))?;
 
     if !response.status().is_success() {
         return Err(format!("HTTP error: {}", response.status()));
@@ -265,7 +269,7 @@ async fn fetch_servers_internal() -> Result<Vec<Server>, String> {
     let body = response
         .text()
         .await
-        .map_err(|e| format!("Failed to read response: {}", e))?;
+        .map_err(|e| format!("Failed to read response: {e}"))?;
 
     adapter.parse(&body)
 }
@@ -372,7 +376,7 @@ async fn check_and_send_notifications(
                     if let Some(data) = &server.data {
                         notification_body = format!("Round #{} - {}", data.round_id, data.map_name);
                     } else {
-                        notification_body = format!("Round #{}", current);
+                        notification_body = format!("Round #{current}");
                     }
                 }
             }

@@ -110,20 +110,20 @@ pub async fn authenticate_with_steam(
         .json(&request)
         .send()
         .await
-        .map_err(|e| format!("Failed to contact auth server: {}", e))?;
+        .map_err(|e| format!("Failed to contact auth server: {e}"))?;
 
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
 
         steam_state.cancel_auth_ticket();
-        return Err(format!("Auth server error ({}): {}", status, body));
+        return Err(format!("Auth server error ({status}): {body}"));
     }
 
     let auth_response: SteamAuthResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse auth response: {}", e))?;
+        .map_err(|e| format!("Failed to parse auth response: {e}"))?;
 
     if !auth_response.success {
         steam_state.cancel_auth_ticket();

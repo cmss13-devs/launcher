@@ -61,19 +61,19 @@ pub fn build_connect_url(
 ) -> String {
     let mut query_params = Vec::new();
     if let (Some(access_type), Some(token)) = (access_type, access_token) {
-        query_params.push(format!("{}={}", access_type, token));
+        query_params.push(format!("{access_type}={token}"));
     }
 
     if let Some(port) = launcher_port {
-        query_params.push(format!("launcher_port={}", port));
+        query_params.push(format!("launcher_port={port}"));
     }
 
     if let Some(port) = websocket_port {
-        query_params.push(format!("websocket_port={}", port));
+        query_params.push(format!("websocket_port={port}"));
     }
 
     if query_params.is_empty() {
-        format!("byond://{}:{}", host, port)
+        format!("byond://{host}:{port}")
     } else {
         format!("byond://{}:{}?{}", host, port, query_params.join("&"))
     }
@@ -132,7 +132,7 @@ pub async fn check_byond_version(
     let installed = dreamseeker_path.exists();
 
     Ok(ByondVersionInfo {
-        version: version.clone(),
+        version,
         installed,
         path: if installed {
             Some(dreamseeker_path.to_string_lossy().to_string())
@@ -142,22 +142,17 @@ pub async fn check_byond_version(
     })
 }
 
+#[allow(clippy::indexing_slicing)] // length checked above
 fn get_byond_download_urls(version: &str) -> Result<(String, String), String> {
     let parts: Vec<&str> = version.split('.').collect();
     if parts.len() != 2 {
-        return Err(format!("Invalid BYOND version format: {}", version));
+        return Err(format!("Invalid BYOND version format: {version}"));
     }
 
     let major = parts[0];
 
-    let primary = format!(
-        "https://www.byond.com/download/build/{}/{}_byond.zip",
-        major, version
-    );
-    let fallback = format!(
-        "https://byond-builds.dm-lang.org/{}/{}_byond.zip",
-        major, version
-    );
+    let primary = format!("https://www.byond.com/download/build/{major}/{version}_byond.zip");
+    let fallback = format!("https://byond-builds.dm-lang.org/{major}/{version}_byond.zip");
 
     Ok((primary, fallback))
 }
@@ -165,7 +160,7 @@ fn get_byond_download_urls(version: &str) -> Result<(String, String), String> {
 async fn try_download(url: &str) -> Result<Vec<u8>, String> {
     let response = reqwest::get(url)
         .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+        .map_err(|e| format!("Request failed: {e}"))?;
 
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status()));
@@ -174,7 +169,7 @@ async fn try_download(url: &str) -> Result<Vec<u8>, String> {
     let bytes = response
         .bytes()
         .await
-        .map_err(|e| format!("Failed to read response: {}", e))?;
+        .map_err(|e| format!("Failed to read response: {e}"))?;
 
     Ok(bytes.to_vec())
 }
@@ -193,11 +188,11 @@ async fn fetch_expected_hash(version: &str) -> Result<Option<String>, String> {
         return Ok(None);
     };
 
-    let url = format!("{}?byond_ver={}", base_url, version);
+    let url = format!("{base_url}?byond_ver={version}");
 
     let response = reqwest::get(&url)
         .await
-        .map_err(|e| format!("Failed to fetch hash: {}", e))?;
+        .map_err(|e| format!("Failed to fetch hash: {e}"))?;
 
     if !response.status().is_success() {
         tracing::warn!(
@@ -211,7 +206,7 @@ async fn fetch_expected_hash(version: &str) -> Result<Option<String>, String> {
     let hash_response: ByondHashResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse hash response: {}", e))?;
+        .map_err(|e| format!("Failed to parse hash response: {e}"))?;
 
     Ok(hash_response.sha256)
 }
@@ -226,8 +221,7 @@ fn verify_sha256(data: &[u8], expected_hex: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!(
-            "SHA-256 mismatch: expected {}, got {}",
-            expected_hex, actual_hex
+            "SHA-256 mismatch: expected {expected_hex}, got {actual_hex}"
         ))
     }
 }
@@ -247,7 +241,7 @@ pub async fn install_byond_version(
     let (primary_url, fallback_url) = get_byond_download_urls(&version)?;
     let version_dir = get_byond_version_dir(&app, &version)?;
 
-    fs::create_dir_all(&version_dir).map_err(|e| format!("Failed to create directory: {}", e))?;
+    fs::create_dir_all(&version_dir).map_err(|e| format!("Failed to create directory: {e}"))?;
 
     let zip_path = version_dir.join("byond.zip");
 
@@ -260,8 +254,7 @@ pub async fn install_byond_version(
             );
             try_download(&fallback_url).await.map_err(|fallback_err| {
                 format!(
-                    "Failed to download BYOND version {}: primary error: {}, fallback error: {}",
-                    version, primary_err, fallback_err
+                    "Failed to download BYOND version {version}: primary error: {primary_err}, fallback error: {fallback_err}"
                 )
             })?
         }
@@ -272,10 +265,7 @@ pub async fn install_byond_version(
         Ok(Some(expected_hash)) => {
             verify_sha256(&bytes, &expected_hash).map_err(|e| {
                 tracing::error!("BYOND {} integrity check failed: {}", version, e);
-                format!(
-                    "Download integrity verification failed for BYOND {}: {}",
-                    version, e
-                )
+                format!("Download integrity verification failed for BYOND {version}: {e}")
             })?;
             tracing::info!("BYOND {} SHA-256 verified successfully", version);
         }
@@ -294,17 +284,17 @@ pub async fn install_byond_version(
         }
     }
 
-    fs::write(&zip_path, &bytes).map_err(|e| format!("Failed to save download: {}", e))?;
+    fs::write(&zip_path, &bytes).map_err(|e| format!("Failed to save download: {e}"))?;
 
-    let file = fs::File::open(&zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
+    let file = fs::File::open(&zip_path).map_err(|e| format!("Failed to open zip file: {e}"))?;
 
     let mut archive =
-        zip::ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
+        zip::ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {e}"))?;
 
     for i in 0..archive.len() {
         let mut file = archive
             .by_index(i)
-            .map_err(|e| format!("Failed to read zip entry: {}", e))?;
+            .map_err(|e| format!("Failed to read zip entry: {e}"))?;
 
         let outpath = match file.enclosed_name() {
             Some(path) => version_dir.join(path),
@@ -312,19 +302,18 @@ pub async fn install_byond_version(
         };
 
         if file.name().ends_with('/') {
-            fs::create_dir_all(&outpath)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            fs::create_dir_all(&outpath).map_err(|e| format!("Failed to create directory: {e}"))?;
         } else {
             if let Some(parent) = outpath.parent() {
                 if !parent.exists() {
                     fs::create_dir_all(parent)
-                        .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+                        .map_err(|e| format!("Failed to create parent directory: {e}"))?;
                 }
             }
             let mut outfile =
-                fs::File::create(&outpath).map_err(|e| format!("Failed to create file: {}", e))?;
+                fs::File::create(&outpath).map_err(|e| format!("Failed to create file: {e}"))?;
             io::copy(&mut file, &mut outfile)
-                .map_err(|e| format!("Failed to extract file: {}", e))?;
+                .map_err(|e| format!("Failed to extract file: {e}"))?;
         }
 
         #[cfg(unix)]
@@ -387,7 +376,8 @@ pub async fn install_byond_version(
 }
 
 /// Internal function for connecting with explicit auth params.
-/// Used by autoconnect and the simplified connect_to_server command.
+/// Used by autoconnect and the simplified `connect_to_server` command.
+#[allow(clippy::too_many_arguments)]
 pub async fn connect_to_server_internal(
     app: AppHandle,
     version: String,
@@ -438,6 +428,7 @@ pub async fn connect_to_server_internal(
     result
 }
 
+#[allow(clippy::unused_async)] // Uses await when steam feature is enabled
 async fn get_auth_for_connection(
     app: &AppHandle,
 ) -> Result<(Option<String>, Option<String>), AuthError> {
@@ -547,7 +538,7 @@ pub async fn connect_to_server(
     let server = servers
         .iter()
         .find(|s| s.name == server_name)
-        .ok_or_else(|| format!("Server '{}' not found", server_name))?
+        .ok_or_else(|| format!("Server '{server_name}' not found"))?
         .clone();
 
     let version = server
@@ -555,7 +546,7 @@ pub async fn connect_to_server(
         .or_else(|| {
             crate::config::get_config()
                 .default_byond_version
-                .map(|s| s.to_string())
+                .map(std::string::ToString::to_string)
         })
         .ok_or("Server has no recommended BYOND version and no default configured")?;
 
@@ -587,6 +578,7 @@ pub async fn connect_to_server(
         if parts.len() != 2 {
             return Err(format!("Invalid server URL format: {}", server.url));
         }
+        #[allow(clippy::indexing_slicing)] // length checked above
         (parts[0].to_string(), parts[1].to_string())
     };
 
@@ -625,6 +617,7 @@ pub async fn connect_to_server(
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn connect_to_server_impl(
     app: AppHandle,
     version: String,
@@ -639,7 +632,7 @@ async fn connect_to_server_impl(
     let version_info = install_byond_version(app.clone(), version.clone()).await?;
 
     if !version_info.installed {
-        let msg = format!("Failed to install BYOND version {}", version);
+        let msg = format!("Failed to install BYOND version {version}");
         tracing::error!("{}", msg);
         return Err(msg);
     }
@@ -897,10 +890,10 @@ pub async fn list_installed_byond_versions(
     let mut versions = Vec::new();
 
     let entries =
-        fs::read_dir(&base_dir).map_err(|e| format!("Failed to read BYOND directory: {}", e))?;
+        fs::read_dir(&base_dir).map_err(|e| format!("Failed to read BYOND directory: {e}"))?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
         let path = entry.path();
 
         if path.is_dir() {
@@ -923,7 +916,7 @@ pub async fn delete_byond_version(app: AppHandle, version: String) -> Result<boo
     if version_dir.exists() {
         tracing::info!("Deleting BYOND version: {}", version);
         fs::remove_dir_all(&version_dir)
-            .map_err(|e| format!("Failed to delete BYOND version: {}", e))?;
+            .map_err(|e| format!("Failed to delete BYOND version: {e}"))?;
         Ok(true)
     } else {
         Ok(false)
@@ -964,6 +957,7 @@ fn check_byond_pager_running() -> bool {
 }
 
 /// Get PIDs of all running dreamseeker.exe processes
+#[allow(dead_code)]
 fn get_dreamseeker_pids() -> std::collections::HashSet<u32> {
     use std::collections::HashSet;
     use sysinfo::System;
@@ -1008,6 +1002,7 @@ fn get_dreamseeker_pids() -> std::collections::HashSet<u32> {
 
 /// Poll for a new dreamseeker.exe process that wasn't in the original set.
 /// Returns the PID if found within timeout, None otherwise.
+#[allow(dead_code)]
 async fn wait_for_new_dreamseeker(
     existing_pids: std::collections::HashSet<u32>,
     timeout_secs: u64,
@@ -1094,13 +1089,11 @@ pub async fn connect_to_url(
     {
         let url = url.strip_prefix("byond://").unwrap_or(&url).to_string();
 
-        let parts: Vec<&str> = url.split(':').collect();
-        if parts.len() != 2 {
+        let Some((host, port)) = url.split_once(':') else {
             return Err("Invalid URL format. Expected 'host:port'".to_string());
-        }
-
-        let host = parts[0].to_string();
-        let port = parts[1].to_string();
+        };
+        let host = host.to_string();
+        let port = port.to_string();
 
         let (access_type, access_token) = match get_auth_for_connection(&app).await {
             Ok((t, tok)) => (t, tok),
@@ -1127,7 +1120,7 @@ pub async fn connect_to_url(
             port,
             access_type,
             access_token,
-            format!("Dev Server ({})", url),
+            format!("Dev Server ({url})"),
             None,
             source,
         )

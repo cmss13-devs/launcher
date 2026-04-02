@@ -1,3 +1,5 @@
+#![allow(clippy::expect_used)] // static header bytes never fail
+
 use std::time::Duration;
 use tiny_http::{Response, Server};
 use url::Url;
@@ -111,9 +113,8 @@ impl CallbackServer {
                 antivirus software, or network configuration issues"
             );
             format!(
-                "Failed to start callback server: {}. \
-                Please check your firewall and antivirus settings.",
-                e
+                "Failed to start callback server: {e}. \
+                Please check your firewall and antivirus settings."
             )
         })?;
 
@@ -171,8 +172,8 @@ impl CallbackServer {
                 }
             };
             let full_url = format!("http://127.0.0.1{}", request.url());
-            let url = Url::parse(&full_url)
-                .map_err(|e| format!("Failed to parse callback URL: {}", e))?;
+            let url =
+                Url::parse(&full_url).map_err(|e| format!("Failed to parse callback URL: {e}"))?;
 
             tracing::debug!("Callback server received request: {}", url.path());
 
@@ -187,19 +188,18 @@ impl CallbackServer {
             if let Some(error) = params.get("error") {
                 let error_desc = params
                     .get("error_description")
-                    .map(|s| s.as_str())
-                    .unwrap_or("Unknown error");
+                    .map_or("Unknown error", std::string::String::as_str);
 
                 let html = ERROR_HTML.replace("{{ERROR}}", error_desc);
                 let response = Response::from_string(html)
                     .with_header(
                         tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..])
-                            .unwrap(),
+                            .expect("static header"),
                     )
                     .with_status_code(400);
                 request.respond(response).ok();
 
-                return Err(format!("OAuth error: {} - {}", error, error_desc));
+                return Err(format!("OAuth error: {error} - {error_desc}"));
             }
 
             let code = params
@@ -221,7 +221,7 @@ impl CallbackServer {
                     let response = Response::from_string(html)
                         .with_header(
                             tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..])
-                                .unwrap(),
+                                .expect("static header"),
                         )
                         .with_status_code(400);
                     request.respond(response).ok();
@@ -231,7 +231,8 @@ impl CallbackServer {
             }
 
             let response = Response::from_string(SUCCESS_HTML).with_header(
-                tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..]).unwrap(),
+                tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"text/html"[..])
+                    .expect("static header"),
             );
             request.respond(response).ok();
 

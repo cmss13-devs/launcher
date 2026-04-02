@@ -71,10 +71,10 @@ fn get_settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+        .map_err(|e| format!("Failed to get app data directory: {e}"))?;
 
     fs::create_dir_all(&app_data)
-        .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+        .map_err(|e| format!("Failed to create app data directory: {e}"))?;
 
     Ok(app_data.join(SETTINGS_FILE))
 }
@@ -114,9 +114,9 @@ pub fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Stri
     let path = get_settings_path(app)?;
 
     let contents = serde_json::to_string_pretty(settings)
-        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+        .map_err(|e| format!("Failed to serialize settings: {e}"))?;
 
-    fs::write(&path, contents).map_err(|e| format!("Failed to write settings file: {}", e))
+    fs::write(&path, contents).map_err(|e| format!("Failed to write settings file: {e}"))
 }
 
 #[tauri::command]

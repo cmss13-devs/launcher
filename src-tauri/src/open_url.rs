@@ -1,4 +1,4 @@
-//! URL opening utilities that work in AppImage environments.
+//! URL opening utilities that work in `AppImage` environments.
 
 #[cfg(target_os = "linux")]
 use std::process::Command;
@@ -70,5 +70,5 @@ pub fn open(url: &str) -> Result<(), String> {
 
 #[cfg(not(target_os = "linux"))]
 pub fn open(url: &str) -> Result<(), String> {
-    open::that(url).map_err(|e| format!("Failed to open URL: {}", e))
+    open::that(url).map_err(|e| format!("Failed to open URL: {e}"))
 }

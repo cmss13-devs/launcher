@@ -138,8 +138,9 @@ fn get_default_relays() -> Vec<Relay> {
     vec![]
 }
 
+#[allow(clippy::cast_possible_truncation, clippy::arithmetic_side_effects)] // ping times in ms are small
 async fn ping_relay(host: &str) -> Option<u32> {
-    let url = format!("wss://{}:{}", host, PING_PORT);
+    let url = format!("wss://{host}:{PING_PORT}");
 
     let connect_result = tokio::time::timeout(PING_TIMEOUT, connect_async(&url)).await;
 
@@ -212,9 +213,8 @@ pub async fn init_relays(state: &Arc<RelayState>, handle: &AppHandle) {
                         .find(|r| r.relay.id == current_selected)
                         .and_then(|r| r.ping);
 
-                    let should_select = current_selected.is_empty()
-                        || current_ping.is_none()
-                        || ping < current_ping.unwrap();
+                    let should_select =
+                        current_selected.is_empty() || current_ping.is_none_or(|p| ping < p);
 
                     if should_select {
                         state.set_selected(id.clone()).await;

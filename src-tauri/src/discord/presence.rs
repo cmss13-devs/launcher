@@ -35,7 +35,7 @@ pub struct DiscordState {
 }
 
 impl DiscordState {
-    pub async fn init() -> Result<Self, discord_sdk::Error> {
+    pub fn init() -> Self {
         #[allow(unused_assignments, unused_mut)]
         let mut app_id: Option<u32> = None;
 
@@ -56,12 +56,12 @@ impl DiscordState {
         let (update_tx, update_rx) = mpsc::unbounded_channel();
         let (connected_tx, connected_rx) = watch::channel(false);
 
-        tokio::spawn(Self::run_discord_task(update_rx, connected_tx));
+        tauri::async_runtime::spawn(Self::run_discord_task(update_rx, connected_tx));
 
-        Ok(Self {
+        Self {
             update_tx,
             connected_rx,
-        })
+        }
     }
 
     #[allow(dead_code)]
@@ -101,7 +101,7 @@ impl DiscordState {
             } else {
                 match &*user_spoke.0.borrow() {
                     UserState::Connected(user) => Ok(user.clone()),
-                    UserState::Disconnected(err) => Err(format!("Discord disconnected: {:?}", err)),
+                    UserState::Disconnected(err) => Err(format!("Discord disconnected: {err:?}")),
                 }
             }
         })
@@ -153,14 +153,14 @@ impl DiscordState {
                     map_name,
                 } => {
                     let details = match map_name {
-                        Some(map) => format!("{} players on {}", player_count, map),
-                        None => format!("{} players online", player_count),
+                        Some(map) => format!("{player_count} players on {map}"),
+                        None => format!("{player_count} players online"),
                     };
 
                     let game_name = crate::config::get_config().strings.discord_game_name;
                     #[allow(unused_mut)]
                     let mut activity = ActivityBuilder::new()
-                        .state(format!("Playing on {}", server_name))
+                        .state(format!("Playing on {server_name}"))
                         .details(details)
                         .assets(Assets::default().large("logo", Some(game_name)));
 
@@ -199,7 +199,7 @@ impl DiscordState {
                                     json!({"server_name": &server_name, "type": "spectate"})
                                         .to_string(),
                                 ),
-                            })
+                            });
                     }
 
                     discord.update_activity(activity).await

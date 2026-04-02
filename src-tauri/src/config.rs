@@ -28,6 +28,7 @@ pub struct LauncherConfig {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[allow(clippy::struct_excessive_bools)] // feature flags struct
 pub struct LauncherFeatures {
     pub relay_selector: bool,
     pub singleplayer: bool,
@@ -85,6 +86,7 @@ pub fn get_config() -> LauncherConfig {
         logo: "/logo-cm.png",
         default_theme: "crt",
         app_identifier: "com.cm-ss13.launcher",
+        #[allow(clippy::unreadable_literal)] // identifier
         discord_app_id: 1383904378154651768,
         default_byond_version: None,
         server_api: ServerApiType::CmApi,
@@ -154,6 +156,7 @@ pub fn get_config() -> LauncherConfig {
         logo: "/logo-ss13.png",
         default_theme: "tgui",
         app_identifier: "com.ss13.launcher",
+        #[allow(clippy::unreadable_literal)] // its an identifier
         discord_app_id: 1483901387086761994,
         default_byond_version: Some("516.1667"),
         server_api: ServerApiType::HubApi,

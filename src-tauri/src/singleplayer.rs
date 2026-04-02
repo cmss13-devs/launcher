@@ -88,17 +88,14 @@ fn read_installed_version() -> Option<String> {
 
 fn write_installed_version(version: &str) -> Result<(), String> {
     let version_path = get_version_file_path()?;
-    fs::write(&version_path, version).map_err(|e| format!("Failed to write version file: {}", e))
+    fs::write(&version_path, version).map_err(|e| format!("Failed to write version file: {e}"))
 }
 
 /// Fetch the latest release info from GitHub
 async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
     let (github_repo, build_asset_name) = get_singleplayer_config()?;
 
-    let url = format!(
-        "https://api.github.com/repos/{}/releases/latest",
-        github_repo
-    );
+    let url = format!("https://api.github.com/repos/{github_repo}/releases/latest");
 
     let client = reqwest::Client::new();
     let response = client
@@ -107,7 +104,7 @@ async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
         .header("Accept", "application/vnd.github.v3+json")
         .send()
         .await
-        .map_err(|e| format!("Failed to fetch release info: {}", e))?;
+        .map_err(|e| format!("Failed to fetch release info: {e}"))?;
 
     if !response.status().is_success() {
         return Err(format!("GitHub API returned HTTP {}", response.status()));
@@ -116,7 +113,7 @@ async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
     let release: GitHubRelease = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse release info: {}", e))?;
+        .map_err(|e| format!("Failed to parse release info: {e}"))?;
 
     let build_asset = release.assets.iter().find(|a| a.name == build_asset_name);
 
@@ -139,7 +136,7 @@ async fn download_file(url: &str) -> Result<Vec<u8>, String> {
         .header("User-Agent", "CM-Launcher")
         .send()
         .await
-        .map_err(|e| format!("Download request failed: {}", e))?;
+        .map_err(|e| format!("Download request failed: {e}"))?;
 
     if !response.status().is_success() {
         return Err(format!("Download failed with HTTP {}", response.status()));
@@ -148,7 +145,7 @@ async fn download_file(url: &str) -> Result<Vec<u8>, String> {
     let bytes = response
         .bytes()
         .await
-        .map_err(|e| format!("Failed to read download: {}", e))?;
+        .map_err(|e| format!("Failed to read download: {e}"))?;
 
     Ok(bytes.to_vec())
 }
@@ -158,24 +155,24 @@ async fn download_file(url: &str) -> Result<Vec<u8>, String> {
 fn extract_tar_zst(data: &[u8], dest: &PathBuf) -> Result<(), String> {
     tracing::info!("Extracting archive to {:?}", dest);
 
-    fs::create_dir_all(dest).map_err(|e| format!("Failed to create directory: {}", e))?;
+    fs::create_dir_all(dest).map_err(|e| format!("Failed to create directory: {e}"))?;
 
     let cursor = io::Cursor::new(data);
     let zstd_decoder = zstd::stream::Decoder::new(cursor)
-        .map_err(|e| format!("Failed to create zstd decoder: {}", e))?;
+        .map_err(|e| format!("Failed to create zstd decoder: {e}"))?;
 
     let mut archive = tar::Archive::new(zstd_decoder);
     archive.set_preserve_permissions(true);
 
     for entry in archive
         .entries()
-        .map_err(|e| format!("Failed to read archive entries: {}", e))?
+        .map_err(|e| format!("Failed to read archive entries: {e}"))?
     {
-        let mut entry = entry.map_err(|e| format!("Failed to read archive entry: {}", e))?;
+        let mut entry = entry.map_err(|e| format!("Failed to read archive entry: {e}"))?;
 
         let path = entry
             .path()
-            .map_err(|e| format!("Failed to get entry path: {}", e))?;
+            .map_err(|e| format!("Failed to get entry path: {e}"))?;
 
         if path
             .components()
@@ -189,20 +186,20 @@ fn extract_tar_zst(data: &[u8], dest: &PathBuf) -> Result<(), String> {
 
         if entry.header().entry_type().is_dir() {
             fs::create_dir_all(&outpath)
-                .map_err(|e| format!("Failed to create directory {:?}: {}", outpath, e))?;
+                .map_err(|e| format!("Failed to create directory {}: {e}", outpath.display()))?;
         } else {
             if let Some(parent) = outpath.parent() {
                 if !parent.exists() {
                     fs::create_dir_all(parent)
-                        .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+                        .map_err(|e| format!("Failed to create parent directory: {e}"))?;
                 }
             }
 
             let mut outfile = fs::File::create(&outpath)
-                .map_err(|e| format!("Failed to create file {:?}: {}", outpath, e))?;
+                .map_err(|e| format!("Failed to create file {}: {e}", outpath.display()))?;
 
             io::copy(&mut entry, &mut outfile)
-                .map_err(|e| format!("Failed to extract file {:?}: {}", outpath, e))?;
+                .map_err(|e| format!("Failed to extract file {}: {e}", outpath.display()))?;
 
             #[cfg(unix)]
             {
@@ -294,7 +291,7 @@ pub async fn install_singleplayer(_app: AppHandle) -> Result<SinglePlayerStatus,
     if base_dir.exists() {
         tracing::info!("Removing existing installation at {:?}", base_dir);
         fs::remove_dir_all(&base_dir)
-            .map_err(|e| format!("Failed to remove existing installation: {}", e))?;
+            .map_err(|e| format!("Failed to remove existing installation: {e}"))?;
     }
 
     tracing::info!("Downloading single player build {}", release.tag_name);
@@ -323,7 +320,7 @@ pub async fn delete_singleplayer(_app: AppHandle) -> Result<bool, String> {
     if base_dir.exists() {
         tracing::info!("Deleting single player installation at {:?}", base_dir);
         fs::remove_dir_all(&base_dir)
-            .map_err(|e| format!("Failed to delete single player installation: {}", e))?;
+            .map_err(|e| format!("Failed to delete single player installation: {e}"))?;
         Ok(true)
     } else {
         Ok(false)
@@ -340,7 +337,7 @@ fn get_byond_version_from_dependencies() -> Result<String, String> {
     }
 
     let contents = fs::read_to_string(&deps_path)
-        .map_err(|e| format!("Failed to read dependencies.sh: {}", e))?;
+        .map_err(|e| format!("Failed to read dependencies.sh: {e}"))?;
 
     let mut major: Option<&str> = None;
     let mut minor: Option<&str> = None;
@@ -355,7 +352,7 @@ fn get_byond_version_from_dependencies() -> Result<String, String> {
     }
 
     match (major, minor) {
-        (Some(maj), Some(min)) => Ok(format!("{}.{}", maj, min)),
+        (Some(maj), Some(min)) => Ok(format!("{maj}.{min}")),
         _ => Err("Could not parse BYOND version from dependencies.sh".to_string()),
     }
 }
@@ -378,11 +375,11 @@ fn find_dmb_file() -> Result<PathBuf, String> {
 
     // Fall back to searching for any .dmb file
     for entry in fs::read_dir(&base_dir)
-        .map_err(|e| format!("Failed to read singleplayer directory: {}", e))?
+        .map_err(|e| format!("Failed to read singleplayer directory: {e}"))?
     {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
         let path = entry.path();
-        if path.extension().map(|e| e == "dmb").unwrap_or(false) {
+        if path.extension().is_some_and(|e| e == "dmb") {
             return Ok(path);
         }
     }
@@ -399,7 +396,7 @@ pub async fn launch_singleplayer(app: AppHandle) -> Result<(), String> {
     let version_info = install_byond_version(app.clone(), byond_version.clone()).await?;
 
     if !version_info.installed {
-        return Err(format!("Failed to install BYOND version {}", byond_version));
+        return Err(format!("Failed to install BYOND version {byond_version}"));
     }
 
     let dreamseeker_path = version_info.path.ok_or("DreamSeeker path not found")?;

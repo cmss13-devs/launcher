@@ -21,8 +21,8 @@ impl SteamPresence {
         let friends = self.client.friends();
 
         let status = match map_name {
-            Some(map) => format!("{} players on {}", player_count, map),
-            None => format!("Playing on {}", server_name),
+            Some(map) => format!("{player_count} players on {map}"),
+            None => format!("Playing on {server_name}"),
         };
         friends.set_rich_presence("status", Some(&status));
 

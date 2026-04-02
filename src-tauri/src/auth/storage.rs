@@ -21,6 +21,7 @@ pub struct StoredTokens {
 pub struct TokenStorage;
 
 impl TokenStorage {
+    #[allow(clippy::indexing_slicing)] // i is bounded by take(32) and key is [u8; 32]
     fn get_encryption_key() -> [u8; 32] {
         let mut key = [0u8; 32];
         let seed = b"cm-launcher-rs-token-encryption-key-v1";
@@ -37,15 +38,15 @@ impl TokenStorage {
             .join(config.app_identifier);
 
         fs::create_dir_all(&data_dir)
-            .map_err(|e| format!("Failed to create data directory: {}", e))?;
+            .map_err(|e| format!("Failed to create data directory: {e}"))?;
 
         Ok(data_dir.join(AUTH_FILE))
     }
 
     fn encrypt(data: &[u8]) -> Result<Vec<u8>, String> {
         let key = Self::get_encryption_key();
-        let cipher = Aes256Gcm::new_from_slice(&key)
-            .map_err(|e| format!("Failed to create cipher: {}", e))?;
+        let cipher =
+            Aes256Gcm::new_from_slice(&key).map_err(|e| format!("Failed to create cipher: {e}"))?;
 
         let mut nonce_bytes = [0u8; NONCE_SIZE];
         rand::thread_rng().fill_bytes(&mut nonce_bytes);
@@ -53,30 +54,31 @@ impl TokenStorage {
 
         let ciphertext = cipher
             .encrypt(nonce, data)
-            .map_err(|e| format!("Failed to encrypt data: {}", e))?;
+            .map_err(|e| format!("Failed to encrypt data: {e}"))?;
 
-        let mut result = Vec::with_capacity(NONCE_SIZE + ciphertext.len());
+        let mut result = Vec::with_capacity(NONCE_SIZE.saturating_add(ciphertext.len()));
         result.extend_from_slice(&nonce_bytes);
         result.extend(ciphertext);
 
         Ok(result)
     }
 
+    #[allow(clippy::indexing_slicing)] // length checked above
     fn decrypt(data: &[u8]) -> Result<Vec<u8>, String> {
         if data.len() < NONCE_SIZE {
             return Err("Invalid encrypted data: too short".to_string());
         }
 
         let key = Self::get_encryption_key();
-        let cipher = Aes256Gcm::new_from_slice(&key)
-            .map_err(|e| format!("Failed to create cipher: {}", e))?;
+        let cipher =
+            Aes256Gcm::new_from_slice(&key).map_err(|e| format!("Failed to create cipher: {e}"))?;
 
         let nonce = Nonce::from_slice(&data[..NONCE_SIZE]);
         let ciphertext = &data[NONCE_SIZE..];
 
         cipher
             .decrypt(nonce, ciphertext)
-            .map_err(|e| format!("Failed to decrypt data: {}", e))
+            .map_err(|e| format!("Failed to decrypt data: {e}"))
     }
 
     pub fn store_tokens(
@@ -87,18 +89,18 @@ impl TokenStorage {
     ) -> Result<(), String> {
         let tokens = StoredTokens {
             access_token: access_token.to_string(),
-            refresh_token: refresh_token.map(|s| s.to_string()),
+            refresh_token: refresh_token.map(std::string::ToString::to_string),
             id_token: id_token.to_string(),
             expires_at,
         };
 
-        let json = serde_json::to_vec(&tokens)
-            .map_err(|e| format!("Failed to serialize tokens: {}", e))?;
+        let json =
+            serde_json::to_vec(&tokens).map_err(|e| format!("Failed to serialize tokens: {e}"))?;
 
         let encrypted = Self::encrypt(&json)?;
 
         let path = Self::get_auth_file_path()?;
-        fs::write(&path, &encrypted).map_err(|e| format!("Failed to write auth file: {}", e))?;
+        fs::write(&path, &encrypted).map_err(|e| format!("Failed to write auth file: {e}"))?;
 
         tracing::debug!("Tokens stored securely");
 
@@ -112,18 +114,15 @@ impl TokenStorage {
             return Ok(None);
         }
 
-        let encrypted = fs::read(&path).map_err(|e| format!("Failed to read auth file: {}", e))?;
+        let encrypted = fs::read(&path).map_err(|e| format!("Failed to read auth file: {e}"))?;
 
-        let decrypted = match Self::decrypt(&encrypted) {
-            Ok(data) => data,
-            Err(_) => {
-                fs::remove_file(&path).ok();
-                return Ok(None);
-            }
+        let Ok(decrypted) = Self::decrypt(&encrypted) else {
+            fs::remove_file(&path).ok();
+            return Ok(None);
         };
 
         let tokens: StoredTokens = serde_json::from_slice(&decrypted)
-            .map_err(|e| format!("Failed to parse tokens: {}", e))?;
+            .map_err(|e| format!("Failed to parse tokens: {e}"))?;
 
         Ok(Some(tokens))
     }
@@ -132,7 +131,7 @@ impl TokenStorage {
         let path = Self::get_auth_file_path()?;
 
         if path.exists() {
-            fs::remove_file(&path).map_err(|e| format!("Failed to delete auth file: {}", e))?;
+            fs::remove_file(&path).map_err(|e| format!("Failed to delete auth file: {e}"))?;
             tracing::debug!("Tokens cleared");
         }
 
@@ -143,7 +142,7 @@ impl TokenStorage {
         match Self::get_tokens() {
             Ok(Some(tokens)) => {
                 let now = chrono::Utc::now().timestamp();
-                tokens.expires_at <= now + 60
+                tokens.expires_at <= now.saturating_add(60)
             }
             _ => true,
         }
@@ -153,7 +152,7 @@ impl TokenStorage {
         match Self::get_tokens() {
             Ok(Some(tokens)) => {
                 let now = chrono::Utc::now().timestamp();
-                tokens.expires_at <= now + 300
+                tokens.expires_at <= now.saturating_add(300)
             }
             _ => false,
         }

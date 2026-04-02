@@ -19,6 +19,7 @@ mod steam;
 #[cfg(target_os = "linux")]
 mod wine;
 
+#[allow(clippy::unreadable_literal)] // identifier
 pub const DEFAULT_STEAM_ID: u32 = 4313790;
 pub const DEFAULT_STEAM_NAME: &str = "production";
 
@@ -73,6 +74,7 @@ fn get_platform() -> String {
 
 #[cfg(not(target_os = "linux"))]
 #[derive(serde::Serialize)]
+#[allow(clippy::struct_excessive_bools)] // status flags struct
 struct WineStatus {
     installed: bool,
     version: Option<String>,
@@ -117,7 +119,7 @@ use steam::{
 
 #[tauri::command]
 fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+    format!("Hello, {name}! You've been greeted from Rust!")
 }
 
 #[tauri::command]
@@ -316,18 +318,10 @@ pub fn run() {
     {
         use std::sync::Arc;
 
-        match tauri::async_runtime::block_on(discord::DiscordState::init()) {
-            Ok(discord_state) => {
-                let discord_state = Arc::new(discord_state);
-                // Add provider immediately - updates are queued and sent once connected
-                let discord_presence = discord::DiscordPresence::new(Arc::clone(&discord_state));
-                manager.add_provider(Box::new(discord_presence));
-                tracing::info!("Discord presence provider added (connecting in background)");
-            }
-            Err(e) => {
-                tracing::error!("Failed to initialize Discord: {:?}", e);
-            }
-        }
+        let discord_state = Arc::new(discord::DiscordState::init());
+        let discord_presence = discord::DiscordPresence::new(Arc::clone(&discord_state));
+        manager.add_provider(Box::new(discord_presence));
+        tracing::info!("Discord presence provider added (connecting in background)");
     }
 
     let presence_manager = std::sync::Arc::new(manager);
@@ -342,6 +336,7 @@ pub fn run() {
         .manage(std::sync::Arc::clone(&relay_state))
         .manage(byond_session_state);
 
+    #[allow(clippy::expect_used)] // Main entry point - no recovery possible
     builder
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -370,12 +365,11 @@ pub fn run() {
                 background_refresh_task(handle_for_auth).await;
             });
 
-            let server_state = app
-                .state::<std::sync::Arc<servers::ServerState>>()
-                .inner()
-                .clone();
+            let server_state = std::sync::Arc::clone(
+                app.state::<std::sync::Arc<servers::ServerState>>().inner(),
+            );
 
-            let server_state_init = server_state.clone();
+            let server_state_init = std::sync::Arc::clone(&server_state);
             tauri::async_runtime::block_on(async {
                 servers::init_servers(&server_state_init).await;
             });
@@ -385,12 +379,11 @@ pub fn run() {
                 servers::server_fetch_background_task(handle_for_server_task, server_state).await;
             });
 
-            let relay_state = app
-                .state::<std::sync::Arc<relays::RelayState>>()
-                .inner()
-                .clone();
+            let relay_state = std::sync::Arc::clone(
+                app.state::<std::sync::Arc<relays::RelayState>>().inner(),
+            );
 
-            let relay_state_init = relay_state.clone();
+            let relay_state_init = relay_state;
             let handle_for_relay_init = handle.clone();
             tauri::async_runtime::spawn(async move {
                 relays::init_relays(&relay_state_init, &handle_for_relay_init).await;

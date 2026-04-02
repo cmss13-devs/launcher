@@ -89,6 +89,7 @@ panic = "warn"
 arithmetic_side_effects = "warn"
 indexing_slicing = "warn"
 string_slice = "warn"
+needless_pass_by_value = "allow"
 
 # Performance
 inefficient_to_string = "warn"

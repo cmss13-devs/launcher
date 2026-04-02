@@ -38,32 +38,26 @@ fn http_client() -> Result<oauth2::reqwest::Client, String> {
     oauth2::reqwest::ClientBuilder::new()
         .redirect(oauth2::reqwest::redirect::Policy::none())
         .build()
-        .map_err(|e| format!("Failed to build HTTP client: {}", e))
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))
 }
 
 pub struct OidcClient;
 
 impl OidcClient {
-    pub async fn new() -> Result<Self, String> {
-        tracing::debug!("Initializing OidcClient");
-        Ok(Self)
-    }
-
     pub fn create_authorization_request(
-        &self,
-        redirect_uri: &str,
+        redirect_uri_string: &str,
     ) -> Result<AuthorizationRequest, String> {
         tracing::debug!(
             "Creating authorization request with redirect_uri: {}",
-            redirect_uri
+            redirect_uri_string
         );
         let oidc = get_oidc_config()?;
         let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| format!("Invalid auth URL: {}", e))?;
+            .map_err(|e| format!("Invalid auth URL: {e}"))?;
         let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| format!("Invalid token URL: {}", e))?;
-        let redirect_url = RedirectUrl::new(redirect_uri.to_string())
-            .map_err(|e| format!("Invalid redirect URI: {}", e))?;
+            .map_err(|e| format!("Invalid token URL: {e}"))?;
+        let redirect_url = RedirectUrl::new(redirect_uri_string.to_string())
+            .map_err(|e| format!("Invalid redirect URI: {e}"))?;
 
         let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
@@ -88,8 +82,8 @@ impl OidcClient {
         })
     }
 
+    #[allow(clippy::similar_names)]
     pub async fn exchange_code(
-        &self,
         code: &str,
         redirect_uri: &str,
         pkce_verifier: PkceCodeVerifier,
@@ -97,11 +91,11 @@ impl OidcClient {
         tracing::debug!("Exchanging authorization code for tokens");
         let oidc = get_oidc_config()?;
         let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| format!("Invalid auth URL: {}", e))?;
+            .map_err(|e| format!("Invalid auth URL: {e}"))?;
         let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| format!("Invalid token URL: {}", e))?;
+            .map_err(|e| format!("Invalid token URL: {e}"))?;
         let redirect_url = RedirectUrl::new(redirect_uri.to_string())
-            .map_err(|e| format!("Invalid redirect URI: {}", e))?;
+            .map_err(|e| format!("Invalid redirect URI: {e}"))?;
 
         let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
@@ -115,7 +109,7 @@ impl OidcClient {
             .set_pkce_verifier(pkce_verifier)
             .request_async(&http)
             .await
-            .map_err(|e| format!("Failed to exchange code: {}", e))?;
+            .map_err(|e| format!("Failed to exchange code: {e}"))?;
 
         let access_token = token_response.access_token().secret().clone();
 
@@ -126,7 +120,10 @@ impl OidcClient {
         let expires_in = token_response
             .expires_in()
             .unwrap_or(std::time::Duration::from_secs(3600));
-        let expires_at = chrono::Utc::now().timestamp() + expires_in.as_secs() as i64;
+        #[allow(clippy::cast_possible_wrap)]
+        let expires_at = chrono::Utc::now()
+            .timestamp()
+            .saturating_add(expires_in.as_secs() as i64);
 
         Ok(TokenResult {
             access_token,
@@ -136,13 +133,14 @@ impl OidcClient {
         })
     }
 
-    pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<TokenResult, String> {
+    #[allow(clippy::similar_names)]
+    pub async fn refresh_tokens(refresh_token: &str) -> Result<TokenResult, String> {
         tracing::debug!("Refreshing tokens");
         let oidc = get_oidc_config()?;
         let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| format!("Invalid auth URL: {}", e))?;
+            .map_err(|e| format!("Invalid auth URL: {e}"))?;
         let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| format!("Invalid token URL: {}", e))?;
+            .map_err(|e| format!("Invalid token URL: {e}"))?;
 
         let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
@@ -154,7 +152,7 @@ impl OidcClient {
             .exchange_refresh_token(&RefreshToken::new(refresh_token.to_string()))
             .request_async(&http)
             .await
-            .map_err(|e| format!("Failed to refresh tokens: {}", e))?;
+            .map_err(|e| format!("Failed to refresh tokens: {e}"))?;
 
         let access_token = token_response.access_token().secret().clone();
 
@@ -166,7 +164,10 @@ impl OidcClient {
         let expires_in = token_response
             .expires_in()
             .unwrap_or(std::time::Duration::from_secs(3600));
-        let expires_at = chrono::Utc::now().timestamp() + expires_in.as_secs() as i64;
+        #[allow(clippy::cast_possible_wrap)]
+        let expires_at = chrono::Utc::now()
+            .timestamp()
+            .saturating_add(expires_in.as_secs() as i64);
 
         Ok(TokenResult {
             access_token,
@@ -176,7 +177,7 @@ impl OidcClient {
         })
     }
 
-    pub async fn get_userinfo(&self, access_token: &str) -> Result<UserInfo, String> {
+    pub async fn get_userinfo(access_token: &str) -> Result<UserInfo, String> {
         tracing::debug!("Fetching user info");
         let oidc = get_oidc_config()?;
         let client = reqwest::Client::new();
@@ -185,7 +186,7 @@ impl OidcClient {
             .bearer_auth(access_token)
             .send()
             .await
-            .map_err(|e| format!("Failed to fetch userinfo: {}", e))?;
+            .map_err(|e| format!("Failed to fetch userinfo: {e}"))?;
 
         if !response.status().is_success() {
             return Err(format!("Userinfo request failed: {}", response.status()));
@@ -194,7 +195,7 @@ impl OidcClient {
         let userinfo: UserInfo = response
             .json()
             .await
-            .map_err(|e| format!("Failed to parse userinfo: {}", e))?;
+            .map_err(|e| format!("Failed to parse userinfo: {e}"))?;
 
         Ok(userinfo)
     }

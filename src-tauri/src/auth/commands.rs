@@ -48,12 +48,10 @@ impl AuthState {
 #[tauri::command]
 pub async fn start_login(app: AppHandle) -> Result<AuthState, String> {
     tracing::info!("Starting login flow");
-    let oidc_client = OidcClient::new().await?;
-
     let mut server = CallbackServer::start_without_state()?;
     let redirect_uri = server.redirect_uri();
 
-    let auth_request = oidc_client.create_authorization_request(&redirect_uri)?;
+    let auth_request = OidcClient::create_authorization_request(&redirect_uri)?;
 
     server.set_expected_state(auth_request.state.clone());
 
@@ -61,17 +59,16 @@ pub async fn start_login(app: AppHandle) -> Result<AuthState, String> {
 
     let callback_result = tokio::task::spawn_blocking(move || server.wait_for_callback())
         .await
-        .map_err(|e| format!("Callback task failed: {}", e))??;
+        .map_err(|e| format!("Callback task failed: {e}"))??;
 
     tracing::info!("Callback received, exchanging code");
 
-    let token_result = oidc_client
-        .exchange_code(
-            &callback_result.code,
-            &redirect_uri,
-            auth_request.pkce_verifier,
-        )
-        .await?;
+    let token_result = OidcClient::exchange_code(
+        &callback_result.code,
+        &redirect_uri,
+        auth_request.pkce_verifier,
+    )
+    .await?;
 
     TokenStorage::store_tokens(
         &token_result.access_token,
@@ -80,7 +77,7 @@ pub async fn start_login(app: AppHandle) -> Result<AuthState, String> {
         token_result.expires_at,
     )?;
 
-    let user_info = oidc_client.get_userinfo(&token_result.access_token).await?;
+    let user_info = OidcClient::get_userinfo(&token_result.access_token).await?;
 
     let auth_state = AuthState::logged_in(user_info);
 
@@ -102,28 +99,23 @@ pub async fn logout(app: AppHandle) -> Result<AuthState, String> {
 
 #[tauri::command]
 pub async fn get_auth_state() -> Result<AuthState, String> {
-    let tokens = match TokenStorage::get_tokens()? {
-        Some(t) => t,
-        None => return Ok(AuthState::logged_out()),
+    let Some(tokens) = TokenStorage::get_tokens()? else {
+        return Ok(AuthState::logged_out());
     };
 
     if TokenStorage::is_expired() {
         if let Some(refresh_token) = &tokens.refresh_token {
-            match refresh_tokens_internal(refresh_token).await {
-                Ok(state) => return Ok(state),
-                Err(_) => {
-                    TokenStorage::clear_tokens()?;
-                    return Ok(AuthState::logged_out());
-                }
+            if let Ok(state) = refresh_tokens_internal(refresh_token).await {
+                return Ok(state);
             }
-        } else {
             TokenStorage::clear_tokens()?;
             return Ok(AuthState::logged_out());
         }
+        TokenStorage::clear_tokens()?;
+        return Ok(AuthState::logged_out());
     }
 
-    let oidc_client = OidcClient::new().await?;
-    match oidc_client.get_userinfo(&tokens.access_token).await {
+    match OidcClient::get_userinfo(&tokens.access_token).await {
         Ok(user_info) => Ok(AuthState::logged_in(user_info)),
         Err(_) => {
             if let Some(refresh_token) = &tokens.refresh_token {
@@ -139,9 +131,8 @@ pub async fn get_auth_state() -> Result<AuthState, String> {
 #[tauri::command]
 pub async fn refresh_auth(app: AppHandle) -> Result<AuthState, String> {
     tracing::info!("Manually refreshing auth");
-    let tokens = match TokenStorage::get_tokens()? {
-        Some(t) => t,
-        None => return Ok(AuthState::logged_out()),
+    let Some(tokens) = TokenStorage::get_tokens()? else {
+        return Ok(AuthState::logged_out());
     };
 
     let refresh_token = tokens.refresh_token.ok_or("No refresh token available")?;
@@ -161,9 +152,7 @@ pub async fn get_access_token() -> Result<Option<String>, String> {
 }
 
 async fn refresh_tokens_internal(refresh_token: &str) -> Result<AuthState, String> {
-    let oidc_client = OidcClient::new().await?;
-
-    let token_result = oidc_client.refresh_tokens(refresh_token).await?;
+    let token_result = OidcClient::refresh_tokens(refresh_token).await?;
 
     TokenStorage::store_tokens(
         &token_result.access_token,
@@ -172,7 +161,7 @@ async fn refresh_tokens_internal(refresh_token: &str) -> Result<AuthState, Strin
         token_result.expires_at,
     )?;
 
-    let user_info = oidc_client.get_userinfo(&token_result.access_token).await?;
+    let user_info = OidcClient::get_userinfo(&token_result.access_token).await?;
 
     Ok(AuthState::logged_in(user_info))
 }

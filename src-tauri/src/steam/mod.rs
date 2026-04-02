@@ -14,6 +14,7 @@ use crate::{DEFAULT_STEAM_ID, DEFAULT_STEAM_NAME};
 
 pub fn get_steam_app_id() -> u32 {
     if let Some(env) = option_env!("STEAM_APP_ID") {
+        #[allow(clippy::expect_used)] // Compile-time env var - invalid value is developer error
         env.parse().expect("invalid STEAM_APP_ID")
     } else {
         DEFAULT_STEAM_ID
