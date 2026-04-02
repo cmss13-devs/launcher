@@ -65,6 +65,7 @@ pub struct OidcConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct LauncherUrls {
     pub server_api: &'static str,
+    pub hub_api: Option<&'static str>,
     pub auth_base: Option<&'static str>,
     pub steam_auth: Option<&'static str>,
     pub byond_hash_api: Option<&'static str>,
@@ -102,6 +103,7 @@ pub fn get_config() -> LauncherConfig {
         },
         urls: LauncherUrls {
             server_api: "https://db.cm-ss13.com/api/Round",
+            hub_api: None,
             auth_base: Some("https://login.cm-ss13.com"),
             steam_auth: Some("https://db.cm-ss13.com/api/Steam/Authenticate"),
             byond_hash_api: Some("https://db.cm-ss13.com/api/ByondHash"),
@@ -172,6 +174,7 @@ pub fn get_config() -> LauncherConfig {
         },
         urls: LauncherUrls {
             server_api: "https://hub.cm-ss13.com/servers",
+            hub_api: None,
             auth_base: None,
             steam_auth: None,
             byond_hash_api: None,

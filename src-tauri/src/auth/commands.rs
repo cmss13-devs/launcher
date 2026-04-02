@@ -104,25 +104,47 @@ pub async fn get_auth_state() -> Result<AuthState, String> {
     };
 
     if TokenStorage::is_expired() {
-        if let Some(refresh_token) = &tokens.refresh_token {
-            if let Ok(state) = refresh_tokens_internal(refresh_token).await {
-                return Ok(state);
-            }
-            TokenStorage::clear_tokens()?;
-            return Ok(AuthState::logged_out());
+        // Try to refresh
+        let token_to_use = tokens
+            .refresh_token
+            .as_deref()
+            .unwrap_or(&tokens.access_token);
+
+        if let Ok(state) = refresh_tokens_internal(token_to_use).await {
+            return Ok(state);
         }
         TokenStorage::clear_tokens()?;
         return Ok(AuthState::logged_out());
     }
 
-    match OidcClient::get_userinfo(&tokens.access_token).await {
-        Ok(user_info) => Ok(AuthState::logged_in(user_info)),
-        Err(_) => {
-            if let Some(refresh_token) = &tokens.refresh_token {
-                refresh_tokens_internal(refresh_token).await
-            } else {
-                TokenStorage::clear_tokens()?;
-                Ok(AuthState::logged_out())
+    let config = crate::config::get_config();
+    if config.urls.hub_api.is_some() {
+        // Hub auth: fetch profile with session token
+        use super::hub_client::HubClient;
+        match HubClient::get_profile(&tokens.access_token).await {
+            Ok(user_info) => Ok(AuthState::logged_in(user_info)),
+            Err(_) => {
+                // Try refresh
+                match refresh_tokens_internal(&tokens.access_token).await {
+                    Ok(state) => Ok(state),
+                    Err(_) => {
+                        TokenStorage::clear_tokens()?;
+                        Ok(AuthState::logged_out())
+                    }
+                }
+            }
+        }
+    } else {
+        // OIDC auth: fetch userinfo with access token
+        match OidcClient::get_userinfo(&tokens.access_token).await {
+            Ok(user_info) => Ok(AuthState::logged_in(user_info)),
+            Err(_) => {
+                if let Some(refresh_token) = &tokens.refresh_token {
+                    refresh_tokens_internal(refresh_token).await
+                } else {
+                    TokenStorage::clear_tokens()?;
+                    Ok(AuthState::logged_out())
+                }
             }
         }
     }
@@ -151,19 +173,84 @@ pub async fn get_access_token() -> Result<Option<String>, String> {
     }
 }
 
-async fn refresh_tokens_internal(refresh_token: &str) -> Result<AuthState, String> {
-    let token_result = OidcClient::refresh_tokens(refresh_token).await?;
+// -- Hub (ss13hub session token) auth --
 
-    TokenStorage::store_tokens(
-        &token_result.access_token,
-        token_result.refresh_token.as_deref(),
-        token_result.id_token.as_deref().unwrap_or(""),
-        token_result.expires_at,
-    )?;
+#[tauri::command]
+pub async fn hub_login(
+    app: AppHandle,
+    username: String,
+    password: String,
+    totp_code: Option<String>,
+) -> Result<AuthState, String> {
+    use super::hub_client::{HubAuthError, HubClient};
 
-    let user_info = OidcClient::get_userinfo(&token_result.access_token).await?;
+    tracing::info!("Starting hub login for {}", username);
 
-    Ok(AuthState::logged_in(user_info))
+    let result = HubClient::login(&username, &password, totp_code.as_deref())
+        .await
+        .map_err(|e| match e {
+            HubAuthError::Requires2FA => "requires_2fa".to_string(),
+            other => other.to_string(),
+        })?;
+
+    // Parse expiry from ISO 8601 string
+    let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time)
+        .map(|dt| dt.timestamp())
+        .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30);
+
+    // Store session token (using access_token field, no refresh token or id_token)
+    TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
+
+    // Fetch full profile
+    let user_info = HubClient::get_profile(&result.token)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let auth_state = AuthState::logged_in(user_info);
+    app.emit("auth-state-changed", &auth_state).ok();
+
+    Ok(auth_state)
+}
+
+// -- Shared internals --
+
+async fn refresh_tokens_internal(token: &str) -> Result<AuthState, String> {
+    let config = crate::config::get_config();
+
+    if config.urls.hub_api.is_some() {
+        // Hub auth: refresh via ss13hub
+        use super::hub_client::HubClient;
+
+        let result = HubClient::refresh(token)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time)
+            .map(|dt| dt.timestamp())
+            .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30);
+
+        TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
+
+        let user_info = HubClient::get_profile(&result.token)
+            .await
+            .map_err(|e| e.to_string())?;
+
+        Ok(AuthState::logged_in(user_info))
+    } else {
+        // OIDC auth: refresh via OIDC provider
+        let token_result = OidcClient::refresh_tokens(token).await?;
+
+        TokenStorage::store_tokens(
+            &token_result.access_token,
+            token_result.refresh_token.as_deref(),
+            token_result.id_token.as_deref().unwrap_or(""),
+            token_result.expires_at,
+        )?;
+
+        let user_info = OidcClient::get_userinfo(&token_result.access_token).await?;
+
+        Ok(AuthState::logged_in(user_info))
+    }
 }
 
 pub async fn background_refresh_task(app: AppHandle) {
@@ -172,18 +259,23 @@ pub async fn background_refresh_task(app: AppHandle) {
     loop {
         if TokenStorage::should_refresh() {
             if let Ok(Some(tokens)) = TokenStorage::get_tokens() {
-                if let Some(refresh_token) = &tokens.refresh_token {
-                    tracing::info!("Background refreshing tokens");
-                    match refresh_tokens_internal(refresh_token).await {
-                        Ok(auth_state) => {
-                            app.emit("auth-state-changed", &auth_state).ok();
-                        }
-                        Err(e) => {
-                            tracing::warn!("Background refresh failed: {}", e);
-                            TokenStorage::clear_tokens().ok();
-                            app.emit("auth-state-changed", &AuthState::logged_out())
-                                .ok();
-                        }
+                tracing::info!("Background refreshing tokens");
+                // For hub auth, access_token IS the session token to refresh
+                // For OIDC auth, we need the refresh_token
+                let token_to_use = tokens
+                    .refresh_token
+                    .as_deref()
+                    .unwrap_or(&tokens.access_token);
+
+                match refresh_tokens_internal(token_to_use).await {
+                    Ok(auth_state) => {
+                        app.emit("auth-state-changed", &auth_state).ok();
+                    }
+                    Err(e) => {
+                        tracing::warn!("Background refresh failed: {}", e);
+                        TokenStorage::clear_tokens().ok();
+                        app.emit("auth-state-changed", &AuthState::logged_out())
+                            .ok();
                     }
                 }
             }

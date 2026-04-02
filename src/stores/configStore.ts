@@ -28,6 +28,7 @@ export interface SingleplayerConfig {
 
 export interface LauncherUrls {
   server_api: string;
+  hub_api: string | null;
   auth_base: string | null;
   steam_auth: string | null;
   byond_hash_api: string | null;

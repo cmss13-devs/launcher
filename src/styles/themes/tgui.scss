@@ -502,7 +502,9 @@
     border-radius: 2px;
   }
 
-  .search-input {
+  .search-input,
+  .hub-login-form input[type="text"],
+  .hub-login-form input[type="password"] {
     border: 1px solid var(--border);
     border-radius: 2px;
     background: rgba(0, 0, 0, 0.2);

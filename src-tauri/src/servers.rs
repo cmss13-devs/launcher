@@ -109,8 +109,11 @@ impl HubApi {
             data,
             is_18_plus: hub.status.contains("18+"),
             version: topic.and_then(|ts| Self::get_str(ts, "version")),
-            recommended_byond_version: None,
-            tags: Vec::new(),
+            recommended_byond_version: topic.and_then(|ts| Self::get_str(ts, "version")),
+            tags: topic
+                .and_then(|ts| ts.get("tags"))
+                .and_then(|v| serde_json::from_value::<Vec<String>>(v.clone()).ok())
+                .unwrap_or_default(),
         }
     }
 

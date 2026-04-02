@@ -959,6 +959,39 @@ body {
   }
 }
 
+.hub-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+
+  input[type="text"],
+  input[type="password"] {
+    padding: 8px 10px;
+    border: 1px solid var(--primary-dim);
+    background: transparent;
+    color: var(--primary);
+    font-family: inherit;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+
+    &::placeholder {
+      color: var(--primary-dim);
+      opacity: 0.7;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+  }
+
+  .button {
+    margin-top: 4px;
+  }
+}
+
 .auth-spinner {
   width: 40px;
   height: 40px;

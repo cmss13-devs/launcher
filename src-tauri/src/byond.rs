@@ -439,7 +439,7 @@ async fn get_auth_for_connection(
     })?;
 
     match settings.auth_mode {
-        AuthMode::Oidc => {
+        AuthMode::Oidc | AuthMode::Hub => {
             let tokens = TokenStorage::get_tokens().map_err(|e| AuthError {
                 code: "token_error".to_string(),
                 message: e,
@@ -591,6 +591,36 @@ pub async fn connect_to_server(
                 auth_error: Some(auth_error),
             });
         }
+    };
+
+    // For hub auth, exchange the session token for a short-lived auth ticket
+    let current_auth_mode = load_settings(&app)
+        .map(|s| s.auth_mode)
+        .unwrap_or_default();
+    let (access_type, access_token) = if current_auth_mode == AuthMode::Hub {
+        if let Some(session_token) = &access_token {
+            let port_num: i32 = port
+                .parse()
+                .map_err(|_| format!("Invalid port: {port}"))?;
+            match crate::auth::hub_client::HubClient::join(session_token, &host, port_num).await {
+                Ok(ticket) => (Some("auth_ticket".to_string()), Some(ticket)),
+                Err(e) => {
+                    return Ok(ConnectionResult {
+                        success: false,
+                        message: format!("Failed to get auth ticket: {e}"),
+                        auth_error: Some(AuthError {
+                            code: "ticket_error".to_string(),
+                            message: format!("Failed to get auth ticket: {e}"),
+                            linking_url: None,
+                        }),
+                    });
+                }
+            }
+        } else {
+            (access_type, access_token)
+        }
+    } else {
+        (access_type, access_token)
     };
 
     let map_name = server.data.map(|d| d.map_name);

@@ -390,6 +390,15 @@ export const SettingsModal = ({
             </div>
           )}
           <div className="auth-mode-options">
+            {config?.urls.hub_api && (
+              <AuthModeOption
+                mode="hub"
+                currentMode={authMode}
+                name="SS13Hub Authentication"
+                description="Login with your SS13Hub account"
+                onChange={onAuthModeChange}
+              />
+            )}
             {config?.oidc && (
               <AuthModeOption
                 mode="oidc"

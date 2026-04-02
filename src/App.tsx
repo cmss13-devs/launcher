@@ -65,11 +65,13 @@ const AppContent = () => {
 
   const {
     login,
+    hubLogin,
     logout,
     initListener: initAuthListener,
   } = useAuthStore(
     useShallow((s) => ({
       login: s.login,
+      hubLogin: s.hubLogin,
       logout: s.logout,
       initListener: s.initListener,
     })),
@@ -415,6 +417,21 @@ const AppContent = () => {
     }
   }, [showError]);
 
+  const handleHubLogin = useCallback(
+    async (username: string, password: string, totpCode?: string) => {
+      setAuthModal({ visible: true, state: "loading", error: undefined });
+      const result = await hubLogin(username, password, totpCode);
+      if (result.success) {
+        setAuthModal({ visible: false, state: "idle", error: undefined });
+      } else if (result.requires2fa) {
+        setAuthModal({ visible: true, state: "2fa", error: undefined });
+      } else {
+        setAuthModal({ visible: true, state: "error", error: result.error });
+      }
+    },
+    [hubLogin],
+  );
+
   const handleAuthModalClose = useCallback(() => {
     setAuthModal({ visible: false, state: "idle", error: undefined });
   }, []);
@@ -563,7 +580,9 @@ const AppContent = () => {
       <AuthModal
         {...authModal}
         loginPrompt={config?.strings.login_prompt ?? "Please log in to continue."}
+        useHubAuth={config?.urls.hub_api != null}
         onLogin={handleLogin}
+        onHubLogin={handleHubLogin}
         onClose={handleAuthModalClose}
       />
       <SteamAuthModal
@@ -727,7 +746,7 @@ const AppContent = () => {
         <footer className="section footer">
           <div className="account-info">
             <AccountInfo
-              onLogin={handleLogin}
+              onLogin={onLoginRequired}
               onLogout={handleLogout}
               onSteamLogout={handleSteamLogout}
               onByondLogin={handleByondLogin}

@@ -12,6 +12,7 @@ pub enum AuthMode {
     #[default]
     #[serde(alias = "cm_ss13")]
     Oidc,
+    Hub,
     Byond,
     Steam,
 }
@@ -52,7 +53,9 @@ impl Default for AppSettings {
         #[cfg(feature = "steam")]
         let auth_mode = AuthMode::Steam;
         #[cfg(not(feature = "steam"))]
-        let auth_mode = if config.oidc.is_some() {
+        let auth_mode = if config.urls.hub_api.is_some() {
+            AuthMode::Hub
+        } else if config.oidc.is_some() {
             AuthMode::Oidc
         } else {
             AuthMode::Byond
