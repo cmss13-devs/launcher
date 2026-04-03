@@ -79,7 +79,13 @@ export interface ServerData {
   security_level?: string;
 }
 
+export interface ServerLink {
+  link: string;
+  type: "discord" | "wiki" | "web" | "github" | "forum" | "signal";
+}
+
 export interface Server {
+  id?: string;
   name: string;
   url: string;
   status: string;
@@ -91,6 +97,8 @@ export interface Server {
   recommended_byond_version?: string;
   tags?: string[];
   auth_methods?: string[];
+  description?: string;
+  links?: ServerLink[];
 }
 
 export interface WineStatus {

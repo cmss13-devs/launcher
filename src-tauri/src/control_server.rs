@@ -422,6 +422,7 @@ impl ControlServer {
                 fresh_params.server_name,
                 fresh_params.map_name,
                 Some("control_server_restart".to_string()),
+                fresh_params.server_id,
             )
             .await;
 
@@ -531,17 +532,16 @@ impl ControlServer {
                     Err(e) => return Err(format!("Failed to read auth tokens: {e}")),
                 };
 
-                let port_num: i32 = params
-                    .port
-                    .parse()
-                    .map_err(|_| format!("Invalid port: {}", params.port))?;
+                let server_id = params
+                    .server_id
+                    .as_deref()
+                    .ok_or("Server has no hub ID")?;
 
                 let hwid = generate_hwid();
 
                 crate::auth::hub_client::HubClient::join(
                     &session_token,
-                    &params.host,
-                    port_num,
+                    server_id,
                     hwid.as_deref(),
                 )
                 .await

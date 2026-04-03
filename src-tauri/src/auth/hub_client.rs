@@ -131,8 +131,7 @@ impl HubClient {
     /// Request an auth ticket for connecting to a game server.
     pub async fn join(
         token: &str,
-        server_ip: &str,
-        server_port: i32,
+        server_id: &str,
         hwid: Option<&str>,
     ) -> Result<String, HubAuthError> {
         let client = Self::from_config().map_err(HubAuthError::Config)?;
@@ -142,8 +141,7 @@ impl HubClient {
             .post(format!("{}/api/session/join", client.base_url))
             .header("Authorization", format!("SS13Auth {token}"))
             .json(&serde_json::json!({
-                "server_ip": server_ip,
-                "server_port": server_port,
+                "server_id": server_id,
                 "hwid": hwid,
             }))
             .send()

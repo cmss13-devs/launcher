@@ -333,6 +333,7 @@ mod implementation {
             server_name.clone(),
             map_name,
             Some("autoconnect".to_string()),
+            server.id.clone(),
         )
         .await
         {

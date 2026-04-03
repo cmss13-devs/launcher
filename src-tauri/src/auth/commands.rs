@@ -119,18 +119,18 @@ pub async fn get_auth_state() -> Result<AuthState, String> {
 
     let config = crate::config::get_config();
     if config.urls.hub_api.is_some() {
-        // Hub auth: fetch profile with session token
+        // Hub auth: refresh on launch to reset the 28-day expiry window.
+        // If refresh fails (e.g. network issue), fall back to validating
+        // the existing token so we don't log the user out unnecessarily.
         use super::hub_client::HubClient;
-        match HubClient::get_profile(&tokens.access_token).await {
-            Ok(user_info) => Ok(AuthState::logged_in(user_info)),
+        match refresh_tokens_internal(&tokens.access_token).await {
+            Ok(state) => Ok(state),
             Err(_) => {
-                // Try refresh
-                match refresh_tokens_internal(&tokens.access_token).await {
-                    Ok(state) => Ok(state),
-                    Err(_) => {
-                        TokenStorage::clear_tokens()?;
-                        Ok(AuthState::logged_out())
-                    }
+                if let Ok(user_info) = HubClient::get_profile(&tokens.access_token).await {
+                    Ok(AuthState::logged_in(user_info))
+                } else {
+                    TokenStorage::clear_tokens()?;
+                    Ok(AuthState::logged_out())
                 }
             }
         }
@@ -221,13 +221,12 @@ async fn refresh_tokens_internal(token: &str) -> Result<AuthState, String> {
         // Hub auth: refresh via ss13hub
         use super::hub_client::HubClient;
 
-        let result = HubClient::refresh(token)
-            .await
-            .map_err(|e| e.to_string())?;
+        let result = HubClient::refresh(token).await.map_err(|e| e.to_string())?;
 
-        let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time)
-            .map(|dt| dt.timestamp())
-            .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30);
+        let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time).map_or_else(
+            |_| chrono::Utc::now().timestamp() + 86400 * 30,
+            |dt| dt.timestamp(),
+        );
 
         TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
 

@@ -1,4 +1,6 @@
-import { faBell, faBellSlash, faShield, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faDiscord, faGithub, faSignalMessenger } from "@fortawesome/free-brands-svg-icons";
+import { faBell, faBellSlash, faBook, faChevronDown, faComments, faGlobe, faShield, faUsers } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { invoke } from "@tauri-apps/api/core";
 import type { MouseEvent } from "react";
@@ -7,6 +9,16 @@ import { useConnect, useError } from "../hooks";
 import { useConfigStore, useServerStore, useSettingsStore } from "../stores";
 import type { Server } from "../types";
 import { formatDuration } from "../utils";
+import { Modal, ModalContent } from "./Modal";
+
+const linkIconMap: Record<string, IconDefinition> = {
+  discord: faDiscord,
+  wiki: faBook,
+  web: faGlobe,
+  github: faGithub,
+  forum: faComments,
+  signal: faSignalMessenger,
+};
 
 interface ServerItemProps {
   server: Server;
@@ -24,8 +36,12 @@ export const ServerItem = ({
   autoConnecting = false,
 }: ServerItemProps) => {
   const [connecting, setConnecting] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const { showError } = useError();
   const { connect } = useConnect();
+
+  const hasInfo = !!(server.description || (server.links && server.links.length > 0));
 
   const config = useConfigStore((s) => s.config);
   const relaysReady = useServerStore((s) => s.relaysReady);
@@ -103,103 +119,174 @@ export const ServerItem = ({
           : undefined;
 
   return (
-    <div className={`server-item ${!isOnline ? "offline" : ""}`}>
-      <div className="server-info">
-        {showHubStatus ? (
-          <div
-            className="hub-status"
-            onClick={handleHubStatusClick}
-            onKeyDown={() => {}}
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML from BYOND hub
-            dangerouslySetInnerHTML={{ __html: server.hub_status }}
-          />
-        ) : (
-          <>
-            <div className="server-name">
-              {server.name}
-              {server.is_18_plus && <span className="badge badge-18plus">18+</span>}
-            </div>
-            {data ? (
-              <div className="server-details">
-                {modeMapParts.length > 0 && (
-                  <div className="detail-line">{modeMapParts.join(" · ")}</div>
-                )}
-                {(roundInfoParts.length > 0 || data.security_level) && (
-                  <div className="detail-line">
-                    {roundInfoParts.join(" · ")}
-                    {data.security_level &&
-                      data.security_level !== "no_warning" && (
-                        <>
-                          {roundInfoParts.length > 0 && " · "}
-                          <span style={{ color: securityLevelColor }}>
-                            {data.security_level.charAt(0).toUpperCase() +
-                              data.security_level.slice(1)}
-                          </span>
-                        </>
-                      )}
-                  </div>
-                )}
-                {server.tags && server.tags.length > 0 && (
-                  <div className="server-tags">
-                    {server.tags.map((tag) => (
-                      <span key={tag} className="badge badge-tag">{tag}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : !isOnline ? (
-              <div className="server-details">
-                <div className="detail-line dim">Offline</div>
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
-      <div className="server-status">
-        <div className="server-counts">
-          <div className="player-count">
-            <FontAwesomeIcon icon={faUsers} className="player-icon" />
-            {isOnline ? (
-              <>
-                {server.players}
-                {data?.popcap != null && `/${data.popcap}`}
-              </>
-            ) : (
-              "--"
-            )}
-          </div>
-          {data?.admins != null && data.admins > 0 && (
-            <div className="admin-count">
-              <FontAwesomeIcon icon={faShield} className="admin-icon" />
-              {data.admins}
-            </div>
-          )}
-        </div>
-        <div className="connect-group">
-          <button
-            type="button"
-            className="button connect-button"
-            onClick={handleConnect}
-            disabled={!canConnect || connecting || autoConnecting}
-          >
-            {connecting || autoConnecting ? "..." : "Connect"}
-          </button>
-          {data?.round_id != null && (
+    <>
+      <Modal
+        visible={pendingUrl !== null}
+        onClose={() => setPendingUrl(null)}
+        closeOnOverlayClick
+      >
+        <ModalContent title="Open External Link">
+          <p className="external-link-prompt">This will open in your browser:</p>
+          <p className="external-link-url">{pendingUrl}</p>
+          <div className="external-link-actions">
             <button
               type="button"
-              className={`notify-toggle ${notificationsEnabled ? "enabled" : ""}`}
-              onClick={handleToggleNotifications}
-              title={
-                notificationsEnabled
-                  ? "Disable restart notifications"
-                  : "Enable restart notifications"
-              }
+              className="button"
+              onClick={() => {
+                if (pendingUrl) invoke("open_url", { url: pendingUrl });
+                setPendingUrl(null);
+              }}
             >
-              <FontAwesomeIcon icon={notificationsEnabled ? faBell : faBellSlash} />
+              Open
             </button>
-          )}
+            <button
+              type="button"
+              className="button-cancel"
+              onClick={() => setPendingUrl(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </ModalContent>
+      </Modal>
+      <div className={`server-item ${!isOnline ? "offline" : ""} ${infoOpen ? "expanded" : ""}`}>
+        <div className="server-item-row">
+          <div className="server-info">
+            {showHubStatus ? (
+              <div
+                className="hub-status"
+                onClick={handleHubStatusClick}
+                onKeyDown={() => {}}
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML from BYOND hub
+                dangerouslySetInnerHTML={{ __html: server.hub_status }}
+              />
+            ) : (
+              <>
+                <div className="server-name">
+                  {server.name}
+                  {server.is_18_plus && <span className="badge badge-18plus">18+</span>}
+                </div>
+                {data ? (
+                  <div className="server-details">
+                    <div className="detail-line">
+                      {[
+                        ...modeMapParts,
+                        ...roundInfoParts,
+                        ...(data.security_level && data.security_level !== "no_warning"
+                          ? ["__security__"]
+                          : []),
+                      ]
+                        .map((part, i) =>
+                          part === "__security__" ? (
+                            <span key="sec" style={{ color: securityLevelColor }}>
+                              {i > 0 && " · "}
+                              {data.security_level!.charAt(0).toUpperCase() +
+                                data.security_level!.slice(1)}
+                            </span>
+                          ) : (
+                            <span key={String(part)}>
+                              {i > 0 && " · "}
+                              {part}
+                            </span>
+                          ),
+                        )}
+                    </div>
+                    {server.tags && server.tags.length > 0 && (
+                      <div className="server-tags">
+                        {server.tags.map((tag) => (
+                          <span key={tag} className="badge badge-tag">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : !isOnline ? (
+                  <div className="server-details">
+                    <div className="detail-line dim">Offline</div>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+          <div className="server-status">
+            <div className="server-counts">
+              <div className="player-count">
+                <FontAwesomeIcon icon={faUsers} className="player-icon" />
+                {isOnline ? (
+                  <>
+                    {server.players}
+                    {data?.popcap != null && `/${data.popcap}`}
+                  </>
+                ) : (
+                  "--"
+                )}
+              </div>
+              {data?.admins != null && data.admins > 0 && (
+                <div className="admin-count">
+                  <FontAwesomeIcon icon={faShield} className="admin-icon" />
+                  {data.admins}
+                </div>
+              )}
+            </div>
+            {hasInfo && (
+              <button
+                type="button"
+                className={`notify-toggle ${infoOpen ? "enabled" : ""}`}
+                onClick={() => setInfoOpen(!infoOpen)}
+                title="Server info"
+              >
+                <FontAwesomeIcon icon={faChevronDown} style={{ transform: infoOpen ? "rotate(180deg)" : undefined, transition: "transform 0.15s" }} />
+              </button>
+            )}
+            <div className="connect-group">
+              <button
+                type="button"
+                className="button connect-button"
+                onClick={handleConnect}
+                disabled={!canConnect || connecting || autoConnecting}
+              >
+                {connecting || autoConnecting ? "..." : "Connect"}
+              </button>
+              {data?.round_id != null && (
+                <button
+                  type="button"
+                  className={`notify-toggle ${notificationsEnabled ? "enabled" : ""}`}
+                  onClick={handleToggleNotifications}
+                  title={
+                    notificationsEnabled
+                      ? "Disable restart notifications"
+                      : "Enable restart notifications"
+                  }
+                >
+                  <FontAwesomeIcon icon={notificationsEnabled ? faBell : faBellSlash} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
+        {infoOpen && (
+          <div className="server-info-panel">
+            {server.description && (
+              <div className="server-description">{server.description}</div>
+            )}
+            {server.links && server.links.length > 0 && (
+              <div className="server-links">
+                {server.links.map((link) => (
+                  <button
+                    key={link.link}
+                    type="button"
+                    className="button-secondary server-link-button"
+                    onClick={() => setPendingUrl(link.link)}
+                    title={link.type}
+                  >
+                    <FontAwesomeIcon icon={linkIconMap[link.type] ?? faGlobe} />
+                    <span>{link.type.charAt(0).toUpperCase() + link.type.slice(1)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 };

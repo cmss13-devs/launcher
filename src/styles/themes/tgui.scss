@@ -106,11 +106,14 @@
     border: none;
     border-radius: 2px;
     background-color: rgba(255, 255, 255, 0.03);
-    padding: 10px 12px;
 
     &:hover {
       background-color: rgba(255, 255, 255, 0.08);
     }
+  }
+
+  .server-item-row {
+    padding: 10px 12px;
   }
 
   .server-name {
@@ -173,6 +176,22 @@
     }
   }
 
+  .button-cancel {
+    background-color: transparent;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-dim);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
+
+    &:hover {
+      background-color: var(--bg-highlight);
+      color: var(--text);
+      border-color: var(--text-dim);
+    }
+  }
+
   .connect-group {
     border-radius: 2px;
     overflow: hidden;
@@ -188,7 +207,6 @@
     border-radius: 0;
     background-color: var(--bg-highlight);
     color: var(--text-dim);
-    border-left: 1px solid var(--border);
 
     &:hover {
       background-color: var(--bg-highlight-dim);

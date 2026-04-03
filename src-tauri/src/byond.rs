@@ -393,6 +393,7 @@ pub async fn connect_to_server_internal(
     server_name: String,
     map_name: Option<String>,
     source: Option<String>,
+    server_id: Option<String>,
 ) -> Result<ConnectionResult, String> {
     let source_str = source.as_deref().unwrap_or("unknown");
 
@@ -426,6 +427,7 @@ pub async fn connect_to_server_internal(
         server_name,
         map_name,
         source,
+        server_id,
     )
     .await;
 
@@ -604,11 +606,9 @@ pub async fn connect_to_server(
         .unwrap_or_default();
     let (access_type, access_token) = if current_auth_mode == AuthMode::Hub {
         if let Some(session_token) = &access_token {
-            let port_num: i32 = port
-                .parse()
-                .map_err(|_| format!("Invalid port: {port}"))?;
+            let server_id = server.id.as_deref().ok_or("Server has no hub ID")?;
             let hwid = crate::control_server::generate_hwid();
-            match crate::auth::hub_client::HubClient::join(session_token, &host, port_num, hwid.as_deref()).await {
+            match crate::auth::hub_client::HubClient::join(session_token, server_id, hwid.as_deref()).await {
                 Ok(ticket) => (Some("auth_ticket".to_string()), Some(ticket)),
                 Err(e) => {
                     return Ok(ConnectionResult {
@@ -649,10 +649,12 @@ pub async fn connect_to_server(
         server_name,
         map_name,
         source,
+        server.id,
     )
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
 async fn connect_to_server_impl(
     app: AppHandle,
@@ -664,6 +666,7 @@ async fn connect_to_server_impl(
     server_name: String,
     map_name: Option<String>,
     source: Option<String>,
+    server_id: Option<String>,
 ) -> Result<ConnectionResult, String> {
     let version_info = install_byond_version(app.clone(), version.clone()).await?;
 
@@ -823,6 +826,7 @@ async fn connect_to_server_impl(
                     access_token,
                     server_name: server_name.clone(),
                     map_name: map_name.clone(),
+                    server_id: server_id.clone(),
                 });
 
                 if let Some(pid) = dreamseeker_pid {
@@ -872,6 +876,7 @@ async fn connect_to_server_impl(
                     access_token,
                     server_name: server_name.clone(),
                     map_name: map_name.clone(),
+                    server_id: server_id.clone(),
                 });
 
                 manager.start_game_session(server_name.clone(), map_name.clone(), child);
@@ -1166,6 +1171,7 @@ pub async fn connect_to_url(
             format!("Dev Server ({url})"),
             None,
             source,
+            None,
         )
         .await
     }

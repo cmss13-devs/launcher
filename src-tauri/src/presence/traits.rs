@@ -13,6 +13,7 @@ pub struct ConnectionParams {
     pub access_token: Option<String>,
     pub server_name: String,
     pub map_name: Option<String>,
+    pub server_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]

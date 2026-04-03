@@ -244,6 +244,9 @@ const AppContent = () => {
     return sorted;
   }, [servers, config?.features.singleplayer]);
 
+  const hasOffline = useMemo(() => servers.some((s) => s.status !== "available"), [servers]);
+  const hasHubStatus = useMemo(() => servers.some((s) => s.hub_status.length > 0), [servers]);
+
   const filteredServers = useMemo(() => {
     const seen = new Set<string>();
     const uniqueServers = servers.filter((server) => {
@@ -676,14 +679,16 @@ const AppContent = () => {
                         </button>
                         {filtersOpen && (
                           <div className="filters-menu">
-                            <label className="filter-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={showHubStatus}
-                                onChange={(e) => setShowHubStatus(e.target.checked)}
-                              />
-                              <span>Show hub status</span>
-                            </label>
+                            {hasHubStatus && (
+                              <label className="filter-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={showHubStatus}
+                                  onChange={(e) => setShowHubStatus(e.target.checked)}
+                                />
+                                <span>Show hub status</span>
+                              </label>
+                            )}
                             <label className="filter-checkbox">
                               <input
                                 type="checkbox"
@@ -692,14 +697,16 @@ const AppContent = () => {
                               />
                               <span>Show 18+ servers</span>
                             </label>
-                            <label className="filter-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={showOffline}
-                                onChange={(e) => setShowOffline(e.target.checked)}
-                              />
-                              <span>Show offline servers</span>
-                            </label>
+                            {hasOffline && (
+                              <label className="filter-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={showOffline}
+                                  onChange={(e) => setShowOffline(e.target.checked)}
+                                />
+                                <span>Show offline servers</span>
+                              </label>
+                            )}
                           </div>
                         )}
                       </div>

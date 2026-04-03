@@ -353,9 +353,7 @@ body {
 
 .server-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
+  flex-direction: column;
   border: 1px solid var(--primary-faint);
   background-color: var(--bg-highlight-faint);
   transition: var(--transition);
@@ -368,6 +366,13 @@ body {
   &.offline {
     opacity: 0.6;
   }
+}
+
+.server-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
 }
 
 .server-info {
@@ -432,6 +437,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  align-self: center;
   gap: 2px;
   min-width: 50px;
 }
@@ -508,7 +514,7 @@ body {
 
 .server-status {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
 }
 
@@ -555,7 +561,6 @@ body {
 .notify-toggle {
   background: transparent;
   border: 2px solid var(--primary);
-  border-left: 1px solid var(--primary);
   color: var(--primary-dim);
   width: 36px;
   flex-shrink: 0;
@@ -574,6 +579,64 @@ body {
   &.enabled {
     color: var(--primary);
     background-color: var(--bg-highlight-dim);
+  }
+}
+
+.server-info-panel {
+  padding: 0 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.server-description {
+  color: var(--text, #ccc);
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+  white-space: pre-line;
+}
+
+.server-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.button-secondary.server-link-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.external-link-prompt {
+  color: var(--text, #ccc);
+  font-size: 14px;
+  margin: 8px 0 4px;
+}
+
+.external-link-url {
+  color: var(--primary);
+  font-size: 13px;
+  word-break: break-all;
+  padding: 8px;
+  background-color: var(--bg-highlight-faint);
+  border: 1px solid var(--primary-faint);
+  margin: 0 0 12px;
+}
+
+.external-link-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+
+  .button,
+  .button-cancel {
+    flex: 1;
+    display: block;
+    text-align: center;
   }
 }
 
@@ -969,6 +1032,29 @@ body {
 
   .button {
     margin-top: 8px;
+  }
+
+  .external-link-actions .button,
+  .external-link-actions .button-cancel {
+    margin-top: 0;
+  }
+}
+
+.button-cancel {
+  background-color: transparent;
+  border: 2px solid var(--primary-dim);
+  color: var(--primary-dim);
+  padding: 8px 16px;
+  font-weight: 900;
+  font-family: monospace;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: var(--transition);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
   }
 }
 

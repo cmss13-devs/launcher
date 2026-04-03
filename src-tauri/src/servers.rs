@@ -1,7 +1,6 @@
 use crate::config::get_config;
 use crate::settings::load_settings;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -29,6 +28,7 @@ pub struct ServerData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Server {
+    pub id: Option<String>,
     pub name: String,
     pub url: String,
     pub status: String,
@@ -47,6 +47,17 @@ pub struct Server {
     pub tags: Vec<String>,
     #[serde(default)]
     pub auth_methods: Vec<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub links: Vec<ServerLink>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerLink {
+    pub link: String,
+    #[serde(rename = "type")]
+    pub link_type: String,
 }
 
 trait ServerApi: Send + Sync {
@@ -56,17 +67,46 @@ struct HubApi;
 
 #[derive(Debug, Deserialize)]
 struct HubServer {
+    id: String,
     address: String,
-    name: String,
     #[serde(default)]
-    status: String,
-    #[serde(default)]
-    topic_status: Option<Value>,
-    online: bool,
-    #[serde(default)]
-    players: i32,
+    status: Option<HubServerStatus>,
     #[serde(default)]
     auth_methods: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HubServerStatus {
+    pop: i32,
+    display_name: String,
+    #[serde(default)]
+    pop_cap: Option<i32>,
+    #[serde(default)]
+    server_tags: Option<Vec<String>>,
+    #[serde(default)]
+    client_version: Option<String>,
+    #[serde(default)]
+    round: Option<HubRoundInfo>,
+    #[serde(default)]
+    connection_address: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default)]
+    links: Option<Vec<ServerLink>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct HubRoundInfo {
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    gamemode: Option<String>,
+    #[serde(default)]
+    map_name: Option<String>,
+    #[serde(default)]
+    duration: Option<f64>,
+    #[serde(default)]
+    security_level: Option<String>,
 }
 
 impl ServerApi for HubApi {
@@ -80,62 +120,62 @@ impl ServerApi for HubApi {
 
 impl HubApi {
     fn convert(hub: HubServer) -> Server {
-        let topic = hub.topic_status.as_ref();
+        let (name, players, data, version, tags, is_18_plus, description, links, connection_address) =
+            if let Some(ref s) = hub.status {
+                let round = s.round.as_ref();
 
-        let data = topic.and_then(|ts| {
-            ts.get("round_id")
-                .and_then(serde_json::Value::as_i64)
-                .map(|round_id| ServerData {
-                    round_id,
-                    mode: Self::get_str(ts, "mode").unwrap_or_default(),
-                    map_name: Self::get_str(ts, "map_name")
-                        .or_else(|| Self::get_str(ts, "map"))
-                        .unwrap_or_default(),
-                    round_duration: Self::get_f64(ts, "round_duration").unwrap_or(0.0),
-                    gamestate: Self::get_i32(ts, "gamestate").unwrap_or(0),
-                    players: Self::get_i32(ts, "players").unwrap_or(hub.players),
-                    admins: Self::get_i32(ts, "admins"),
-                    popcap: Self::get_i32(ts, "popcap"),
-                    security_level: Self::get_str(ts, "security_level"),
-                })
-        });
+                let data = round.and_then(|r| {
+                    r.id.as_deref()
+                        .and_then(|id| id.parse::<i64>().ok())
+                        .map(|round_id| ServerData {
+                            round_id,
+                            mode: r.gamemode.clone().unwrap_or_default(),
+                            map_name: r.map_name.clone().unwrap_or_default(),
+                            round_duration: r.duration.unwrap_or(0.0),
+                            gamestate: 0,
+                            players: s.pop,
+                            admins: None,
+                            popcap: s.pop_cap,
+                            security_level: r.security_level.clone(),
+                        })
+                });
 
-        let address = topic
-            .and_then(|ts| Self::get_str(ts, "public_address"))
-            .unwrap_or_else(|| hub.address.clone());
+                let tags = s.server_tags.clone().unwrap_or_default();
+                let is_18_plus = tags.iter().any(|t| t == "18+");
+
+                (
+                    s.display_name.clone(),
+                    s.pop,
+                    data,
+                    s.client_version.clone(),
+                    tags,
+                    is_18_plus,
+                    s.description.clone(),
+                    s.links.clone().unwrap_or_default(),
+                    s.connection_address.clone(),
+                )
+            } else {
+                (hub.address.clone(), 0, None, None, Vec::new(), false, None, Vec::new(), None)
+            };
+
+        let address = connection_address.unwrap_or(hub.address);
 
         Server {
-            name: hub.name,
+            id: Some(hub.id),
+            name,
             url: format!("byond://{address}"),
-            status: if hub.online { "available" } else { "offline" }.to_string(),
-            hub_status: hub.status.clone(),
-            players: hub.players,
+            status: "available".to_string(),
+            hub_status: String::new(),
+            players,
             data,
-            is_18_plus: hub.status.contains("18+"),
-            version: topic.and_then(|ts| Self::get_str(ts, "version")),
-            recommended_byond_version: topic.and_then(|ts| Self::get_str(ts, "version")),
-            tags: topic
-                .and_then(|ts| ts.get("tags"))
-                .and_then(|v| serde_json::from_value::<Vec<String>>(v.clone()).ok())
-                .unwrap_or_default(),
+            is_18_plus,
+            version: version.clone(),
+            recommended_byond_version: version,
+            tags,
             auth_methods: hub.auth_methods,
+            description,
+            links,
         }
-    }
-
-    fn get_str(value: &Value, key: &str) -> Option<String> {
-        value.get(key).and_then(|v| v.as_str()).map(String::from)
-    }
-
-    #[allow(clippy::cast_possible_truncation)] // server data fits in i32
-    fn get_i32(value: &Value, key: &str) -> Option<i32> {
-        value
-            .get(key)
-            .and_then(serde_json::Value::as_i64)
-            .map(|v| v as i32)
-    }
-
-    fn get_f64(value: &Value, key: &str) -> Option<f64> {
-        value.get(key).and_then(serde_json::Value::as_f64)
     }
 }
 
@@ -208,6 +248,7 @@ impl CmApi {
         });
 
         Server {
+            id: None,
             name: cm.name,
             url: format!("byond://{}", cm.url),
             status: cm.status,
@@ -219,6 +260,8 @@ impl CmApi {
             recommended_byond_version: cm.recommended_byond_version,
             tags: cm.tags.unwrap_or_default(),
             auth_methods: Vec::new(),
+            description: None,
+            links: Vec::new(),
         }
     }
 }
