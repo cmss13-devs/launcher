@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 #[cfg(target_os = "linux")]
@@ -29,11 +30,222 @@ use crate::wine;
 use crate::steam::{authenticate_with_steam, SteamState};
 
 static CONNECTING: AtomicBool = AtomicBool::new(false);
+
+const VERSIONS_FILE: &str = "byond_versions.json";
+
+const ALLOWED_BIN_FILES: &[&str] = &[
+    "dreamseeker.exe",
+    "byond.exe",
+    "byondcore.dll",
+    "byondwin.dll",
+    "WebView2Loader.dll",
+    "fmodex.dll",
+];
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ByondVersionEntry {
+    pub installed_at: String,
+    pub last_used: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct ByondVersionStore {
+    pub versions: HashMap<String, ByondVersionEntry>,
+}
+
+fn load_version_store(app: &AppHandle) -> Result<ByondVersionStore, String> {
+    let path = get_byond_base_dir(app)?.join(VERSIONS_FILE);
+    if !path.exists() {
+        return Ok(ByondVersionStore::default());
+    }
+    let contents = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to read version store, using defaults: {}", e);
+            return Ok(ByondVersionStore::default());
+        }
+    };
+    match serde_json::from_str(&contents) {
+        Ok(store) => Ok(store),
+        Err(e) => {
+            tracing::warn!("Failed to parse version store, using defaults: {}", e);
+            Ok(ByondVersionStore::default())
+        }
+    }
+}
+
+fn save_version_store(app: &AppHandle, store: &ByondVersionStore) -> Result<(), String> {
+    let base = get_byond_base_dir(app)?;
+    fs::create_dir_all(&base).map_err(|e| format!("Failed to create BYOND directory: {e}"))?;
+    let path = base.join(VERSIONS_FILE);
+    let contents = serde_json::to_string_pretty(store)
+        .map_err(|e| format!("Failed to serialize version store: {e}"))?;
+    fs::write(&path, contents).map_err(|e| format!("Failed to write version store: {e}"))
+}
+
+fn record_version_installed(app: &AppHandle, version: &str) -> Result<(), String> {
+    let mut store = load_version_store(app)?;
+    store.versions.insert(
+        version.to_string(),
+        ByondVersionEntry {
+            installed_at: chrono::Utc::now().to_rfc3339(),
+            last_used: None,
+        },
+    );
+    save_version_store(app, &store)
+}
+
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+fn record_version_used(app: &AppHandle, version: &str) -> Result<(), String> {
+    let mut store = load_version_store(app)?;
+    if let Some(entry) = store.versions.get_mut(version) {
+        entry.last_used = Some(chrono::Utc::now().to_rfc3339());
+    } else {
+        store.versions.insert(
+            version.to_string(),
+            ByondVersionEntry {
+                installed_at: chrono::Utc::now().to_rfc3339(),
+                last_used: Some(chrono::Utc::now().to_rfc3339()),
+            },
+        );
+    }
+    save_version_store(app, &store)
+}
+
+fn remove_version_from_store(app: &AppHandle, version: &str) -> Result<(), String> {
+    let mut store = load_version_store(app)?;
+    store.versions.remove(version);
+    save_version_store(app, &store)
+}
+
+/// Remove old BYOND versions that are not in the 10 most recently used
+/// and were last used more than 30 days ago.
+pub fn cleanup_old_versions(app: &AppHandle) {
+    let store = match load_version_store(app) {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::warn!("Failed to load version store for cleanup: {}", e);
+            return;
+        }
+    };
+
+    if store.versions.is_empty() {
+        return;
+    }
+
+    let now = chrono::Utc::now();
+    let cutoff = now - chrono::Duration::days(30);
+
+    let mut sorted: Vec<(&String, &ByondVersionEntry)> = store.versions.iter().collect();
+    sorted.sort_by(|a, b| {
+        let a_time = a.1.last_used.as_deref().unwrap_or("");
+        let b_time = b.1.last_used.as_deref().unwrap_or("");
+        b_time.cmp(a_time)
+    });
+
+    let to_check = sorted.into_iter().skip(10);
+
+    let mut versions_to_remove = Vec::new();
+    for (version, entry) in to_check {
+        let is_old = match &entry.last_used {
+            Some(ts) => chrono::DateTime::parse_from_rfc3339(ts)
+                .map(|t| t < cutoff)
+                .unwrap_or(true),
+            None => {
+                // Never used — check installed_at instead
+                chrono::DateTime::parse_from_rfc3339(&entry.installed_at)
+                    .map(|t| t < cutoff)
+                    .unwrap_or(true)
+            }
+        };
+        if is_old {
+            versions_to_remove.push(version.clone());
+        }
+    }
+
+    for version in &versions_to_remove {
+        match get_byond_version_dir(app, version) {
+            Ok(dir) => {
+                if dir.exists() {
+                    if let Err(e) = fs::remove_dir_all(&dir) {
+                        tracing::warn!("Failed to remove old BYOND version {}: {}", version, e);
+                        continue;
+                    }
+                }
+                tracing::info!("Cleaned up old BYOND version: {}", version);
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get path for BYOND version {}: {}", version, e);
+                continue;
+            }
+        }
+        if let Err(e) = remove_version_from_store(app, version) {
+            tracing::warn!("Failed to remove {} from version store: {}", version, e);
+        }
+    }
+
+    if !versions_to_remove.is_empty() {
+        tracing::info!(
+            "Cleaned up {} old BYOND version(s)",
+            versions_to_remove.len()
+        );
+    }
+}
+
+/// Trim a BYOND installation to only the files needed at runtime.
+fn trim_byond_install(version_dir: &std::path::Path) -> Result<(), String> {
+    let byond_dir = version_dir.join("byond");
+    if !byond_dir.exists() {
+        return Ok(());
+    }
+
+    let entries =
+        fs::read_dir(&byond_dir).map_err(|e| format!("Failed to read byond directory: {e}"))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+        let path = entry.path();
+        let name = entry.file_name();
+        if name == "bin" {
+            continue;
+        }
+        if path.is_dir() {
+            fs::remove_dir_all(&path).ok();
+        } else {
+            fs::remove_file(&path).ok();
+        }
+    }
+
+    let bin_dir = byond_dir.join("bin");
+    if bin_dir.exists() {
+        let bin_entries =
+            fs::read_dir(&bin_dir).map_err(|e| format!("Failed to read bin directory: {e}"))?;
+        for entry in bin_entries {
+            let entry = entry.map_err(|e| format!("Failed to read bin entry: {e}"))?;
+            let path = entry.path();
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy().to_lowercase();
+            let allowed = ALLOWED_BIN_FILES
+                .iter()
+                .any(|f| f.to_lowercase() == name_str);
+            if !allowed {
+                if path.is_dir() {
+                    fs::remove_dir_all(&path).ok();
+                } else {
+                    fs::remove_file(&path).ok();
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ByondVersionInfo {
     pub version: String,
     pub installed: bool,
     pub path: Option<String>,
+    pub last_used: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -48,6 +260,100 @@ pub struct ConnectionResult {
     pub success: bool,
     pub message: String,
     pub auth_error: Option<AuthError>,
+}
+
+use crate::servers::EngineRequirements;
+
+fn parse_byond_version(v: &str) -> Option<(u32, u32)> {
+    let parts: Vec<&str> = v.split('.').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let major = parts.first()?.parse::<u32>().ok()?;
+    let minor = parts.get(1)?.parse::<u32>().ok()?;
+    Some((major, minor))
+}
+
+fn version_cmp(a: &str, b: &str) -> Option<std::cmp::Ordering> {
+    let a = parse_byond_version(a)?;
+    let b = parse_byond_version(b)?;
+    Some(a.cmp(&b))
+}
+
+/// Select the best BYOND version to use given engine constraints.
+/// Returns the version string to use (may need to be installed).
+pub fn select_byond_version(
+    engine: Option<&EngineRequirements>,
+    app: &AppHandle,
+) -> Result<String, String> {
+    let config = crate::config::get_config();
+    let default_version = config.default_byond_version.map(str::to_string);
+
+    let Some(engine) = engine else {
+        // No engine requirements — use default
+        return default_version.ok_or_else(|| {
+            "No engine requirements and no default BYOND version configured".to_string()
+        });
+    };
+
+    // If no constraints at all, use default
+    if engine.min_version.is_none()
+        && engine.max_version.is_none()
+        && engine.blacklisted_versions.is_empty()
+    {
+        return default_version.ok_or_else(|| {
+            "No engine requirements and no default BYOND version configured".to_string()
+        });
+    }
+
+    let store = load_version_store(app)?;
+    let installed: Vec<&String> = store.versions.keys().collect();
+
+    // Filter installed versions by constraints
+    let mut valid: Vec<&String> = installed
+        .into_iter()
+        .filter(|v| {
+            if engine.blacklisted_versions.contains(v) {
+                return false;
+            }
+            if let Some(ref min) = engine.min_version {
+                if version_cmp(v, min) == Some(std::cmp::Ordering::Less) {
+                    return false;
+                }
+            }
+            if let Some(ref max) = engine.max_version {
+                if version_cmp(v, max) == Some(std::cmp::Ordering::Greater) {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+
+    // Sort by version descending, pick highest
+    valid.sort_by(|a, b| version_cmp(b, a).unwrap_or(std::cmp::Ordering::Equal));
+
+    if let Some(best) = valid.first() {
+        return Ok((*best).clone());
+    }
+
+    // No valid installed version — determine what to download
+    if let Some(ref max) = engine.max_version {
+        // If max is set (whether or not min is set), download max
+        if !engine.blacklisted_versions.contains(max) {
+            return Ok(max.clone());
+        }
+    }
+    if let Some(ref min) = engine.min_version {
+        if !engine.blacklisted_versions.contains(min) {
+            return Ok(min.clone());
+        }
+    }
+
+    // All constraint versions are blacklisted, fall back to default
+    default_version.ok_or_else(|| {
+        "No suitable BYOND version available (all candidates are blacklisted)".to_string()
+    })
 }
 
 /// Build a BYOND connection URL with optional auth and launcher ports.
@@ -136,6 +442,14 @@ pub async fn check_byond_version(
     let dreamseeker_path = get_dreamseeker_path(&app, &version)?;
     let installed = dreamseeker_path.exists();
 
+    let last_used = if installed {
+        load_version_store(&app)
+            .ok()
+            .and_then(|s| s.versions.get(&version).and_then(|e| e.last_used.clone()))
+    } else {
+        None
+    };
+
     Ok(ByondVersionInfo {
         version,
         installed,
@@ -144,6 +458,7 @@ pub async fn check_byond_version(
         } else {
             None
         },
+        last_used,
     })
 }
 
@@ -375,6 +690,9 @@ pub async fn install_byond_version(
         }
     }
 
+    trim_byond_install(&version_dir)?;
+    record_version_installed(&app, &version)?;
+
     tracing::info!("BYOND version {} installed successfully", version);
 
     check_byond_version(app, version).await
@@ -548,14 +866,7 @@ pub async fn connect_to_server(
         .ok_or_else(|| format!("Server '{server_name}' not found"))?
         .clone();
 
-    let version = server
-        .recommended_byond_version
-        .or_else(|| {
-            crate::config::get_config()
-                .default_byond_version
-                .map(std::string::ToString::to_string)
-        })
-        .ok_or("Server has no recommended BYOND version and no default configured")?;
+    let version = select_byond_version(server.engine.as_ref(), &app)?;
 
     let config = crate::config::get_config();
 
@@ -601,14 +912,18 @@ pub async fn connect_to_server(
     };
 
     // For hub auth, exchange the session token for a short-lived auth ticket
-    let current_auth_mode = load_settings(&app)
-        .map(|s| s.auth_mode)
-        .unwrap_or_default();
+    let current_auth_mode = load_settings(&app).map(|s| s.auth_mode).unwrap_or_default();
     let (access_type, access_token) = if current_auth_mode == AuthMode::Hub {
         if let Some(session_token) = &access_token {
             let server_id = server.id.as_deref().ok_or("Server has no hub ID")?;
             let hwid = crate::control_server::generate_hwid();
-            match crate::auth::hub_client::HubClient::join(session_token, server_id, hwid.as_deref()).await {
+            match crate::auth::hub_client::HubClient::join(
+                session_token,
+                server_id,
+                hwid.as_deref(),
+            )
+            .await
+            {
                 Ok(ticket) => (Some("auth_ticket".to_string()), Some(ticket)),
                 Err(e) => {
                     return Ok(ConnectionResult {
@@ -897,6 +1212,11 @@ async fn connect_to_server_impl(
             }
         }
 
+        // Record last-used timestamp
+        if let Err(e) = record_version_used(&app, &version) {
+            tracing::warn!("Failed to record BYOND version usage: {}", e);
+        }
+
         #[cfg(target_os = "windows")]
         let message = format!("Connecting to {} with BYOND {}", host, version);
         #[cfg(target_os = "linux")]
@@ -935,7 +1255,9 @@ pub async fn list_installed_byond_versions(
         return Ok(vec![]);
     }
 
+    let mut store = load_version_store(&app)?;
     let mut versions = Vec::new();
+    let mut store_changed = false;
 
     let entries =
         fs::read_dir(&base_dir).map_err(|e| format!("Failed to read BYOND directory: {e}"))?;
@@ -954,6 +1276,22 @@ pub async fn list_installed_byond_versions(
         }
     }
 
+    let installed_versions: Vec<String> = versions.iter().map(|v| v.version.clone()).collect();
+    let stale_keys: Vec<String> = store
+        .versions
+        .keys()
+        .filter(|k| !installed_versions.contains(k))
+        .cloned()
+        .collect();
+    for key in stale_keys {
+        store.versions.remove(&key);
+        store_changed = true;
+    }
+
+    if store_changed {
+        save_version_store(&app, &store)?;
+    }
+
     Ok(versions)
 }
 
@@ -965,6 +1303,7 @@ pub async fn delete_byond_version(app: AppHandle, version: String) -> Result<boo
         tracing::info!("Deleting BYOND version: {}", version);
         fs::remove_dir_all(&version_dir)
             .map_err(|e| format!("Failed to delete BYOND version: {e}"))?;
+        remove_version_from_store(&app, &version)?;
         Ok(true)
     } else {
         Ok(false)

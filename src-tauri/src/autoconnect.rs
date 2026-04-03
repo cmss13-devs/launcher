@@ -189,22 +189,19 @@ mod implementation {
             return;
         };
 
-        let version = if let Some(v) = &server.recommended_byond_version {
-            v.clone()
-        } else {
-            // Fall back to launcher's default BYOND version if configured
-            let Some(v) = crate::config::get_config().default_byond_version else {
-                tracing::error!("No BYOND version specified for server");
+        let version = match crate::byond::select_byond_version(server.engine.as_ref(), &handle) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::error!("No suitable BYOND version: {}", e);
                 emit_status(
                     &handle,
                     &server_name,
                     AutoConnectStatus::Error,
-                    Some("No BYOND version specified".to_string()),
+                    Some(e),
                     None,
                 );
                 return;
-            };
-            v.to_string()
+            }
         };
 
         let settings = match load_settings(&handle) {

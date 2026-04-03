@@ -392,6 +392,8 @@ pub fn run() {
                 relays::init_relays(&relay_state_init, &handle_for_relay_init).await;
             });
 
+            byond::cleanup_old_versions(&handle);
+
             autoconnect::check_and_start_autoconnect(handle.clone());
 
             if let Some(mut overlay_rx) = steam_overlay_rx {

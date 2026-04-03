@@ -26,6 +26,16 @@ pub struct ServerData {
     pub security_level: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EngineRequirements {
+    #[serde(default)]
+    pub min_version: Option<String>,
+    #[serde(default)]
+    pub max_version: Option<String>,
+    #[serde(default)]
+    pub blacklisted_versions: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Server {
     pub id: Option<String>,
@@ -42,7 +52,8 @@ pub struct Server {
     pub is_18_plus: bool,
     #[serde(default)]
     pub version: Option<String>,
-    pub recommended_byond_version: Option<String>,
+    #[serde(default)]
+    pub engine: Option<EngineRequirements>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
@@ -76,6 +87,16 @@ struct HubServer {
 }
 
 #[derive(Debug, Deserialize)]
+struct HubEngineInfo {
+    #[serde(default)]
+    min_version: Option<String>,
+    #[serde(default)]
+    max_version: Option<String>,
+    #[serde(default)]
+    blacklisted_versions: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
 struct HubServerStatus {
     pop: i32,
     display_name: String,
@@ -84,7 +105,7 @@ struct HubServerStatus {
     #[serde(default)]
     server_tags: Option<Vec<String>>,
     #[serde(default)]
-    client_version: Option<String>,
+    engine: Option<HubEngineInfo>,
     #[serde(default)]
     round: Option<HubRoundInfo>,
     #[serde(default)]
@@ -120,7 +141,7 @@ impl ServerApi for HubApi {
 
 impl HubApi {
     fn convert(hub: HubServer) -> Server {
-        let (name, players, data, version, tags, is_18_plus, description, links, connection_address) =
+        let (name, players, data, engine, tags, is_18_plus, description, links, connection_address) =
             if let Some(ref s) = hub.status {
                 let round = s.round.as_ref();
 
@@ -140,6 +161,12 @@ impl HubApi {
                         })
                 });
 
+                let engine = s.engine.as_ref().map(|e| EngineRequirements {
+                    min_version: e.min_version.clone(),
+                    max_version: e.max_version.clone(),
+                    blacklisted_versions: e.blacklisted_versions.clone().unwrap_or_default(),
+                });
+
                 let tags = s.server_tags.clone().unwrap_or_default();
                 let is_18_plus = tags.iter().any(|t| t == "18+");
 
@@ -147,7 +174,7 @@ impl HubApi {
                     s.display_name.clone(),
                     s.pop,
                     data,
-                    s.client_version.clone(),
+                    engine,
                     tags,
                     is_18_plus,
                     s.description.clone(),
@@ -169,8 +196,8 @@ impl HubApi {
             players,
             data,
             is_18_plus,
-            version: version.clone(),
-            recommended_byond_version: version,
+            version: None,
+            engine,
             tags,
             auth_methods: hub.auth_methods,
             description,
@@ -247,6 +274,12 @@ impl CmApi {
             })
         });
 
+        let engine = cm.recommended_byond_version.map(|v| EngineRequirements {
+            min_version: Some(v.clone()),
+            max_version: Some(v),
+            blacklisted_versions: Vec::new(),
+        });
+
         Server {
             id: None,
             name: cm.name,
@@ -257,7 +290,7 @@ impl CmApi {
             data,
             is_18_plus: false,
             version: None,
-            recommended_byond_version: cm.recommended_byond_version,
+            engine,
             tags: cm.tags.unwrap_or_default(),
             auth_methods: Vec::new(),
             description: None,

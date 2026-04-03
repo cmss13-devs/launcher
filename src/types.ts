@@ -84,6 +84,12 @@ export interface ServerLink {
   type: "discord" | "wiki" | "web" | "github" | "forum" | "signal";
 }
 
+export interface EngineRequirements {
+  min_version?: string;
+  max_version?: string;
+  blacklisted_versions: string[];
+}
+
 export interface Server {
   id?: string;
   name: string;
@@ -94,7 +100,7 @@ export interface Server {
   data?: ServerData;
   is_18_plus: boolean;
   version?: string;
-  recommended_byond_version?: string;
+  engine?: EngineRequirements;
   tags?: string[];
   auth_methods?: string[];
   description?: string;
