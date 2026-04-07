@@ -31,6 +31,18 @@ use crate::steam::{authenticate_with_steam, SteamState};
 
 static CONNECTING: AtomicBool = AtomicBool::new(false);
 
+pub struct ConnectionRequest {
+    pub version: String,
+    pub host: String,
+    pub port: String,
+    pub access_type: Option<String>,
+    pub access_token: Option<String>,
+    pub server_name: String,
+    pub map_name: Option<String>,
+    pub source: Option<String>,
+    pub server_id: Option<String>,
+}
+
 const VERSIONS_FILE: &str = "byond_versions.json";
 
 const ALLOWED_BIN_FILES: &[&str] = &[
@@ -699,27 +711,17 @@ pub async fn install_byond_version(
 }
 
 /// Internal function for connecting with explicit auth params.
-/// Used by autoconnect and the simplified `connect_to_server` command.
-#[allow(clippy::too_many_arguments)]
-pub async fn connect_to_server_internal(
+pub async fn connect(
     app: AppHandle,
-    version: String,
-    host: String,
-    port: String,
-    access_type: Option<String>,
-    access_token: Option<String>,
-    server_name: String,
-    map_name: Option<String>,
-    source: Option<String>,
-    server_id: Option<String>,
+    req: ConnectionRequest,
 ) -> Result<ConnectionResult, String> {
-    let source_str = source.as_deref().unwrap_or("unknown");
+    let source_str = req.source.as_deref().unwrap_or("unknown");
 
     if CONNECTING.swap(true, Ordering::SeqCst) {
         tracing::warn!(
             "[connect_to_server] BLOCKED duplicate connection attempt, source={} server={}",
             source_str,
-            server_name
+            req.server_name
         );
         return Ok(ConnectionResult {
             success: false,
@@ -731,23 +733,11 @@ pub async fn connect_to_server_internal(
     tracing::info!(
         "[connect_to_server] source={} server={} version={}",
         source_str,
-        server_name,
-        version
+        req.server_name,
+        req.version
     );
 
-    let result = connect_to_server_impl(
-        app,
-        version,
-        host,
-        port,
-        access_type,
-        access_token,
-        server_name,
-        map_name,
-        source,
-        server_id,
-    )
-    .await;
+    let result = connect_impl(app, req).await;
 
     CONNECTING.store(false, Ordering::SeqCst);
     result
@@ -954,8 +944,28 @@ pub async fn connect_to_server(
         host
     );
 
-    connect_to_server_internal(
+    connect(
         app,
+        ConnectionRequest {
+            version,
+            host,
+            port,
+            access_type,
+            access_token,
+            server_name,
+            map_name,
+            source,
+            server_id: server.id,
+        },
+    )
+    .await
+}
+
+async fn connect_impl(
+    app: AppHandle,
+    req: ConnectionRequest,
+) -> Result<ConnectionResult, String> {
+    let ConnectionRequest {
         version,
         host,
         port,
@@ -964,25 +974,9 @@ pub async fn connect_to_server(
         server_name,
         map_name,
         source,
-        server.id,
-    )
-    .await
-}
+        server_id,
+    } = req;
 
-#[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
-async fn connect_to_server_impl(
-    app: AppHandle,
-    version: String,
-    host: String,
-    port: String,
-    access_type: Option<String>,
-    access_token: Option<String>,
-    server_name: String,
-    map_name: Option<String>,
-    source: Option<String>,
-    server_id: Option<String>,
-) -> Result<ConnectionResult, String> {
     let version_info = install_byond_version(app.clone(), version.clone()).await?;
 
     if !version_info.installed {
@@ -1500,17 +1494,19 @@ pub async fn connect_to_url(
             version
         );
 
-        connect_to_server_internal(
+        connect(
             app,
-            version,
-            host,
-            port,
-            access_type,
-            access_token,
-            format!("Dev Server ({url})"),
-            None,
-            source,
-            None,
+            ConnectionRequest {
+                version,
+                host: host.to_string(),
+                port: port.to_string(),
+                access_type,
+                access_token,
+                server_name: format!("Dev Server ({url})"),
+                map_name: None,
+                source,
+                server_id: None,
+            },
         )
         .await
     }

@@ -412,17 +412,19 @@ impl ControlServer {
                 }
             };
 
-            let result = crate::byond::connect_to_server_internal(
+            let result = crate::byond::connect(
                 app_handle,
-                fresh_params.version,
-                fresh_params.host,
-                fresh_params.port,
-                fresh_params.access_type,
-                fresh_params.access_token,
-                fresh_params.server_name,
-                fresh_params.map_name,
-                Some("control_server_restart".to_string()),
-                fresh_params.server_id,
+                crate::byond::ConnectionRequest {
+                    version: fresh_params.version,
+                    host: fresh_params.host,
+                    port: fresh_params.port,
+                    access_type: fresh_params.access_type,
+                    access_token: fresh_params.access_token,
+                    server_name: fresh_params.server_name,
+                    map_name: fresh_params.map_name,
+                    source: Some("control_server_restart".to_string()),
+                    server_id: fresh_params.server_id,
+                },
             )
             .await;
 

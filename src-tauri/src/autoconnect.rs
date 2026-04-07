@@ -5,7 +5,7 @@ mod implementation {
     use tauri::{AppHandle, Emitter, Manager};
 
     use crate::auth::TokenStorage;
-    use crate::byond::connect_to_server_internal;
+    use crate::byond::{connect, ConnectionRequest};
     use crate::relays::RelayState;
     use crate::servers::{Server, ServerState};
     use crate::settings::{load_settings, AuthMode};
@@ -320,17 +320,19 @@ mod implementation {
 
         let map_name = server.data.as_ref().map(|d| d.map_name.clone());
 
-        match connect_to_server_internal(
+        match connect(
             handle.clone(),
-            version,
-            relay_host,
-            port,
-            access_type,
-            access_token,
-            server_name.clone(),
-            map_name,
-            Some("autoconnect".to_string()),
-            server.id.clone(),
+            ConnectionRequest {
+                version,
+                host: relay_host,
+                port,
+                access_type,
+                access_token,
+                server_name: server_name.clone(),
+                map_name,
+                source: Some("autoconnect".to_string()),
+                server_id: server.id.clone(),
+            },
         )
         .await
         {
