@@ -12,6 +12,9 @@ interface AuthStore {
     password: string,
     totpCode?: string,
   ) => Promise<{ success: boolean; error?: string; requires2fa?: boolean }>;
+  hubOAuthLogin: (
+    provider: string,
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   initListener: () => Promise<() => void>;
 }
@@ -53,6 +56,17 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
       if (error === "requires_2fa") {
         return { success: false, requires2fa: true };
       }
+      return { success: false, error };
+    }
+  },
+
+  hubOAuthLogin: async (provider) => {
+    try {
+      const state = await invoke<AuthState>("hub_oauth_login", { provider });
+      set({ authState: state });
+      return { success: state.logged_in };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
       return { success: false, error };
     }
   },

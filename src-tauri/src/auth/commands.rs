@@ -212,6 +212,78 @@ pub async fn hub_login(
     Ok(auth_state)
 }
 
+#[tauri::command]
+pub async fn get_hub_oauth_providers() -> Result<Vec<String>, String> {
+    use super::hub_client::HubClient;
+
+    let config = HubClient::get_hub_config()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let providers = config["oauth_providers"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(providers)
+}
+
+#[tauri::command]
+pub async fn hub_oauth_login(app: AppHandle, provider: String) -> Result<AuthState, String> {
+    use super::hub_client::HubClient;
+
+    tracing::info!("Starting hub OAuth login for provider: {}", provider);
+
+    let config = crate::config::get_config();
+    let hub_api = config
+        .urls
+        .hub_api
+        .ok_or("Hub API URL not configured")?;
+
+    let server = CallbackServer::start_without_state()?;
+    let redirect_uri = server.redirect_uri();
+
+    let encoded_redirect: String =
+        url::form_urlencoded::byte_serialize(redirect_uri.as_bytes()).collect();
+    let authorize_url = format!(
+        "{}/api/auth/oauth/{}/authorize?redirect_after={}",
+        hub_api.trim_end_matches('/'),
+        provider,
+        encoded_redirect,
+    );
+
+    crate::open_url::open(&authorize_url)?;
+
+    let callback_result = tokio::task::spawn_blocking(move || server.wait_for_callback())
+        .await
+        .map_err(|e| format!("Callback task failed: {e}"))??;
+
+    tracing::info!("OAuth callback received, exchanging code");
+
+    let result = HubClient::oauth_exchange(&callback_result.code)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time)
+        .map(|dt| dt.timestamp())
+        .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30);
+
+    TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
+
+    let user_info = HubClient::get_profile(&result.token)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let auth_state = AuthState::logged_in(user_info);
+    app.emit("auth-state-changed", &auth_state).ok();
+
+    Ok(auth_state)
+}
+
 // -- Shared internals --
 
 async fn refresh_tokens_internal(token: &str) -> Result<AuthState, String> {

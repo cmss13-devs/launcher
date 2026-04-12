@@ -9,14 +9,21 @@ interface AuthModalProps {
   error?: string;
   loginPrompt: string;
   useHubAuth: boolean;
+  oauthProviders: string[];
   onLogin: () => void;
   onHubLogin: (
     username: string,
     password: string,
     totpCode?: string,
   ) => void;
+  onOAuthLogin: (provider: string) => void;
   onClose: () => void;
 }
+
+const OAUTH_DISPLAY_NAMES: Record<string, string> = {
+  discord: "Discord",
+  bab: "BYOND",
+};
 
 export const AuthModal = ({
   visible,
@@ -24,8 +31,10 @@ export const AuthModal = ({
   error,
   loginPrompt,
   useHubAuth,
+  oauthProviders,
   onLogin,
   onHubLogin,
+  onOAuthLogin,
   onClose,
 }: AuthModalProps) => {
   const [username, setUsername] = useState("");
@@ -72,6 +81,21 @@ export const AuthModal = ({
               Login
             </button>
           </form>
+          {oauthProviders.length > 0 && (
+            <div className="oauth-providers">
+              <div className="oauth-divider"><span>or</span></div>
+              {oauthProviders.map((provider) => (
+                <button
+                  key={provider}
+                  type="button"
+                  className="button oauth-button"
+                  onClick={() => onOAuthLogin(provider)}
+                >
+                  Login with {OAUTH_DISPLAY_NAMES[provider] ?? provider}
+                </button>
+              ))}
+            </div>
+          )}
         </ModalContent>
       )}
       {state === "2fa" && (

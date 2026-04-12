@@ -28,8 +28,8 @@ mod webview2;
 use tauri::Manager;
 
 use auth::{
-    background_refresh_task, get_access_token, get_auth_state, hub_login, logout, refresh_auth,
-    start_login,
+    background_refresh_task, get_access_token, get_auth_state, get_hub_oauth_providers, hub_login,
+    hub_oauth_login, logout, refresh_auth, start_login,
 };
 use byond::{
     check_byond_version, connect_to_server, connect_to_url, delete_byond_version,
@@ -187,6 +187,8 @@ pub fn run() {
             get_byond_username,
             start_login,
             hub_login,
+            hub_oauth_login,
+            get_hub_oauth_providers,
             logout,
             get_auth_state,
             refresh_auth,
@@ -238,6 +240,8 @@ pub fn run() {
             get_byond_username,
             start_login,
             hub_login,
+            hub_oauth_login,
+            get_hub_oauth_providers,
             logout,
             get_auth_state,
             refresh_auth,

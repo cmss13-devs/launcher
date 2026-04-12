@@ -28,7 +28,7 @@ pub struct LauncherConfig {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[allow(clippy::struct_excessive_bools)] // feature flags struct
+#[allow(clippy::struct_excessive_bools)]
 pub struct LauncherFeatures {
     pub relay_selector: bool,
     pub singleplayer: bool,
@@ -44,7 +44,7 @@ pub struct LauncherFeatures {
 pub struct SocialLink {
     pub name: &'static str,
     pub url: &'static str,
-    pub icon: &'static str, // "discord", "twitch", "forums", "wiki"
+    pub icon: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -87,7 +87,7 @@ pub fn get_config() -> LauncherConfig {
         logo: "/logo-cm.png",
         default_theme: "crt",
         app_identifier: "com.cm-ss13.launcher",
-        #[allow(clippy::unreadable_literal)] // identifier
+        #[allow(clippy::unreadable_literal)]
         discord_app_id: 1383904378154651768,
         default_byond_version: None,
         server_api: ServerApiType::CmApi,
@@ -158,7 +158,7 @@ pub fn get_config() -> LauncherConfig {
         logo: "/logo-ss13.png",
         default_theme: "tgui",
         app_identifier: "com.ss13.launcher",
-        #[allow(clippy::unreadable_literal)] // its an identifier
+        #[allow(clippy::unreadable_literal)]
         discord_app_id: 1483901387086761994,
         default_byond_version: Some("516.1667"),
         server_api: ServerApiType::HubApi,
@@ -173,8 +173,8 @@ pub fn get_config() -> LauncherConfig {
             connection_timeout_fallback: true,
         },
         urls: LauncherUrls {
-            server_api: "https://ss13.cm-ss13.com/api/servers",
-            hub_api: Some("https://ss13.cm-ss13.com"),
+            server_api: "https://ss13hub-api-staging.azurewebsites.net/api/servers",
+            hub_api: Some("https://ss13hub-api-staging.azurewebsites.net"),
             auth_base: None,
             steam_auth: None,
             byond_hash_api: None,

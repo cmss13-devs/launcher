@@ -165,6 +165,49 @@ impl HubClient {
             .ok_or_else(|| HubAuthError::Server("missing auth_ticket in response".into()))
     }
 
+    /// Exchange an OAuth login code for a session token.
+    pub async fn oauth_exchange(code: &str) -> Result<LoginResponse, HubAuthError> {
+        let client = Self::from_config().map_err(HubAuthError::Config)?;
+
+        let response = client
+            .http
+            .post(format!("{}/api/auth/oauth/exchange", client.base_url))
+            .json(&serde_json::json!({ "code": code }))
+            .send()
+            .await
+            .map_err(|e| HubAuthError::Network(format!("Failed to connect: {e}")))?;
+
+        if !response.status().is_success() {
+            let body = response.text().await.unwrap_or_default();
+            let message = serde_json::from_str::<ErrorResponse>(&body)
+                .map(|e| e.error)
+                .unwrap_or_else(|_| "OAuth exchange failed".to_string());
+            return Err(HubAuthError::Server(message));
+        }
+
+        response
+            .json::<LoginResponse>()
+            .await
+            .map_err(|e| HubAuthError::Network(format!("Invalid response: {e}")))
+    }
+
+    /// Fetch the hub's public config (e.g. available OAuth providers).
+    pub async fn get_hub_config() -> Result<serde_json::Value, HubAuthError> {
+        let client = Self::from_config().map_err(HubAuthError::Config)?;
+
+        let response = client
+            .http
+            .get(format!("{}/api/config", client.base_url))
+            .send()
+            .await
+            .map_err(|e| HubAuthError::Network(format!("Failed to connect: {e}")))?;
+
+        response
+            .json()
+            .await
+            .map_err(|e| HubAuthError::Network(format!("Invalid response: {e}")))
+    }
+
     /// Fetch user profile using a session token.
     pub async fn get_profile(token: &str) -> Result<UserInfo, HubAuthError> {
         let client = Self::from_config().map_err(|e| HubAuthError::Config(e))?;

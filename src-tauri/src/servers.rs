@@ -103,6 +103,10 @@ struct HubServerStatus {
     #[serde(default)]
     pop_cap: Option<i32>,
     #[serde(default)]
+    community_name: Option<String>,
+    #[serde(default)]
+    region: Option<String>,
+    #[serde(default)]
     server_tags: Option<Vec<String>>,
     #[serde(default)]
     engine: Option<HubEngineInfo>,
@@ -128,6 +132,8 @@ struct HubRoundInfo {
     duration: Option<f64>,
     #[serde(default)]
     security_level: Option<String>,
+    #[serde(default)]
+    state: Option<String>,
 }
 
 impl ServerApi for HubApi {
@@ -397,7 +403,6 @@ pub async fn server_fetch_background_task(handle: AppHandle, state: Arc<ServerSt
 
         match fetch_servers_internal().await {
             Ok(servers) => {
-                // Check for notification triggers before updating state
                 check_and_send_notifications(&handle, &state, &servers).await;
 
                 *state.servers.write().await = servers.clone();

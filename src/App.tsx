@@ -66,12 +66,14 @@ const AppContent = () => {
   const {
     login,
     hubLogin,
+    hubOAuthLogin,
     logout,
     initListener: initAuthListener,
   } = useAuthStore(
     useShallow((s) => ({
       login: s.login,
       hubLogin: s.hubLogin,
+      hubOAuthLogin: s.hubOAuthLogin,
       logout: s.logout,
       initListener: s.initListener,
     })),
@@ -203,22 +205,25 @@ const AppContent = () => {
   const [showHubStatus, setShowHubStatus] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [tagsOpen, setTagsOpen] = useState(false);
   const filtersRef = useRef<HTMLDivElement>(null);
-  const tagsRef = useRef<HTMLDivElement>(null);
+  const [oauthProviders, setOauthProviders] = useState<string[]>([]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
         setFiltersOpen(false);
       }
-      if (tagsRef.current && !tagsRef.current.contains(event.target as Node)) {
-        setTagsOpen(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!config?.urls.hub_api) return;
+    invoke<string[]>("get_hub_oauth_providers")
+      .then(setOauthProviders)
+      .catch(() => {});
+  }, [config?.urls.hub_api]);
 
   const categories = useMemo(() => {
     const tagSet = new Set<string>();
@@ -444,6 +449,19 @@ const AppContent = () => {
     [hubLogin],
   );
 
+  const handleOAuthLogin = useCallback(
+    async (provider: string) => {
+      setAuthModal({ visible: true, state: "loading", error: undefined });
+      const result = await hubOAuthLogin(provider);
+      if (result.success) {
+        setAuthModal({ visible: false, state: "idle", error: undefined });
+      } else {
+        setAuthModal({ visible: true, state: "error", error: result.error });
+      }
+    },
+    [hubOAuthLogin],
+  );
+
   const handleAuthModalClose = useCallback(() => {
     setAuthModal({ visible: false, state: "idle", error: undefined });
   }, []);
@@ -593,8 +611,10 @@ const AppContent = () => {
         {...authModal}
         loginPrompt={config?.strings.login_prompt ?? "Please log in to continue."}
         useHubAuth={config?.urls.hub_api != null}
+        oauthProviders={oauthProviders}
         onLogin={handleLogin}
         onHubLogin={handleHubLogin}
+        onOAuthLogin={handleOAuthLogin}
         onClose={handleAuthModalClose}
       />
       <SteamAuthModal
@@ -668,60 +688,52 @@ const AppContent = () => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                       />
                     )}
-                    {config?.features.server_filters && (
+                    {(config?.features.server_filters || categories.filter((c) => c !== "sandbox").length > 0) && (
                       <div className="filters-dropdown" ref={filtersRef}>
                         <button
                           type="button"
-                          className="filters-button"
+                          className={`filters-button${selectedTags.size > 0 ? " active" : ""}`}
                           onClick={() => setFiltersOpen(!filtersOpen)}
                         >
-                          Filters
+                          Filters{selectedTags.size > 0 ? ` (${selectedTags.size})` : ""}
                         </button>
                         {filtersOpen && (
                           <div className="filters-menu">
-                            {hasHubStatus && (
-                              <label className="filter-checkbox">
-                                <input
-                                  type="checkbox"
-                                  checked={showHubStatus}
-                                  onChange={(e) => setShowHubStatus(e.target.checked)}
-                                />
-                                <span>Show hub status</span>
-                              </label>
+                            {config?.features.server_filters && (
+                              <>
+                                {hasHubStatus && (
+                                  <label className="filter-checkbox">
+                                    <input
+                                      type="checkbox"
+                                      checked={showHubStatus}
+                                      onChange={(e) => setShowHubStatus(e.target.checked)}
+                                    />
+                                    <span>hub status</span>
+                                  </label>
+                                )}
+                                <label className="filter-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={show18Plus}
+                                    onChange={(e) => setShow18Plus(e.target.checked)}
+                                  />
+                                  <span>18+ servers</span>
+                                </label>
+                                {hasOffline && (
+                                  <label className="filter-checkbox">
+                                    <input
+                                      type="checkbox"
+                                      checked={showOffline}
+                                      onChange={(e) => setShowOffline(e.target.checked)}
+                                    />
+                                    <span>offline servers</span>
+                                  </label>
+                                )}
+                              </>
                             )}
-                            <label className="filter-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={show18Plus}
-                                onChange={(e) => setShow18Plus(e.target.checked)}
-                              />
-                              <span>Show 18+ servers</span>
-                            </label>
-                            {hasOffline && (
-                              <label className="filter-checkbox">
-                                <input
-                                  type="checkbox"
-                                  checked={showOffline}
-                                  onChange={(e) => setShowOffline(e.target.checked)}
-                                />
-                                <span>Show offline servers</span>
-                              </label>
+                            {config?.features.server_filters && categories.filter((c) => c !== "sandbox").length > 0 && (
+                              <div className="filter-divider" />
                             )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {categories.filter((c) => c !== "sandbox").length > 0 && (
-                      <div className="filters-dropdown" ref={tagsRef}>
-                        <button
-                          type="button"
-                          className={`filters-button${selectedTags.size > 0 ? " active" : ""}`}
-                          onClick={() => setTagsOpen(!tagsOpen)}
-                        >
-                          Tags{selectedTags.size > 0 ? ` (${selectedTags.size})` : ""}
-                        </button>
-                        {tagsOpen && (
-                          <div className="filters-menu">
                             {categories
                               .filter((c) => c !== "sandbox")
                               .map((tag) => (

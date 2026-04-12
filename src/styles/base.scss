@@ -1103,6 +1103,34 @@ body {
   }
 }
 
+.oauth-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--border);
+  }
+}
+
+.oauth-button {
+  width: 100%;
+}
+
 .auth-spinner {
   width: 40px;
   height: 40px;

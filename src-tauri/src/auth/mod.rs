@@ -5,7 +5,7 @@ mod server;
 mod storage;
 
 pub use commands::{
-    background_refresh_task, get_access_token, get_auth_state, hub_login, logout, refresh_auth,
-    start_login,
+    background_refresh_task, get_access_token, get_auth_state, get_hub_oauth_providers, hub_login,
+    hub_oauth_login, logout, refresh_auth, start_login,
 };
 pub use storage::TokenStorage;
