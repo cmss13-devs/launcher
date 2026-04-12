@@ -67,6 +67,7 @@ const AppContent = () => {
     login,
     hubLogin,
     hubOAuthLogin,
+    hubSteamLogin,
     logout,
     initListener: initAuthListener,
   } = useAuthStore(
@@ -74,6 +75,7 @@ const AppContent = () => {
       login: s.login,
       hubLogin: s.hubLogin,
       hubOAuthLogin: s.hubOAuthLogin,
+      hubSteamLogin: s.hubSteamLogin,
       logout: s.logout,
       initListener: s.initListener,
     })),
@@ -221,7 +223,7 @@ const AppContent = () => {
   useEffect(() => {
     if (!config?.urls.hub_api) return;
     invoke<string[]>("get_hub_oauth_providers")
-      .then(setOauthProviders)
+      .then((providers) => setOauthProviders(providers.filter((p) => p !== "steam")))
       .catch(() => {});
   }, [config?.urls.hub_api]);
 
@@ -462,6 +464,16 @@ const AppContent = () => {
     [hubOAuthLogin],
   );
 
+  const handleSteamLogin = useCallback(async () => {
+    setAuthModal({ visible: true, state: "loading", error: undefined });
+    const result = await hubSteamLogin();
+    if (result.success) {
+      setAuthModal({ visible: false, state: "idle", error: undefined });
+    } else {
+      setAuthModal({ visible: true, state: "error", error: result.error });
+    }
+  }, [hubSteamLogin]);
+
   const handleAuthModalClose = useCallback(() => {
     setAuthModal({ visible: false, state: "idle", error: undefined });
   }, []);
@@ -612,9 +624,12 @@ const AppContent = () => {
         loginPrompt={config?.strings.login_prompt ?? "Please log in to continue."}
         useHubAuth={config?.urls.hub_api != null}
         oauthProviders={oauthProviders}
+        steamAvailable={steamAvailable}
+        registerUrl={config?.urls.register_url}
         onLogin={handleLogin}
         onHubLogin={handleHubLogin}
         onOAuthLogin={handleOAuthLogin}
+        onSteamLogin={handleSteamLogin}
         onClose={handleAuthModalClose}
       />
       <SteamAuthModal

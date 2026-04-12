@@ -32,6 +32,7 @@ export interface LauncherUrls {
   auth_base: string | null;
   steam_auth: string | null;
   byond_hash_api: string | null;
+  register_url: string | null;
   help_url: string;
 }
 

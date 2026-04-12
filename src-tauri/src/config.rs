@@ -69,6 +69,7 @@ pub struct LauncherUrls {
     pub auth_base: Option<&'static str>,
     pub steam_auth: Option<&'static str>,
     pub byond_hash_api: Option<&'static str>,
+    pub register_url: Option<&'static str>,
     pub help_url: &'static str,
 }
 
@@ -107,6 +108,7 @@ pub fn get_config() -> LauncherConfig {
             auth_base: Some("https://login.cm-ss13.com"),
             steam_auth: Some("https://db.cm-ss13.com/api/Steam/Authenticate"),
             byond_hash_api: Some("https://db.cm-ss13.com/api/ByondHash"),
+            register_url: None,
             help_url: "https://github.com/cmss13-devs/cm-launcher/issues",
         },
         strings: LauncherStrings {
@@ -176,8 +178,9 @@ pub fn get_config() -> LauncherConfig {
             server_api: "https://ss13hub-api-staging.azurewebsites.net/api/servers",
             hub_api: Some("https://ss13hub-api-staging.azurewebsites.net"),
             auth_base: None,
-            steam_auth: None,
+            steam_auth: Some("https://ss13hub-api-staging.azurewebsites.net/api/auth/steam"),
             byond_hash_api: None,
+            register_url: Some("https://ss13.cm-ss13.com/register"),
             help_url: "https://github.com/hry-gh/ss13-launcher/issues",
         },
         strings: LauncherStrings {

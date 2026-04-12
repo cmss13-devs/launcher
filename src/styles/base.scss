@@ -1103,6 +1103,47 @@ body {
   }
 }
 
+.register-link {
+  background: none;
+  border: none;
+  color: var(--primary-dim);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 2px;
+
+  span {
+    text-decoration: underline;
+  }
+
+  &:hover {
+    color: var(--primary);
+  }
+}
+
+.steam-login-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.steam-login-button {
+  width: 100%;
+  font-size: 14px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  svg {
+    font-size: 18px;
+  }
+}
+
 .oauth-providers {
   display: flex;
   flex-direction: column;
@@ -1114,6 +1155,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin: 8px 0;
   color: var(--primary-dim);
   font-size: 11px;
   text-transform: uppercase;
@@ -1129,6 +1171,10 @@ body {
 
 .oauth-button {
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .auth-spinner {
@@ -1757,7 +1803,6 @@ body {
   }
 }
 
-// Update notification
 .update-notification {
   position: fixed;
   top: var(--titlebar-height);

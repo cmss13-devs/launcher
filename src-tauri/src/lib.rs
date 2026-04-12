@@ -227,6 +227,8 @@ pub fn run() {
 
     #[cfg(feature = "steam")]
     {
+        use auth::hub_steam_login;
+
         builder = builder.invoke_handler(tauri::generate_handler![
             greet,
             check_byond_version,
@@ -241,6 +243,7 @@ pub fn run() {
             start_login,
             hub_login,
             hub_oauth_login,
+            hub_steam_login,
             get_hub_oauth_providers,
             logout,
             get_auth_state,

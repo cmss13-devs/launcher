@@ -104,7 +104,6 @@ pub async fn get_auth_state() -> Result<AuthState, String> {
     };
 
     if TokenStorage::is_expired() {
-        // Try to refresh
         let token_to_use = tokens
             .refresh_token
             .as_deref()
@@ -135,7 +134,6 @@ pub async fn get_auth_state() -> Result<AuthState, String> {
             }
         }
     } else {
-        // OIDC auth: fetch userinfo with access token
         match OidcClient::get_userinfo(&tokens.access_token).await {
             Ok(user_info) => Ok(AuthState::logged_in(user_info)),
             Err(_) => {
@@ -173,8 +171,6 @@ pub async fn get_access_token() -> Result<Option<String>, String> {
     }
 }
 
-// -- Hub (ss13hub session token) auth --
-
 #[tauri::command]
 pub async fn hub_login(
     app: AppHandle,
@@ -193,15 +189,12 @@ pub async fn hub_login(
             other => other.to_string(),
         })?;
 
-    // Parse expiry from ISO 8601 string
     let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time)
         .map(|dt| dt.timestamp())
         .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30);
 
-    // Store session token (using access_token field, no refresh token or id_token)
     TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
 
-    // Fetch full profile
     let user_info = HubClient::get_profile(&result.token)
         .await
         .map_err(|e| e.to_string())?;
@@ -284,13 +277,83 @@ pub async fn hub_oauth_login(app: AppHandle, provider: String) -> Result<AuthSta
     Ok(auth_state)
 }
 
-// -- Shared internals --
+#[cfg(feature = "steam")]
+#[tauri::command]
+pub async fn hub_steam_login(
+    app: AppHandle,
+    steam_state: tauri::State<'_, std::sync::Arc<crate::steam::SteamState>>,
+) -> Result<AuthState, String> {
+    use super::hub_client::HubClient;
+
+    tracing::info!("Starting hub Steam login");
+
+    let config = crate::config::get_config();
+    let steam_auth_url = config
+        .urls
+        .steam_auth
+        .ok_or("Steam authentication is not configured")?;
+
+    let steam_id = steam_state.get_steam_id().to_string();
+    let display_name = steam_state.get_display_name();
+
+    let ticket_bytes = steam_state.get_auth_session_ticket().await?;
+    let ticket = hex::encode(&ticket_bytes);
+
+    let http = reqwest::Client::new();
+    let response = http
+        .post(steam_auth_url)
+        .json(&serde_json::json!({
+            "ticket": ticket,
+            "steam_id": steam_id,
+            "instance": crate::steam::get_steam_app_name(),
+            "display_name": display_name,
+            "create_account_if_missing": true,
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to contact auth server: {e}"))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        steam_state.cancel_auth_ticket();
+        return Err(format!("Auth server error ({status}): {body}"));
+    }
+
+    let body: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {e}"))?;
+
+    if body["success"].as_bool() != Some(true) {
+        steam_state.cancel_auth_ticket();
+        let error = body["error"]
+            .as_str()
+            .unwrap_or("Steam authentication failed");
+        return Err(error.to_string());
+    }
+
+    let token = body["access_token"]
+        .as_str()
+        .ok_or("Missing access_token in response")?;
+
+    let expires_at = chrono::Utc::now().timestamp() + 86400 * 30;
+    TokenStorage::store_tokens(token, None, "", expires_at)?;
+
+    let user_info = HubClient::get_profile(token)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let auth_state = AuthState::logged_in(user_info);
+    app.emit("auth-state-changed", &auth_state).ok();
+
+    Ok(auth_state)
+}
 
 async fn refresh_tokens_internal(token: &str) -> Result<AuthState, String> {
     let config = crate::config::get_config();
 
     if config.urls.hub_api.is_some() {
-        // Hub auth: refresh via ss13hub
         use super::hub_client::HubClient;
 
         let result = HubClient::refresh(token).await.map_err(|e| e.to_string())?;
@@ -308,7 +371,6 @@ async fn refresh_tokens_internal(token: &str) -> Result<AuthState, String> {
 
         Ok(AuthState::logged_in(user_info))
     } else {
-        // OIDC auth: refresh via OIDC provider
         let token_result = OidcClient::refresh_tokens(token).await?;
 
         TokenStorage::store_tokens(

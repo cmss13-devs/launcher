@@ -1,4 +1,9 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSteam, faDiscord } from "@fortawesome/free-brands-svg-icons";
+import { faKey } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
 
 export type AuthModalState = "idle" | "loading" | "error" | "2fa";
@@ -10,6 +15,8 @@ interface AuthModalProps {
   loginPrompt: string;
   useHubAuth: boolean;
   oauthProviders: string[];
+  steamAvailable: boolean;
+  registerUrl?: string | null;
   onLogin: () => void;
   onHubLogin: (
     username: string,
@@ -17,12 +24,18 @@ interface AuthModalProps {
     totpCode?: string,
   ) => void;
   onOAuthLogin: (provider: string) => void;
+  onSteamLogin: () => void;
   onClose: () => void;
 }
 
 const OAUTH_DISPLAY_NAMES: Record<string, string> = {
   discord: "Discord",
   bab: "BYOND",
+};
+
+const OAUTH_ICONS: Record<string, IconDefinition> = {
+  discord: faDiscord,
+  bab: faKey,
 };
 
 export const AuthModal = ({
@@ -32,9 +45,12 @@ export const AuthModal = ({
   loginPrompt,
   useHubAuth,
   oauthProviders,
+  steamAvailable,
+  registerUrl,
   onLogin,
   onHubLogin,
   onOAuthLogin,
+  onSteamLogin,
   onClose,
 }: AuthModalProps) => {
   const [username, setUsername] = useState("");
@@ -63,13 +79,26 @@ export const AuthModal = ({
       )}
       {state === "idle" && useHubAuth && (
         <ModalContent title="Login">
+          {steamAvailable && (
+            <div className="steam-login-section">
+              <button
+                type="button"
+                className="button steam-login-button"
+                onClick={onSteamLogin}
+              >
+                <FontAwesomeIcon icon={faSteam} />
+                Sign in with Steam
+              </button>
+              <div className="oauth-divider"><span>or</span></div>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="hub-login-form">
             <input
               type="text"
               placeholder="Username or email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              autoFocus
+              autoFocus={!steamAvailable}
             />
             <input
               type="password"
@@ -80,6 +109,15 @@ export const AuthModal = ({
             <button type="submit" className="button" disabled={!username || !password}>
               Login
             </button>
+            {registerUrl && (
+              <button
+                type="button"
+                className="register-link"
+                onClick={() => invoke("open_url", { url: registerUrl })}
+              >
+                Don't have an account? <span>Create one</span>
+              </button>
+            )}
           </form>
           {oauthProviders.length > 0 && (
             <div className="oauth-providers">
@@ -88,10 +126,11 @@ export const AuthModal = ({
                 <button
                   key={provider}
                   type="button"
-                  className="button oauth-button"
+                  className="button-secondary oauth-button"
                   onClick={() => onOAuthLogin(provider)}
                 >
-                  Login with {OAUTH_DISPLAY_NAMES[provider] ?? provider}
+                  <FontAwesomeIcon icon={OAUTH_ICONS[provider] ?? faKey} />
+                  {" "}{OAUTH_DISPLAY_NAMES[provider] ?? provider}
                 </button>
               ))}
             </div>

@@ -102,6 +102,15 @@ mod implementation {
                 Ok(token) => Ok((Some("steam".to_string()), token)),
                 Err(e) => Err(e),
             },
+            AuthMode::Hub => {
+                let tokens = TokenStorage::get_tokens()?;
+                match tokens {
+                    Some(t) if !TokenStorage::is_expired() => {
+                        Ok((Some("hub".to_string()), Some(t.access_token)))
+                    }
+                    _ => Err("AUTH_REQUIRED".to_string()),
+                }
+            }
             AuthMode::Byond => Ok((Some("byond".to_string()), None)),
         }
     }
@@ -388,7 +397,6 @@ mod implementation {
 
         tracing::info!("Steam launch option detected: {}", server_name);
 
-        // Spawn the auto-connect task
         tauri::async_runtime::spawn(async move {
             perform_autoconnect(handle, server_name).await;
         });
