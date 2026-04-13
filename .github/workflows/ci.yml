@@ -9,6 +9,40 @@ on:
       - "**"
 
 jobs:
+  bindings-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: bindings-check
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev
+
+      - name: Regenerate TS bindings
+        working-directory: src-tauri
+        run: cargo test --features steam --lib export_bindings
+
+      - name: Verify bindings are committed
+        run: |
+          if ! git diff --exit-code -- src/bindings.ts; then
+            echo "::error::src/bindings.ts is out of date. Run 'cargo test --features steam --lib export_bindings' from src-tauri/ and commit the result."
+            exit 1
+          fi
+
   build-tauri:
     strategy:
       fail-fast: false
