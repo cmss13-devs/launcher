@@ -1,5 +1,5 @@
 use crate::config::get_config;
-use crate::error::CommandResult;
+use crate::error::{CommandError, CommandResult};
 use crate::settings::load_settings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -73,7 +73,7 @@ pub struct ServerLink {
 }
 
 trait ServerApi: Send + Sync {
-    fn parse(&self, body: &str) -> Result<Vec<Server>, String>;
+    fn parse(&self, body: &str) -> CommandResult<Vec<Server>>;
 }
 struct HubApi;
 
@@ -138,9 +138,10 @@ struct HubRoundInfo {
 }
 
 impl ServerApi for HubApi {
-    fn parse(&self, body: &str) -> Result<Vec<Server>, String> {
-        let hub_servers: Vec<HubServer> =
-            serde_json::from_str(body).map_err(|e| format!("Failed to parse response: {e}"))?;
+    fn parse(&self, body: &str) -> CommandResult<Vec<Server>> {
+        let hub_servers: Vec<HubServer> = serde_json::from_str(body).map_err(|e| {
+            CommandError::InvalidResponse(format!("Failed to parse hub server list: {e}"))
+        })?;
 
         Ok(hub_servers.into_iter().map(Self::convert).collect())
     }
@@ -255,9 +256,10 @@ struct CmServerData {
 }
 
 impl ServerApi for CmApi {
-    fn parse(&self, body: &str) -> Result<Vec<Server>, String> {
-        let response: CmApiResponse =
-            serde_json::from_str(body).map_err(|e| format!("Failed to parse response: {e}"))?;
+    fn parse(&self, body: &str) -> CommandResult<Vec<Server>> {
+        let response: CmApiResponse = serde_json::from_str(body).map_err(|e| {
+            CommandError::InvalidResponse(format!("Failed to parse cm server list: {e}"))
+        })?;
 
         Ok(response.servers.into_iter().map(Self::convert).collect())
     }
@@ -346,22 +348,20 @@ impl ServerState {
     }
 }
 
-async fn fetch_servers_internal() -> Result<Vec<Server>, String> {
+async fn fetch_servers_internal() -> CommandResult<Vec<Server>> {
     let config = get_config();
     let adapter = get_api_adapter();
 
-    let response = reqwest::get(config.urls.server_api)
-        .await
-        .map_err(|e| format!("Failed to fetch servers: {e}"))?;
+    let response = reqwest::get(config.urls.server_api).await?;
 
     if !response.status().is_success() {
-        return Err(format!("HTTP error: {}", response.status()));
+        return Err(CommandError::InvalidResponse(format!(
+            "Server list HTTP error: {}",
+            response.status()
+        )));
     }
 
-    let body = response
-        .text()
-        .await
-        .map_err(|e| format!("Failed to read response: {e}"))?;
+    let body = response.text().await?;
 
     adapter.parse(&body)
 }
@@ -412,7 +412,12 @@ pub async fn server_fetch_background_task(handle: AppHandle, state: Arc<ServerSt
             }
             Err(error) => {
                 tracing::error!("Server fetch error: {}", error);
-                let _ = handle.emit("servers-error", ServerErrorEvent { error });
+                let _ = handle.emit(
+                    "servers-error",
+                    ServerErrorEvent {
+                        error: error.to_string(),
+                    },
+                );
             }
         }
     }

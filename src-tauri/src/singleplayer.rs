@@ -24,16 +24,20 @@ use crate::presence::PresenceManager;
 const SINGLEPLAYER_DIR: &str = "singleplayer";
 const VERSION_FILE: &str = ".version";
 
-fn get_singleplayer_config() -> Result<(String, String), String> {
+fn get_singleplayer_config() -> CommandResult<(String, String)> {
     let config = crate::config::get_config();
     let repo = config
         .singleplayer
         .github_repo
-        .ok_or("Singleplayer is not available for this launcher variant")?;
+        .ok_or_else(|| CommandError::NotConfigured {
+            feature: "singleplayer".to_string(),
+        })?;
     let asset = config
         .singleplayer
         .build_asset_name
-        .ok_or("Singleplayer is not available for this launcher variant")?;
+        .ok_or_else(|| CommandError::NotConfigured {
+            feature: "singleplayer".to_string(),
+        })?;
     Ok((repo.to_string(), asset.to_string()))
 }
 
@@ -69,16 +73,16 @@ struct GitHubAsset {
     size: u64,
 }
 
-fn get_singleplayer_base_dir() -> Result<PathBuf, String> {
+fn get_singleplayer_base_dir() -> CommandResult<PathBuf> {
     let config = crate::config::get_config();
     let local_data = dirs::data_local_dir()
-        .ok_or("Failed to get local data directory")?
+        .ok_or_else(|| CommandError::Io("local data directory unavailable".to_string()))?
         .join(config.app_identifier);
 
     Ok(local_data.join(SINGLEPLAYER_DIR))
 }
 
-fn get_version_file_path() -> Result<PathBuf, String> {
+fn get_version_file_path() -> CommandResult<PathBuf> {
     Ok(get_singleplayer_base_dir()?.join(VERSION_FILE))
 }
 
@@ -87,13 +91,14 @@ fn read_installed_version() -> Option<String> {
     fs::read_to_string(version_path).ok()
 }
 
-fn write_installed_version(version: &str) -> Result<(), String> {
+fn write_installed_version(version: &str) -> CommandResult<()> {
     let version_path = get_version_file_path()?;
-    fs::write(&version_path, version).map_err(|e| format!("Failed to write version file: {e}"))
+    fs::write(&version_path, version)?;
+    Ok(())
 }
 
 /// Fetch the latest release info from GitHub
-async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
+async fn fetch_latest_release() -> CommandResult<ReleaseInfo> {
     let (github_repo, build_asset_name) = get_singleplayer_config()?;
 
     let url = format!("https://api.github.com/repos/{github_repo}/releases/latest");
@@ -104,17 +109,18 @@ async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
         .header("User-Agent", "CM-Launcher")
         .header("Accept", "application/vnd.github.v3+json")
         .send()
-        .await
-        .map_err(|e| format!("Failed to fetch release info: {e}"))?;
+        .await?;
 
     if !response.status().is_success() {
-        return Err(format!("GitHub API returned HTTP {}", response.status()));
+        return Err(CommandError::InvalidResponse(format!(
+            "GitHub API returned HTTP {}",
+            response.status()
+        )));
     }
 
-    let release: GitHubRelease = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse release info: {e}"))?;
+    let release: GitHubRelease = response.json().await.map_err(|e| {
+        CommandError::InvalidResponse(format!("Failed to parse release info: {e}"))
+    })?;
 
     let build_asset = release.assets.iter().find(|a| a.name == build_asset_name);
 
@@ -128,7 +134,7 @@ async fn fetch_latest_release() -> Result<ReleaseInfo, String> {
 }
 
 /// Download a file from a URL
-async fn download_file(url: &str) -> Result<Vec<u8>, String> {
+async fn download_file(url: &str) -> CommandResult<Vec<u8>> {
     tracing::info!("Downloading from {}", url);
 
     let client = reqwest::Client::new();
@@ -136,44 +142,37 @@ async fn download_file(url: &str) -> Result<Vec<u8>, String> {
         .get(url)
         .header("User-Agent", "CM-Launcher")
         .send()
-        .await
-        .map_err(|e| format!("Download request failed: {e}"))?;
+        .await?;
 
     if !response.status().is_success() {
-        return Err(format!("Download failed with HTTP {}", response.status()));
+        return Err(CommandError::InvalidResponse(format!(
+            "Download failed with HTTP {}",
+            response.status()
+        )));
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| format!("Failed to read download: {e}"))?;
+    let bytes = response.bytes().await?;
 
     Ok(bytes.to_vec())
 }
 
 /// Extract a tar.zst archive to a directory
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
-fn extract_tar_zst(data: &[u8], dest: &PathBuf) -> Result<(), String> {
+fn extract_tar_zst(data: &[u8], dest: &PathBuf) -> CommandResult<()> {
     tracing::info!("Extracting archive to {:?}", dest);
 
-    fs::create_dir_all(dest).map_err(|e| format!("Failed to create directory: {e}"))?;
+    fs::create_dir_all(dest)?;
 
     let cursor = io::Cursor::new(data);
-    let zstd_decoder = zstd::stream::Decoder::new(cursor)
-        .map_err(|e| format!("Failed to create zstd decoder: {e}"))?;
+    let zstd_decoder = zstd::stream::Decoder::new(cursor)?;
 
     let mut archive = tar::Archive::new(zstd_decoder);
     archive.set_preserve_permissions(true);
 
-    for entry in archive
-        .entries()
-        .map_err(|e| format!("Failed to read archive entries: {e}"))?
-    {
-        let mut entry = entry.map_err(|e| format!("Failed to read archive entry: {e}"))?;
+    for entry in archive.entries()? {
+        let mut entry = entry?;
 
-        let path = entry
-            .path()
-            .map_err(|e| format!("Failed to get entry path: {e}"))?;
+        let path = entry.path()?;
 
         if path
             .components()
@@ -186,21 +185,17 @@ fn extract_tar_zst(data: &[u8], dest: &PathBuf) -> Result<(), String> {
         let outpath = dest.join(&path);
 
         if entry.header().entry_type().is_dir() {
-            fs::create_dir_all(&outpath)
-                .map_err(|e| format!("Failed to create directory {}: {e}", outpath.display()))?;
+            fs::create_dir_all(&outpath)?;
         } else {
             if let Some(parent) = outpath.parent() {
                 if !parent.exists() {
-                    fs::create_dir_all(parent)
-                        .map_err(|e| format!("Failed to create parent directory: {e}"))?;
+                    fs::create_dir_all(parent)?;
                 }
             }
 
-            let mut outfile = fs::File::create(&outpath)
-                .map_err(|e| format!("Failed to create file {}: {e}", outpath.display()))?;
+            let mut outfile = fs::File::create(&outpath)?;
 
-            io::copy(&mut entry, &mut outfile)
-                .map_err(|e| format!("Failed to extract file {}: {e}", outpath.display()))?;
+            io::copy(&mut entry, &mut outfile)?;
 
             #[cfg(unix)]
             {
@@ -217,8 +212,11 @@ fn extract_tar_zst(data: &[u8], dest: &PathBuf) -> Result<(), String> {
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
-fn extract_tar_zst(_data: &[u8], _dest: &PathBuf) -> Result<(), String> {
-    Err("Single player extraction is not supported on this platform".to_string())
+fn extract_tar_zst(_data: &[u8], _dest: &PathBuf) -> CommandResult<()> {
+    Err(CommandError::UnsupportedPlatform {
+        feature: "singleplayer extraction".into(),
+        platform: std::env::consts::OS.into(),
+    })
 }
 
 /// Check the current single player installation status
@@ -255,7 +253,7 @@ pub async fn get_singleplayer_status(_app: AppHandle) -> CommandResult<SinglePla
 #[tauri::command]
 #[specta::specta]
 pub async fn get_latest_singleplayer_release(_app: AppHandle) -> CommandResult<ReleaseInfo> {
-    fetch_latest_release().await.map_err(CommandError::Network)
+    fetch_latest_release().await
 }
 
 /// Install or update the single player game files
@@ -265,9 +263,7 @@ pub async fn install_singleplayer(_app: AppHandle) -> CommandResult<SinglePlayer
     tracing::info!("Starting single player installation");
 
     let (_, build_asset_name) = get_singleplayer_config()?;
-    let release = fetch_latest_release()
-        .await
-        .map_err(CommandError::Network)?;
+    let release = fetch_latest_release().await?;
 
     let download_url = release.download_url.ok_or_else(|| {
         CommandError::NotFound(format!(
@@ -296,14 +292,11 @@ pub async fn install_singleplayer(_app: AppHandle) -> CommandResult<SinglePlayer
 
     if base_dir.exists() {
         tracing::info!("Removing existing installation at {:?}", base_dir);
-        fs::remove_dir_all(&base_dir)
-            .map_err(|e| format!("Failed to remove existing installation: {e}"))?;
+        fs::remove_dir_all(&base_dir)?;
     }
 
     tracing::info!("Downloading single player build {}", release.tag_name);
-    let data = download_file(&download_url)
-        .await
-        .map_err(CommandError::Network)?;
+    let data = download_file(&download_url).await?;
 
     tracing::info!("Extracting single player build");
     extract_tar_zst(&data, &base_dir)?;
@@ -328,8 +321,7 @@ pub async fn delete_singleplayer(_app: AppHandle) -> CommandResult<bool> {
 
     if base_dir.exists() {
         tracing::info!("Deleting single player installation at {:?}", base_dir);
-        fs::remove_dir_all(&base_dir)
-            .map_err(|e| format!("Failed to delete single player installation: {e}"))?;
+        fs::remove_dir_all(&base_dir)?;
         Ok(true)
     } else {
         Ok(false)
@@ -337,16 +329,17 @@ pub async fn delete_singleplayer(_app: AppHandle) -> CommandResult<bool> {
 }
 
 /// Parse the BYOND version from dependencies.sh
-fn get_byond_version_from_dependencies() -> Result<String, String> {
+fn get_byond_version_from_dependencies() -> CommandResult<String> {
     let base_dir = get_singleplayer_base_dir()?;
     let deps_path = base_dir.join("dependencies.sh");
 
     if !deps_path.exists() {
-        return Err("dependencies.sh not found in singleplayer installation".to_string());
+        return Err(CommandError::NotFound(
+            "dependencies.sh in singleplayer installation".to_string(),
+        ));
     }
 
-    let contents = fs::read_to_string(&deps_path)
-        .map_err(|e| format!("Failed to read dependencies.sh: {e}"))?;
+    let contents = fs::read_to_string(&deps_path)?;
 
     let mut major: Option<&str> = None;
     let mut minor: Option<&str> = None;
@@ -362,16 +355,20 @@ fn get_byond_version_from_dependencies() -> Result<String, String> {
 
     match (major, minor) {
         (Some(maj), Some(min)) => Ok(format!("{maj}.{min}")),
-        _ => Err("Could not parse BYOND version from dependencies.sh".to_string()),
+        _ => Err(CommandError::InvalidResponse(
+            "Could not parse BYOND version from dependencies.sh".to_string(),
+        )),
     }
 }
 
 /// Find the .dmb file in the singleplayer directory
-fn find_dmb_file() -> Result<PathBuf, String> {
+fn find_dmb_file() -> CommandResult<PathBuf> {
     let base_dir = get_singleplayer_base_dir()?;
 
     if !base_dir.exists() {
-        return Err("Single player not installed".to_string());
+        return Err(CommandError::NotFound(
+            "singleplayer installation".to_string(),
+        ));
     }
 
     // Try configured DMB name first
@@ -383,17 +380,17 @@ fn find_dmb_file() -> Result<PathBuf, String> {
     }
 
     // Fall back to searching for any .dmb file
-    for entry in fs::read_dir(&base_dir)
-        .map_err(|e| format!("Failed to read singleplayer directory: {e}"))?
-    {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+    for entry in fs::read_dir(&base_dir)? {
+        let entry = entry?;
         let path = entry.path();
         if path.extension().is_some_and(|e| e == "dmb") {
             return Ok(path);
         }
     }
 
-    Err("No .dmb file found in singleplayer installation".to_string())
+    Err(CommandError::NotFound(
+        ".dmb file in singleplayer installation".to_string(),
+    ))
 }
 
 /// Launch the single player game

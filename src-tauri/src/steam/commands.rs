@@ -86,7 +86,7 @@ pub async fn cancel_steam_auth_ticket(
 pub async fn authenticate_with_steam(
     steam_state: &Arc<SteamState>,
     create_account_if_missing: bool,
-) -> Result<SteamAuthResult, String> {
+) -> CommandResult<SteamAuthResult> {
     tracing::info!("Starting Steam authentication");
     let steam_id = steam_state.get_steam_id().to_string();
     let display_name = steam_state.get_display_name();
@@ -104,36 +104,31 @@ pub async fn authenticate_with_steam(
     };
 
     let config = crate::config::get_config();
-    let steam_auth_url = config
-        .urls
-        .steam_auth
-        .ok_or("Steam authentication is not available for this launcher variant")?;
+    let steam_auth_url = config.urls.steam_auth.ok_or(CommandError::NotConfigured {
+        feature: "steam_auth".to_string(),
+    })?;
 
-    let response = client
-        .post(steam_auth_url)
-        .json(&request)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to contact auth server: {e}"))?;
+    let response = client.post(steam_auth_url).json(&request).send().await?;
 
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
 
         steam_state.cancel_auth_ticket();
-        return Err(format!("Auth server error ({status}): {body}"));
+        return Err(CommandError::InvalidResponse(format!(
+            "Auth server error ({status}): {body}"
+        )));
     }
 
-    let auth_response: SteamAuthResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse auth response: {e}"))?;
+    let auth_response: SteamAuthResponse = response.json().await.map_err(|e| {
+        CommandError::InvalidResponse(format!("Failed to parse auth response: {e}"))
+    })?;
 
     if !auth_response.success {
         steam_state.cancel_auth_ticket();
     }
 
-    if let Some(_token) = &auth_response.access_token {
+    if auth_response.access_token.is_some() {
         tracing::debug!("Received access token from Steam auth");
     }
 
@@ -153,9 +148,7 @@ pub async fn steam_authenticate(
     steam_state: State<'_, Arc<SteamState>>,
     create_account_if_missing: bool,
 ) -> CommandResult<SteamAuthResult> {
-    authenticate_with_steam(&steam_state, create_account_if_missing)
-        .await
-        .map_err(CommandError::Internal)
+    authenticate_with_steam(&steam_state, create_account_if_missing).await
 }
 
 fn parse_server_name(command_line: &str) -> Option<String> {

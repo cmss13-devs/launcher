@@ -42,12 +42,12 @@ impl HubClient {
         }
     }
 
-    fn from_config() -> Result<Self, String> {
+    fn from_config() -> Result<Self, HubAuthError> {
         let config = crate::config::get_config();
         let base_url = config
             .urls
             .hub_api
-            .ok_or("Hub API URL not configured")?;
+            .ok_or_else(|| HubAuthError::Config("Hub API URL not configured".to_string()))?;
         Ok(Self::new(base_url))
     }
 
@@ -57,7 +57,7 @@ impl HubClient {
         password: &str,
         totp_code: Option<&str>,
     ) -> Result<LoginResponse, HubAuthError> {
-        let client = Self::from_config().map_err(|e| HubAuthError::Config(e))?;
+        let client = Self::from_config()?;
 
         let response = client
             .http
@@ -108,7 +108,7 @@ impl HubClient {
 
     /// Refresh a session token. Returns new token and expiry.
     pub async fn refresh(token: &str) -> Result<LoginResponse, HubAuthError> {
-        let client = Self::from_config().map_err(|e| HubAuthError::Config(e))?;
+        let client = Self::from_config()?;
 
         let response = client
             .http
@@ -134,7 +134,7 @@ impl HubClient {
         server_id: &str,
         hwid: Option<&str>,
     ) -> Result<String, HubAuthError> {
-        let client = Self::from_config().map_err(HubAuthError::Config)?;
+        let client = Self::from_config()?;
 
         let response = client
             .http
@@ -167,7 +167,7 @@ impl HubClient {
 
     /// Exchange an OAuth login code for a session token.
     pub async fn oauth_exchange(code: &str) -> Result<LoginResponse, HubAuthError> {
-        let client = Self::from_config().map_err(HubAuthError::Config)?;
+        let client = Self::from_config()?;
 
         let response = client
             .http
@@ -193,7 +193,7 @@ impl HubClient {
 
     /// Fetch the hub's public config (e.g. available OAuth providers).
     pub async fn get_hub_config() -> Result<serde_json::Value, HubAuthError> {
-        let client = Self::from_config().map_err(HubAuthError::Config)?;
+        let client = Self::from_config()?;
 
         let response = client
             .http
@@ -210,7 +210,7 @@ impl HubClient {
 
     /// Fetch user profile using a session token.
     pub async fn get_profile(token: &str) -> Result<UserInfo, HubAuthError> {
-        let client = Self::from_config().map_err(|e| HubAuthError::Config(e))?;
+        let client = Self::from_config()?;
 
         let response = client
             .http

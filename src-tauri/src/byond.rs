@@ -66,7 +66,7 @@ pub struct ByondVersionStore {
     pub versions: HashMap<String, ByondVersionEntry>,
 }
 
-fn load_version_store(app: &AppHandle) -> Result<ByondVersionStore, String> {
+fn load_version_store(app: &AppHandle) -> CommandResult<ByondVersionStore> {
     let path = get_byond_base_dir(app)?.join(VERSIONS_FILE);
     if !path.exists() {
         return Ok(ByondVersionStore::default());
@@ -87,16 +87,17 @@ fn load_version_store(app: &AppHandle) -> Result<ByondVersionStore, String> {
     }
 }
 
-fn save_version_store(app: &AppHandle, store: &ByondVersionStore) -> Result<(), String> {
+fn save_version_store(app: &AppHandle, store: &ByondVersionStore) -> CommandResult<()> {
     let base = get_byond_base_dir(app)?;
-    fs::create_dir_all(&base).map_err(|e| format!("Failed to create BYOND directory: {e}"))?;
+    fs::create_dir_all(&base)?;
     let path = base.join(VERSIONS_FILE);
     let contents = serde_json::to_string_pretty(store)
-        .map_err(|e| format!("Failed to serialize version store: {e}"))?;
-    fs::write(&path, contents).map_err(|e| format!("Failed to write version store: {e}"))
+        .map_err(|e| CommandError::Internal(format!("Failed to serialize version store: {e}")))?;
+    fs::write(&path, contents)?;
+    Ok(())
 }
 
-fn record_version_installed(app: &AppHandle, version: &str) -> Result<(), String> {
+fn record_version_installed(app: &AppHandle, version: &str) -> CommandResult<()> {
     let mut store = load_version_store(app)?;
     store.versions.insert(
         version.to_string(),
@@ -109,7 +110,7 @@ fn record_version_installed(app: &AppHandle, version: &str) -> Result<(), String
 }
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
-fn record_version_used(app: &AppHandle, version: &str) -> Result<(), String> {
+fn record_version_used(app: &AppHandle, version: &str) -> CommandResult<()> {
     let mut store = load_version_store(app)?;
     if let Some(entry) = store.versions.get_mut(version) {
         entry.last_used = Some(chrono::Utc::now().to_rfc3339());
@@ -125,7 +126,7 @@ fn record_version_used(app: &AppHandle, version: &str) -> Result<(), String> {
     save_version_store(app, &store)
 }
 
-fn remove_version_from_store(app: &AppHandle, version: &str) -> Result<(), String> {
+fn remove_version_from_store(app: &AppHandle, version: &str) -> CommandResult<()> {
     let mut store = load_version_store(app)?;
     store.versions.remove(version);
     save_version_store(app, &store)
@@ -206,16 +207,15 @@ pub fn cleanup_old_versions(app: &AppHandle) {
 }
 
 /// Trim a BYOND installation to only the files needed at runtime.
-fn trim_byond_install(version_dir: &std::path::Path) -> Result<(), String> {
+fn trim_byond_install(version_dir: &std::path::Path) -> CommandResult<()> {
     let byond_dir = version_dir.join("byond");
     if !byond_dir.exists() {
         return Ok(());
     }
 
-    let entries =
-        fs::read_dir(&byond_dir).map_err(|e| format!("Failed to read byond directory: {e}"))?;
+    let entries = fs::read_dir(&byond_dir)?;
     for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+        let entry = entry?;
         let path = entry.path();
         let name = entry.file_name();
         if name == "bin" {
@@ -230,10 +230,9 @@ fn trim_byond_install(version_dir: &std::path::Path) -> Result<(), String> {
 
     let bin_dir = byond_dir.join("bin");
     if bin_dir.exists() {
-        let bin_entries =
-            fs::read_dir(&bin_dir).map_err(|e| format!("Failed to read bin directory: {e}"))?;
+        let bin_entries = fs::read_dir(&bin_dir)?;
         for entry in bin_entries {
-            let entry = entry.map_err(|e| format!("Failed to read bin entry: {e}"))?;
+            let entry = entry?;
             let path = entry.path();
             let name = entry.file_name();
             let name_str = name.to_string_lossy().to_lowercase();
@@ -298,25 +297,23 @@ fn version_cmp(a: &str, b: &str) -> Option<std::cmp::Ordering> {
 pub fn select_byond_version(
     engine: Option<&EngineRequirements>,
     app: &AppHandle,
-) -> Result<String, String> {
+) -> CommandResult<String> {
     let config = crate::config::get_config();
     let default_version = config.default_byond_version.map(str::to_string);
 
-    let Some(engine) = engine else {
-        // No engine requirements — use default
-        return default_version.ok_or_else(|| {
-            "No engine requirements and no default BYOND version configured".to_string()
-        });
+    let no_default = || CommandError::NotConfigured {
+        feature: "default_byond_version".to_string(),
     };
 
-    // If no constraints at all, use default
+    let Some(engine) = engine else {
+        return default_version.ok_or_else(no_default);
+    };
+
     if engine.min_version.is_none()
         && engine.max_version.is_none()
         && engine.blacklisted_versions.is_empty()
     {
-        return default_version.ok_or_else(|| {
-            "No engine requirements and no default BYOND version configured".to_string()
-        });
+        return default_version.ok_or_else(no_default);
     }
 
     let store = load_version_store(app)?;
@@ -365,7 +362,10 @@ pub fn select_byond_version(
 
     // All constraint versions are blacklisted, fall back to default
     default_version.ok_or_else(|| {
-        "No suitable BYOND version available (all candidates are blacklisted)".to_string()
+        CommandError::NotFound(
+            "no BYOND version satisfies engine constraints (all candidates are blacklisted)"
+                .to_string(),
+        )
     })
 }
 
@@ -403,22 +403,22 @@ pub fn build_connect_url(
     }
 }
 
-pub fn get_byond_base_dir(_app: &AppHandle) -> Result<PathBuf, String> {
+pub fn get_byond_base_dir(_app: &AppHandle) -> CommandResult<PathBuf> {
     let config = crate::config::get_config();
     let local_data = dirs::data_local_dir()
-        .ok_or("Failed to get local data directory")?
+        .ok_or_else(|| CommandError::Io("local data directory unavailable".to_string()))?
         .join(config.app_identifier);
 
     Ok(local_data.join("byond"))
 }
 
-fn get_byond_version_dir(app: &AppHandle, version: &str) -> Result<PathBuf, String> {
+fn get_byond_version_dir(app: &AppHandle, version: &str) -> CommandResult<PathBuf> {
     let base = get_byond_base_dir(app)?;
     Ok(base.join(version))
 }
 
 #[cfg(target_os = "windows")]
-fn get_dreamseeker_path(app: &AppHandle, version: &str) -> Result<PathBuf, String> {
+fn get_dreamseeker_path(app: &AppHandle, version: &str) -> CommandResult<PathBuf> {
     let version_dir = get_byond_version_dir(app, version)?;
     Ok(version_dir
         .join("byond")
@@ -427,7 +427,7 @@ fn get_dreamseeker_path(app: &AppHandle, version: &str) -> Result<PathBuf, Strin
 }
 
 #[cfg(target_os = "linux")]
-fn get_dreamseeker_path(app: &AppHandle, version: &str) -> Result<PathBuf, String> {
+fn get_dreamseeker_path(app: &AppHandle, version: &str) -> CommandResult<PathBuf> {
     let version_dir = get_byond_version_dir(app, version)?;
     Ok(version_dir
         .join("byond")
@@ -436,12 +436,15 @@ fn get_dreamseeker_path(app: &AppHandle, version: &str) -> Result<PathBuf, Strin
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
-fn get_dreamseeker_path(_app: &AppHandle, _version: &str) -> Result<PathBuf, String> {
-    Err("BYOND is only supported on Windows and Linux (via Wine)".to_string())
+fn get_dreamseeker_path(_app: &AppHandle, _version: &str) -> CommandResult<PathBuf> {
+    Err(CommandError::UnsupportedPlatform {
+        feature: "byond".into(),
+        platform: std::env::consts::OS.into(),
+    })
 }
 
 #[cfg(target_os = "windows")]
-fn get_byond_pager_path(app: &AppHandle, version: &str) -> Result<PathBuf, String> {
+fn get_byond_pager_path(app: &AppHandle, version: &str) -> CommandResult<PathBuf> {
     let version_dir = get_byond_version_dir(app, version)?;
     Ok(version_dir.join("byond").join("bin").join("byond.exe"))
 }
@@ -477,10 +480,12 @@ pub async fn check_byond_version(
 }
 
 #[allow(clippy::indexing_slicing)] // length checked above
-fn get_byond_download_urls(version: &str) -> Result<(String, String), String> {
+fn get_byond_download_urls(version: &str) -> CommandResult<(String, String)> {
     let parts: Vec<&str> = version.split('.').collect();
     if parts.len() != 2 {
-        return Err(format!("Invalid BYOND version format: {version}"));
+        return Err(CommandError::InvalidInput(format!(
+            "Invalid BYOND version format: {version}"
+        )));
     }
 
     let major = parts[0];
@@ -491,19 +496,17 @@ fn get_byond_download_urls(version: &str) -> Result<(String, String), String> {
     Ok((primary, fallback))
 }
 
-async fn try_download(url: &str) -> Result<Vec<u8>, String> {
-    let response = reqwest::get(url)
-        .await
-        .map_err(|e| format!("Request failed: {e}"))?;
+async fn try_download(url: &str) -> CommandResult<Vec<u8>> {
+    let response = reqwest::get(url).await?;
 
     if !response.status().is_success() {
-        return Err(format!("HTTP {}", response.status()));
+        return Err(CommandError::InvalidResponse(format!(
+            "HTTP {}",
+            response.status()
+        )));
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| format!("Failed to read response: {e}"))?;
+    let bytes = response.bytes().await?;
 
     Ok(bytes.to_vec())
 }
@@ -513,7 +516,7 @@ struct ByondHashResponse {
     sha256: Option<String>,
 }
 
-async fn fetch_expected_hash(version: &str) -> Result<Option<String>, String> {
+async fn fetch_expected_hash(version: &str) -> CommandResult<Option<String>> {
     let config = crate::config::get_config();
 
     // If no BYOND hash API is configured for this variant, skip verification
@@ -524,9 +527,7 @@ async fn fetch_expected_hash(version: &str) -> Result<Option<String>, String> {
 
     let url = format!("{base_url}?byond_ver={version}");
 
-    let response = reqwest::get(&url)
-        .await
-        .map_err(|e| format!("Failed to fetch hash: {e}"))?;
+    let response = reqwest::get(&url).await?;
 
     if !response.status().is_success() {
         tracing::warn!(
@@ -540,12 +541,12 @@ async fn fetch_expected_hash(version: &str) -> Result<Option<String>, String> {
     let hash_response: ByondHashResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse hash response: {e}"))?;
+        .map_err(|e| CommandError::InvalidResponse(format!("Failed to parse hash response: {e}")))?;
 
     Ok(hash_response.sha256)
 }
 
-fn verify_sha256(data: &[u8], expected_hex: &str) -> Result<(), String> {
+fn verify_sha256(data: &[u8], expected_hex: &str) -> CommandResult<()> {
     let mut hasher = Sha256::new();
     hasher.update(data);
     let result = hasher.finalize();
@@ -554,9 +555,9 @@ fn verify_sha256(data: &[u8], expected_hex: &str) -> Result<(), String> {
     if actual_hex.eq_ignore_ascii_case(expected_hex) {
         Ok(())
     } else {
-        Err(format!(
+        Err(CommandError::InvalidResponse(format!(
             "SHA-256 mismatch: expected {expected_hex}, got {actual_hex}"
-        ))
+        )))
     }
 }
 
@@ -576,7 +577,7 @@ pub async fn install_byond_version(
     let (primary_url, fallback_url) = get_byond_download_urls(&version)?;
     let version_dir = get_byond_version_dir(&app, &version)?;
 
-    fs::create_dir_all(&version_dir).map_err(|e| format!("Failed to create directory: {e}"))?;
+    fs::create_dir_all(&version_dir)?;
 
     let zip_path = version_dir.join("byond.zip");
 
@@ -584,13 +585,13 @@ pub async fn install_byond_version(
         Ok(b) => b,
         Err(primary_err) => {
             tracing::warn!(
-                "Primary download failed ({}), trying fallback URL",
+                "Primary BYOND download failed ({}), trying fallback URL",
                 primary_err
             );
             try_download(&fallback_url).await.map_err(|fallback_err| {
-                format!(
-                    "Failed to download BYOND version {version}: primary error: {primary_err}, fallback error: {fallback_err}"
-                )
+                CommandError::Network(format!(
+                    "Failed to download BYOND {version}: primary={primary_err}, fallback={fallback_err}"
+                ))
             })?
         }
     };
@@ -600,7 +601,7 @@ pub async fn install_byond_version(
         Ok(Some(expected_hash)) => {
             verify_sha256(&bytes, &expected_hash).map_err(|e| {
                 tracing::error!("BYOND {} integrity check failed: {}", version, e);
-                format!("Download integrity verification failed for BYOND {version}: {e}")
+                e
             })?;
             tracing::info!("BYOND {} SHA-256 verified successfully", version);
         }
@@ -619,17 +620,18 @@ pub async fn install_byond_version(
         }
     }
 
-    fs::write(&zip_path, &bytes).map_err(|e| format!("Failed to save download: {e}"))?;
+    fs::write(&zip_path, &bytes)?;
 
-    let file = fs::File::open(&zip_path).map_err(|e| format!("Failed to open zip file: {e}"))?;
+    let file = fs::File::open(&zip_path)?;
 
-    let mut archive =
-        zip::ZipArchive::new(file).map_err(|e| format!("Failed to read zip archive: {e}"))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| {
+        CommandError::InvalidResponse(format!("Downloaded BYOND archive is not a valid zip: {e}"))
+    })?;
 
     for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("Failed to read zip entry: {e}"))?;
+        let mut file = archive.by_index(i).map_err(|e| {
+            CommandError::InvalidResponse(format!("Corrupt entry in BYOND zip: {e}"))
+        })?;
 
         let outpath = match file.enclosed_name() {
             Some(path) => version_dir.join(path),
@@ -637,18 +639,15 @@ pub async fn install_byond_version(
         };
 
         if file.name().ends_with('/') {
-            fs::create_dir_all(&outpath).map_err(|e| format!("Failed to create directory: {e}"))?;
+            fs::create_dir_all(&outpath)?;
         } else {
             if let Some(parent) = outpath.parent() {
                 if !parent.exists() {
-                    fs::create_dir_all(parent)
-                        .map_err(|e| format!("Failed to create parent directory: {e}"))?;
+                    fs::create_dir_all(parent)?;
                 }
             }
-            let mut outfile =
-                fs::File::create(&outpath).map_err(|e| format!("Failed to create file: {e}"))?;
-            io::copy(&mut file, &mut outfile)
-                .map_err(|e| format!("Failed to extract file: {e}"))?;
+            let mut outfile = fs::File::create(&outpath)?;
+            io::copy(&mut file, &mut outfile)?;
         }
 
         #[cfg(unix)]
@@ -717,7 +716,7 @@ pub async fn install_byond_version(
 pub async fn connect(
     app: AppHandle,
     req: ConnectionRequest,
-) -> Result<ConnectionResult, String> {
+) -> CommandResult<ConnectionResult> {
     let source_str = req.source.as_deref().unwrap_or("unknown");
 
     if CONNECTING.swap(true, Ordering::SeqCst) {
@@ -752,7 +751,7 @@ async fn get_auth_for_connection(
 ) -> Result<(Option<String>, Option<String>), AuthError> {
     let settings = load_settings(app).map_err(|e| AuthError {
         code: "settings_error".to_string(),
-        message: e,
+        message: e.to_string(),
         linking_url: None,
     })?;
 
@@ -760,7 +759,7 @@ async fn get_auth_for_connection(
         AuthMode::Oidc | AuthMode::Hub => {
             let tokens = TokenStorage::get_tokens().map_err(|e| AuthError {
                 code: "token_error".to_string(),
-                message: e,
+                message: e.to_string(),
                 linking_url: None,
             })?;
 
@@ -794,7 +793,7 @@ async fn get_auth_for_connection(
                     .await
                     .map_err(|e| AuthError {
                         code: "steam_error".to_string(),
-                        message: e,
+                        message: e.to_string(),
                         linking_url: None,
                     })?;
 
@@ -857,7 +856,7 @@ pub async fn connect_to_server(
     let server = servers
         .iter()
         .find(|s| s.name == server_name)
-        .ok_or_else(|| format!("Server '{server_name}' not found"))?
+        .ok_or_else(|| CommandError::NotFound(format!("server '{server_name}'")))?
         .clone();
 
     let version = select_byond_version(server.engine.as_ref(), &app)?;
@@ -872,16 +871,18 @@ pub async fn connect_to_server(
         let port = address
             .split(':')
             .nth(1)
-            .ok_or("Invalid server URL format")?
+            .ok_or_else(|| {
+                CommandError::InvalidInput(format!("Invalid server URL format: {}", server.url))
+            })?
             .to_string();
 
         let relay_state = app
             .try_state::<Arc<RelayState>>()
-            .ok_or("Relay state not available")?;
+            .ok_or_else(|| CommandError::Internal("relay state not available".into()))?;
         let host = relay_state
             .get_selected_host()
             .await
-            .ok_or("No relay selected")?;
+            .ok_or_else(|| CommandError::NotFound("no relay selected".into()))?;
 
         (host, port)
     } else {
@@ -912,7 +913,10 @@ pub async fn connect_to_server(
     let current_auth_mode = load_settings(&app).map(|s| s.auth_mode).unwrap_or_default();
     let (access_type, access_token) = if current_auth_mode == AuthMode::Hub {
         if let Some(session_token) = &access_token {
-            let server_id = server.id.as_deref().ok_or("Server has no hub ID")?;
+            let server_id = server
+                .id
+                .as_deref()
+                .ok_or_else(|| CommandError::InvalidInput("server has no hub ID".into()))?;
             let hwid = crate::control_server::generate_hwid();
             match crate::auth::hub_client::HubClient::join(
                 session_token,
@@ -966,13 +970,12 @@ pub async fn connect_to_server(
         },
     )
     .await
-    .map_err(CommandError::Internal)
 }
 
 async fn connect_impl(
     app: AppHandle,
     req: ConnectionRequest,
-) -> Result<ConnectionResult, String> {
+) -> CommandResult<ConnectionResult> {
     let ConnectionRequest {
         version,
         host,
@@ -985,25 +988,25 @@ async fn connect_impl(
         server_id,
     } = req;
 
-    let version_info = install_byond_version(app.clone(), version.clone())
-        .await
-        .map_err(|e| e.to_string())?;
+    let version_info = install_byond_version(app.clone(), version.clone()).await?;
 
     if !version_info.installed {
         let msg = format!("Failed to install BYOND version {version}");
         tracing::error!("{}", msg);
-        return Err(msg);
+        return Err(CommandError::Internal(msg));
     }
 
-    let dreamseeker_path = version_info.path.ok_or("DreamSeeker path not found")?;
+    let dreamseeker_path = version_info
+        .path
+        .ok_or_else(|| CommandError::NotFound("dreamseeker executable".into()))?;
 
     #[cfg(target_os = "linux")]
     {
         let status = wine::check_prefix_status(&app).await;
         if !status.prefix_initialized || !status.webview2_installed {
-            return Err(
-                "Wine environment not fully configured. Please complete setup first.".to_string(),
-            );
+            return Err(CommandError::NotConfigured {
+                feature: "wine_prefix".into(),
+            });
         }
     }
 
@@ -1050,7 +1053,9 @@ async fn connect_impl(
                 tracing::info!("Not logged in to BYOND and pager not running, opening login flow");
                 let login_result = start_byond_login(app.clone()).await;
                 if login_result.is_err() {
-                    return Err("BYOND login required but was cancelled or failed".to_string());
+                    return Err(CommandError::Cancelled {
+                        operation: "byond_login".into(),
+                    });
                 }
                 true
             }
@@ -1070,9 +1075,9 @@ async fn connect_impl(
             };
             let web_id = session
                 .web_id
-                .ok_or("BYOND login failed - still not authenticated")?;
+                .ok_or(CommandError::NotAuthenticated)?;
             if !session.logged_in {
-                return Err("BYOND login failed - still not authenticated".to_string());
+                return Err(CommandError::NotAuthenticated);
             }
             tracing::info!("Got web_id, launching byond.exe with web authentication");
 
@@ -1107,8 +1112,7 @@ async fn connect_impl(
                 Command::new(&byond_pager_path)
                     .arg(&connect_url)
                     .env("WEBVIEW2_USER_DATA_FOLDER", &webview2_data_dir)
-                    .spawn()
-                    .map_err(|e| format!("Failed to launch BYOND: {}", e))?
+                    .spawn()?
             };
 
             #[cfg(target_os = "linux")]
@@ -1124,7 +1128,9 @@ async fn connect_impl(
                         webview2_data_dir.to_str().unwrap(),
                     )],
                 )
-                .map_err(|e| format!("Failed to launch BYOND via Wine: {}", e))?
+                .map_err(|e| {
+                    CommandError::Io(format!("Failed to launch BYOND via Wine: {e}"))
+                })?
             };
 
             let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
@@ -1171,8 +1177,7 @@ async fn connect_impl(
             let child = Command::new(&dreamseeker_path)
                 .arg(&connect_url)
                 .env("WEBVIEW2_USER_DATA_FOLDER", &webview2_data_dir)
-                .spawn()
-                .map_err(|e| format!("Failed to launch DreamSeeker: {}", e))?;
+                .spawn()?;
 
             #[cfg(target_os = "linux")]
             let child = wine::launch_with_wine(
@@ -1184,7 +1189,7 @@ async fn connect_impl(
                     webview2_data_dir.to_str().unwrap(),
                 )],
             )
-            .map_err(|e| format!("Failed to launch BYOND via Wine: {}", e))?;
+            .map_err(|e| CommandError::Io(format!("Failed to launch BYOND via Wine: {e}")))?;
 
             if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
                 manager.set_last_connection_params(ConnectionParams {
@@ -1245,7 +1250,10 @@ async fn connect_impl(
             source,
             map_name,
         );
-        Err("BYOND is only supported on Windows and Linux (via Wine)".to_string())
+        Err(CommandError::UnsupportedPlatform {
+            feature: "byond".into(),
+            platform: std::env::consts::OS.into(),
+        })
     }
 }
 
@@ -1264,11 +1272,10 @@ pub async fn list_installed_byond_versions(
     let mut versions = Vec::new();
     let mut store_changed = false;
 
-    let entries =
-        fs::read_dir(&base_dir).map_err(|e| format!("Failed to read BYOND directory: {e}"))?;
+    let entries = fs::read_dir(&base_dir)?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+        let entry = entry?;
         let path = entry.path();
 
         if path.is_dir() {
@@ -1307,8 +1314,7 @@ pub async fn delete_byond_version(app: AppHandle, version: String) -> CommandRes
 
     if version_dir.exists() {
         tracing::info!("Deleting BYOND version: {}", version);
-        fs::remove_dir_all(&version_dir)
-            .map_err(|e| format!("Failed to delete BYOND version: {e}"))?;
+        fs::remove_dir_all(&version_dir)?;
         remove_version_from_store(&app, &version)?;
         Ok(true)
     } else {

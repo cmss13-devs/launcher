@@ -1,4 +1,4 @@
-use crate::error::CommandResult;
+use crate::error::{CommandError, CommandResult};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
@@ -70,19 +70,18 @@ impl Default for AppSettings {
     }
 }
 
-fn get_settings_path(app: &AppHandle) -> Result<PathBuf, String> {
+fn get_settings_path(app: &AppHandle) -> CommandResult<PathBuf> {
     let app_data = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {e}"))?;
+        .map_err(|e| CommandError::Io(format!("app data directory unavailable: {e}")))?;
 
-    fs::create_dir_all(&app_data)
-        .map_err(|e| format!("Failed to create app data directory: {e}"))?;
+    fs::create_dir_all(&app_data)?;
 
     Ok(app_data.join(SETTINGS_FILE))
 }
 
-pub fn load_settings(app: &AppHandle) -> Result<AppSettings, String> {
+pub fn load_settings(app: &AppHandle) -> CommandResult<AppSettings> {
     tracing::debug!("Loading settings");
     let path = get_settings_path(app)?;
 
@@ -103,7 +102,7 @@ pub fn load_settings(app: &AppHandle) -> Result<AppSettings, String> {
         return Ok(AppSettings::default());
     }
 
-    match serde_json::from_str(&contents) {
+    match serde_json::from_str::<AppSettings>(&contents) {
         Ok(settings) => Ok(settings),
         Err(e) => {
             tracing::warn!("Failed to parse settings file, using defaults: {}", e);
@@ -112,20 +111,21 @@ pub fn load_settings(app: &AppHandle) -> Result<AppSettings, String> {
     }
 }
 
-pub fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), String> {
+pub fn save_settings(app: &AppHandle, settings: &AppSettings) -> CommandResult<()> {
     tracing::debug!("Saving settings");
     let path = get_settings_path(app)?;
 
     let contents = serde_json::to_string_pretty(settings)
-        .map_err(|e| format!("Failed to serialize settings: {e}"))?;
+        .map_err(|e| CommandError::Internal(format!("Failed to serialize settings: {e}")))?;
 
-    fs::write(&path, contents).map_err(|e| format!("Failed to write settings file: {e}"))
+    fs::write(&path, contents)?;
+    Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_settings(app: AppHandle) -> CommandResult<AppSettings> {
-    Ok(load_settings(&app)?)
+    load_settings(&app)
 }
 
 #[tauri::command]

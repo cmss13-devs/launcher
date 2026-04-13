@@ -5,10 +5,11 @@ use oauth2::{
 use serde::{Deserialize, Serialize};
 
 use crate::config::{get_config, OidcConfig};
+use crate::error::{CommandError, CommandResult};
 
-fn get_oidc_config() -> Result<OidcConfig, String> {
-    get_config().oidc.ok_or_else(|| {
-        "OIDC authentication is not configured for this launcher variant".to_string()
+fn get_oidc_config() -> CommandResult<OidcConfig> {
+    get_config().oidc.ok_or_else(|| CommandError::NotConfigured {
+        feature: "oidc".to_string(),
     })
 }
 
@@ -34,11 +35,11 @@ pub struct TokenResult {
     pub expires_at: i64,
 }
 
-fn http_client() -> Result<oauth2::reqwest::Client, String> {
+fn http_client() -> CommandResult<oauth2::reqwest::Client> {
     oauth2::reqwest::ClientBuilder::new()
         .redirect(oauth2::reqwest::redirect::Policy::none())
         .build()
-        .map_err(|e| format!("Failed to build HTTP client: {e}"))
+        .map_err(|e| CommandError::Network(format!("Failed to build HTTP client: {e}")))
 }
 
 pub struct OidcClient;
@@ -46,18 +47,22 @@ pub struct OidcClient;
 impl OidcClient {
     pub fn create_authorization_request(
         redirect_uri_string: &str,
-    ) -> Result<AuthorizationRequest, String> {
+    ) -> CommandResult<AuthorizationRequest> {
         tracing::debug!(
             "Creating authorization request with redirect_uri: {}",
             redirect_uri_string
         );
         let oidc = get_oidc_config()?;
         let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| format!("Invalid auth URL: {e}"))?;
+            .map_err(|e| CommandError::NotConfigured {
+                feature: format!("oidc.auth_url ({e})"),
+            })?;
         let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| format!("Invalid token URL: {e}"))?;
+            .map_err(|e| CommandError::NotConfigured {
+                feature: format!("oidc.token_url ({e})"),
+            })?;
         let redirect_url = RedirectUrl::new(redirect_uri_string.to_string())
-            .map_err(|e| format!("Invalid redirect URI: {e}"))?;
+            .map_err(|e| CommandError::Internal(format!("Invalid redirect URI: {e}")))?;
 
         let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
@@ -87,15 +92,19 @@ impl OidcClient {
         code: &str,
         redirect_uri: &str,
         pkce_verifier: PkceCodeVerifier,
-    ) -> Result<TokenResult, String> {
+    ) -> CommandResult<TokenResult> {
         tracing::debug!("Exchanging authorization code for tokens");
         let oidc = get_oidc_config()?;
         let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| format!("Invalid auth URL: {e}"))?;
+            .map_err(|e| CommandError::NotConfigured {
+                feature: format!("oidc.auth_url ({e})"),
+            })?;
         let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| format!("Invalid token URL: {e}"))?;
+            .map_err(|e| CommandError::NotConfigured {
+                feature: format!("oidc.token_url ({e})"),
+            })?;
         let redirect_url = RedirectUrl::new(redirect_uri.to_string())
-            .map_err(|e| format!("Invalid redirect URI: {e}"))?;
+            .map_err(|e| CommandError::Internal(format!("Invalid redirect URI: {e}")))?;
 
         let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
@@ -109,7 +118,10 @@ impl OidcClient {
             .set_pkce_verifier(pkce_verifier)
             .request_async(&http)
             .await
-            .map_err(|e| format!("Failed to exchange code: {e}"))?;
+            .map_err(|e| {
+                tracing::warn!("OIDC code exchange failed: {e}");
+                CommandError::InvalidCredentials
+            })?;
 
         let access_token = token_response.access_token().secret().clone();
 
@@ -134,13 +146,17 @@ impl OidcClient {
     }
 
     #[allow(clippy::similar_names)]
-    pub async fn refresh_tokens(refresh_token: &str) -> Result<TokenResult, String> {
+    pub async fn refresh_tokens(refresh_token: &str) -> CommandResult<TokenResult> {
         tracing::debug!("Refreshing tokens");
         let oidc = get_oidc_config()?;
         let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| format!("Invalid auth URL: {e}"))?;
+            .map_err(|e| CommandError::NotConfigured {
+                feature: format!("oidc.auth_url ({e})"),
+            })?;
         let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| format!("Invalid token URL: {e}"))?;
+            .map_err(|e| CommandError::NotConfigured {
+                feature: format!("oidc.token_url ({e})"),
+            })?;
 
         let client = BasicClient::new(ClientId::new(oidc.client_id.to_string()))
             .set_auth_uri(auth_url)
@@ -152,7 +168,10 @@ impl OidcClient {
             .exchange_refresh_token(&RefreshToken::new(refresh_token.to_string()))
             .request_async(&http)
             .await
-            .map_err(|e| format!("Failed to refresh tokens: {e}"))?;
+            .map_err(|e| {
+                tracing::warn!("OIDC token refresh failed: {e}");
+                CommandError::TokenExpired
+            })?;
 
         let access_token = token_response.access_token().secret().clone();
 
@@ -177,7 +196,7 @@ impl OidcClient {
         })
     }
 
-    pub async fn get_userinfo(access_token: &str) -> Result<UserInfo, String> {
+    pub async fn get_userinfo(access_token: &str) -> CommandResult<UserInfo> {
         tracing::debug!("Fetching user info");
         let oidc = get_oidc_config()?;
         let client = reqwest::Client::new();
@@ -185,17 +204,21 @@ impl OidcClient {
             .get(oidc.userinfo_url)
             .bearer_auth(access_token)
             .send()
-            .await
-            .map_err(|e| format!("Failed to fetch userinfo: {e}"))?;
+            .await?;
 
-        if !response.status().is_success() {
-            return Err(format!("Userinfo request failed: {}", response.status()));
+        let status = response.status();
+        if !status.is_success() {
+            if status == reqwest::StatusCode::UNAUTHORIZED {
+                return Err(CommandError::TokenExpired);
+            }
+            return Err(CommandError::InvalidResponse(format!(
+                "Userinfo request failed: {status}"
+            )));
         }
 
-        let userinfo: UserInfo = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse userinfo: {e}"))?;
+        let userinfo: UserInfo = response.json().await.map_err(|e| {
+            CommandError::InvalidResponse(format!("Failed to parse userinfo: {e}"))
+        })?;
 
         Ok(userinfo)
     }

@@ -154,7 +154,7 @@ fn kill_game(
 #[tauri::command]
 #[specta::specta]
 fn open_url(url: String) -> error::CommandResult<()> {
-    open_url::open(&url).map_err(error::CommandError::Io)
+    open_url::open(&url)
 }
 
 #[cfg(not(feature = "steam"))]

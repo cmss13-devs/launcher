@@ -4,6 +4,8 @@ use std::time::Duration;
 use tiny_http::{Response, Server};
 use url::Url;
 
+use crate::error::{CommandError, CommandResult};
+
 const CALLBACK_TIMEOUT_SECS: u64 = 300; // 5 minutes
 
 const SUCCESS_HTML: &str = r#"<!DOCTYPE html>
@@ -99,7 +101,7 @@ pub struct CallbackServer {
 }
 
 impl CallbackServer {
-    pub fn start_without_state() -> Result<Self, String> {
+    pub fn start_without_state() -> CommandResult<Self> {
         tracing::info!("Starting OAuth callback server on 127.0.0.1:0");
 
         let server = Server::http("127.0.0.1:0").map_err(|e| {
@@ -112,15 +114,15 @@ impl CallbackServer {
                 "This may be caused by: firewall blocking the connection, \
                 antivirus software, or network configuration issues"
             );
-            format!(
+            CommandError::Io(format!(
                 "Failed to start callback server: {e}. \
                 Please check your firewall and antivirus settings."
-            )
+            ))
         })?;
 
         let addr = server.server_addr().to_ip().ok_or_else(|| {
             tracing::error!("Failed to get server address after binding");
-            "Failed to get server address".to_string()
+            CommandError::Internal("Failed to get callback server address".to_string())
         })?;
 
         let port = addr.port();
@@ -145,7 +147,7 @@ impl CallbackServer {
         format!("http://127.0.0.1:{}/callback", self.port)
     }
 
-    pub fn wait_for_callback(self) -> Result<CallbackResult, String> {
+    pub fn wait_for_callback(self) -> CommandResult<CallbackResult> {
         tracing::info!(
             "Waiting for OAuth callback on port {} (timeout: {}s)",
             self.port,
@@ -168,12 +170,15 @@ impl CallbackServer {
                         CALLBACK_TIMEOUT_SECS,
                         e
                     );
-                    return Err("Callback server timed out waiting for authentication".to_string());
+                    return Err(CommandError::Timeout {
+                        operation: "oauth_callback".to_string(),
+                    });
                 }
             };
             let full_url = format!("http://127.0.0.1{}", request.url());
-            let url =
-                Url::parse(&full_url).map_err(|e| format!("Failed to parse callback URL: {e}"))?;
+            let url = Url::parse(&full_url).map_err(|e| {
+                CommandError::InvalidResponse(format!("Failed to parse callback URL: {e}"))
+            })?;
 
             tracing::debug!("Callback server received request: {}", url.path());
 
@@ -199,17 +204,25 @@ impl CallbackServer {
                     .with_status_code(400);
                 request.respond(response).ok();
 
-                return Err(format!("OAuth error: {error} - {error_desc}"));
+                return Err(CommandError::InvalidResponse(format!(
+                    "OAuth error: {error} - {error_desc}"
+                )));
             }
 
             let code = params
                 .get("code")
-                .ok_or("Missing authorization code in callback")?
+                .ok_or_else(|| {
+                    CommandError::InvalidResponse(
+                        "Missing authorization code in callback".to_string(),
+                    )
+                })?
                 .clone();
 
             let state = params
                 .get("state")
-                .ok_or("Missing state in callback")?
+                .ok_or_else(|| {
+                    CommandError::InvalidResponse("Missing state in callback".to_string())
+                })?
                 .clone();
 
             if let Some(ref expected) = self.expected_state {
@@ -226,7 +239,9 @@ impl CallbackServer {
                         .with_status_code(400);
                     request.respond(response).ok();
 
-                    return Err("State mismatch - possible CSRF attack".to_string());
+                    return Err(CommandError::InvalidInput(
+                        "State mismatch - possible CSRF attack".to_string(),
+                    ));
                 }
             }
 

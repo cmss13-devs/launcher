@@ -61,7 +61,7 @@ pub struct ByondLoginResult {
 
 /// State for managing the login flow
 pub struct ByondLoginState {
-    result_tx: Mutex<Option<oneshot::Sender<Result<ByondLoginResult, String>>>>,
+    result_tx: Mutex<Option<oneshot::Sender<CommandResult<ByondLoginResult>>>>,
 }
 
 impl ByondLoginState {
@@ -71,11 +71,11 @@ impl ByondLoginState {
         }
     }
 
-    pub fn set_sender(&self, tx: oneshot::Sender<Result<ByondLoginResult, String>>) {
+    pub fn set_sender(&self, tx: oneshot::Sender<CommandResult<ByondLoginResult>>) {
         *self.result_tx.lock() = Some(tx);
     }
 
-    pub fn complete(&self, result: Result<ByondLoginResult, String>) {
+    pub fn complete(&self, result: CommandResult<ByondLoginResult>) {
         if let Some(tx) = self.result_tx.lock().take() {
             let _ = tx.send(result);
         }
@@ -267,7 +267,9 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
         if let tauri::WindowEvent::CloseRequested { .. } = event {
             tracing::info!("BYOND login window closed by user");
             if let Some(state) = app_for_close.try_state::<ByondLoginState>() {
-                state.complete(Err("byond_login".to_string()));
+                state.complete(Err(CommandError::Cancelled {
+                    operation: "byond_login".into(),
+                }));
             }
         }
     });
@@ -276,7 +278,7 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
     match tokio::time::timeout(std::time::Duration::from_secs(300), rx).await {
         Ok(Ok(result)) => {
             tracing::info!("BYOND login flow completed successfully",);
-            result.map_err(|operation| CommandError::Cancelled { operation })
+            result
         }
         Ok(Err(_)) => {
             tracing::warn!("BYOND login channel closed unexpectedly");

@@ -6,6 +6,7 @@ mod implementation {
 
     use crate::auth::TokenStorage;
     use crate::byond::{connect, ConnectionRequest};
+    use crate::error::{CommandError, CommandResult};
     use crate::relays::RelayState;
     use crate::servers::{Server, ServerState};
     use crate::settings::{load_settings, AuthMode};
@@ -62,9 +63,11 @@ mod implementation {
         url.split(':').nth(1).map(ToString::to_string)
     }
 
-    async fn get_steam_access_token(handle: &AppHandle) -> Result<Option<String>, String> {
+    async fn get_steam_access_token(handle: &AppHandle) -> CommandResult<Option<String>> {
         let Some(steam_state) = handle.try_state::<Arc<SteamState>>() else {
-            return Err("Steam not available".to_string());
+            return Err(CommandError::NotConfigured {
+                feature: "steam".into(),
+            });
         };
 
         let result = authenticate_with_steam(&steam_state, false).await?;
@@ -72,21 +75,18 @@ mod implementation {
         if result.success {
             Ok(result.access_token)
         } else if result.requires_linking {
-            Err(format!(
-                "LINKING_REQUIRED:{}",
-                result.linking_url.unwrap_or_default()
-            ))
+            Err(CommandError::RequiresLinking {
+                url: result.linking_url.unwrap_or_default(),
+            })
         } else {
-            Err(result
-                .error
-                .unwrap_or_else(|| "Steam authentication failed".to_string()))
+            Err(CommandError::InvalidCredentials)
         }
     }
 
     async fn get_access_token_for_mode(
         handle: &AppHandle,
         auth_mode: AuthMode,
-    ) -> Result<(Option<String>, Option<String>), String> {
+    ) -> CommandResult<(Option<String>, Option<String>)> {
         match auth_mode {
             AuthMode::Oidc => {
                 let tokens = TokenStorage::get_tokens()?;
@@ -95,20 +95,20 @@ mod implementation {
                         let config = crate::config::get_config();
                         Ok((Some(config.variant.to_string()), Some(t.access_token)))
                     }
-                    _ => Err("AUTH_REQUIRED".to_string()),
+                    _ => Err(CommandError::NotAuthenticated),
                 }
             }
-            AuthMode::Steam => match get_steam_access_token(handle).await {
-                Ok(token) => Ok((Some("steam".to_string()), token)),
-                Err(e) => Err(e),
-            },
+            AuthMode::Steam => {
+                let token = get_steam_access_token(handle).await?;
+                Ok((Some("steam".to_string()), token))
+            }
             AuthMode::Hub => {
                 let tokens = TokenStorage::get_tokens()?;
                 match tokens {
                     Some(t) if !TokenStorage::is_expired() => {
                         Ok((Some("hub".to_string()), Some(t.access_token)))
                     }
-                    _ => Err("AUTH_REQUIRED".to_string()),
+                    _ => Err(CommandError::NotAuthenticated),
                 }
             }
             AuthMode::Byond => Ok((Some("byond".to_string()), None)),
@@ -206,7 +206,7 @@ mod implementation {
                     &handle,
                     &server_name,
                     AutoConnectStatus::Error,
-                    Some(e),
+                    Some(e.to_string()),
                     None,
                 );
                 return;
@@ -231,7 +231,7 @@ mod implementation {
         let (access_type, access_token) =
             match get_access_token_for_mode(&handle, settings.auth_mode).await {
                 Ok((t, tok)) => (t, tok),
-                Err(e) if e == "AUTH_REQUIRED" => {
+                Err(CommandError::NotAuthenticated) => {
                     let config = crate::config::get_config();
                     tracing::info!("{} auth required", config.strings.auth_provider_name);
                     emit_status(
@@ -243,15 +243,14 @@ mod implementation {
                     );
                     return;
                 }
-                Err(e) if e.starts_with("LINKING_REQUIRED:") => {
-                    let linking_url = e.strip_prefix("LINKING_REQUIRED:").map(ToString::to_string);
+                Err(CommandError::RequiresLinking { url }) => {
                     tracing::info!("Steam linking required");
                     emit_status(
                         &handle,
                         &server_name,
                         AutoConnectStatus::SteamLinkingRequired,
                         Some("Steam account linking required".to_string()),
-                        linking_url,
+                        Some(url),
                     );
                     return;
                 }
@@ -261,7 +260,7 @@ mod implementation {
                         &handle,
                         &server_name,
                         AutoConnectStatus::Error,
-                        Some(e),
+                        Some(e.to_string()),
                         None,
                     );
                     return;
@@ -371,7 +370,7 @@ mod implementation {
                     &handle,
                     &server_name,
                     AutoConnectStatus::Error,
-                    Some(e),
+                    Some(e.to_string()),
                     None,
                 );
             }

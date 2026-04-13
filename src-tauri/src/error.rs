@@ -62,18 +62,6 @@ pub enum CommandError {
 
 pub type CommandResult<T> = Result<T, CommandError>;
 
-impl From<String> for CommandError {
-    fn from(s: String) -> Self {
-        Self::Internal(s)
-    }
-}
-
-impl From<&str> for CommandError {
-    fn from(s: &str) -> Self {
-        Self::Internal(s.to_string())
-    }
-}
-
 impl From<std::io::Error> for CommandError {
     fn from(e: std::io::Error) -> Self {
         Self::Io(e.to_string())

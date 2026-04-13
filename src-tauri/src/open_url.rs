@@ -1,5 +1,7 @@
 //! URL opening utilities that work in `AppImage` environments.
 
+use crate::error::{CommandError, CommandResult};
+
 #[cfg(target_os = "linux")]
 use std::process::Command;
 
@@ -48,7 +50,7 @@ fn find_xdg_open() -> Option<String> {
 /// Open a URL in the default browser.
 /// On Linux, tries system xdg-open first to work around AppImage bundling issues.
 #[cfg(target_os = "linux")]
-pub fn open(url: &str) -> Result<(), String> {
+pub fn open(url: &str) -> CommandResult<()> {
     // Try system xdg-open first
     if let Some(xdg_open) = find_xdg_open() {
         let mut cmd = Command::new(&xdg_open);
@@ -65,10 +67,10 @@ pub fn open(url: &str) -> Result<(), String> {
     }
 
     // Fall back to open crate
-    open::that(url).map_err(|e| format!("Failed to open URL: {}", e))
+    open::that(url).map_err(CommandError::from)
 }
 
 #[cfg(not(target_os = "linux"))]
-pub fn open(url: &str) -> Result<(), String> {
-    open::that(url).map_err(|e| format!("Failed to open URL: {e}"))
+pub fn open(url: &str) -> CommandResult<()> {
+    open::that(url).map_err(CommandError::from)
 }

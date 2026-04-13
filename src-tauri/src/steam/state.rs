@@ -48,7 +48,9 @@ impl SteamState {
         self.client.friends().name()
     }
 
-    pub async fn get_auth_session_ticket(&self) -> Result<Vec<u8>, String> {
+    pub async fn get_auth_session_ticket(&self) -> crate::error::CommandResult<Vec<u8>> {
+        use crate::error::CommandError;
+
         {
             let mut active = self.active_ticket.lock().unwrap();
             *active = None;
@@ -70,11 +72,17 @@ impl SteamState {
 
         let response = tokio::time::timeout(Duration::from_secs(10), rx)
             .await
-            .map_err(|_| "Timeout waiting for Steam auth ticket callback".to_string())?
-            .map_err(|_| "Steam auth ticket channel closed unexpectedly".to_string())?;
+            .map_err(|_| CommandError::Timeout {
+                operation: "steam auth ticket".to_string(),
+            })?
+            .map_err(|_| {
+                CommandError::Internal("Steam auth ticket channel closed unexpectedly".to_string())
+            })?;
 
         if response.result.is_err() {
-            return Err("Steam failed to generate auth ticket".to_string());
+            return Err(CommandError::InvalidResponse(
+                "Steam SDK refused to generate auth ticket".to_string(),
+            ));
         }
 
         {

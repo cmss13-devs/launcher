@@ -77,7 +77,9 @@ impl ControlServer {
     pub fn start(
         app_handle: tauri::AppHandle,
         presence_manager: Arc<PresenceManager>,
-    ) -> Result<Self, String> {
+    ) -> crate::error::CommandResult<Self> {
+        use crate::error::CommandError;
+
         tracing::info!("Starting control server on 127.0.0.1:0");
 
         let server = Server::http("127.0.0.1:0").map_err(|e| {
@@ -91,15 +93,15 @@ impl ControlServer {
                 antivirus software, or network configuration issues. \
                 On Windows, check Windows Firewall settings and any third-party security software."
             );
-            format!(
+            CommandError::Io(format!(
                 "Failed to start control server: {e}. \
                 Please check your firewall and antivirus settings."
-            )
+            ))
         })?;
 
         let addr = server.server_addr().to_ip().ok_or_else(|| {
             tracing::error!("Failed to get control server address after binding");
-            "Failed to get server address".to_string()
+            CommandError::Internal("control server address unavailable after bind".into())
         })?;
 
         let port = addr.port();
@@ -109,12 +111,8 @@ impl ControlServer {
             port
         );
 
-        let ws_listener = TcpListener::bind("127.0.0.1:0")
-            .map_err(|e| format!("Failed to bind WebSocket server: {e}"))?;
-        let ws_port = ws_listener
-            .local_addr()
-            .map_err(|e| format!("Failed to get WebSocket server address: {e}"))?
-            .port();
+        let ws_listener = TcpListener::bind("127.0.0.1:0")?;
+        let ws_port = ws_listener.local_addr()?.port();
         tracing::info!(
             "WebSocket server started on 127.0.0.1:{} (for launcher events)",
             ws_port
@@ -626,8 +624,9 @@ async fn refresh_auth_token(
                     .try_state::<Arc<crate::steam::SteamState>>()
                     .ok_or("Steam state not available")?;
 
-                let auth_result =
-                    crate::steam::authenticate_with_steam(&steam_state, false).await?;
+                let auth_result = crate::steam::authenticate_with_steam(&steam_state, false)
+                    .await
+                    .map_err(|e| e.to_string())?;
 
                 if !auth_result.success {
                     return Err(auth_result
@@ -650,7 +649,7 @@ async fn refresh_auth_token(
                 "Fetching current {} access token",
                 config.strings.auth_provider_name
             );
-            match crate::auth::TokenStorage::get_tokens()? {
+            match crate::auth::TokenStorage::get_tokens().map_err(|e| e.to_string())? {
                 Some(tokens) if !crate::auth::TokenStorage::is_expired() => {
                     params.access_token = Some(tokens.access_token);
                     Ok(params)
