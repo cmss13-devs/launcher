@@ -1,8 +1,5 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { commands } from "./bindings";
-import { unwrap } from "./lib/unwrap";
 
 import {
   AccountInfo,
@@ -10,6 +7,7 @@ import {
   ErrorNotifications,
   GameConnectionModal,
   RelayDropdown,
+  ServerFilterPanel,
   ServerItem,
   SettingsModal,
   SinglePlayerPanel,
@@ -19,90 +17,55 @@ import {
   UpdateNotification,
   WineSetupModal,
 } from "./components";
-import type { AuthModalState } from "./components/AuthModal";
-import type { SteamAuthModalState } from "./components/SteamAuthModal";
 import {
   ErrorProvider,
-  useConnect,
+  useAppBootstrap,
+  useAuthHandlers,
+  useAutoConnect,
   useError,
   useGameConnection,
+  useServerFilters,
+  useSteamLinking,
   useWine,
 } from "./hooks";
 import {
   useAuthStore,
-  useByondStore,
   useConfigStore,
   useServerStore,
   useSettingsStore,
   useSteamStore,
 } from "./stores";
 
-interface AutoConnectEvent {
-  status:
-    | "starting"
-    | "waiting_for_servers"
-    | "server_not_found"
-    | "server_unavailable"
-    | "auth_required"
-    | "steam_linking_required"
-    | "connecting"
-    | "connected"
-    | "error";
-  server_name: string;
-  message: string | null;
-  linking_url: string | null;
-}
-
 const AppContent = () => {
   const { errors, dismissError, showError } = useError();
 
-  const { config, load: loadConfig } = useConfigStore(
-    useShallow((s) => ({
-      config: s.config,
-      load: s.load,
-    })),
-  );
+  useAppBootstrap();
+
+  const config = useConfigStore((s) => s.config);
+  const oauthProviders = useAuthStore((s) => s.oauthProviders);
+  const steamAvailable = useSteamStore((s) => s.available);
 
   const {
-    login,
-    hubLogin,
-    hubOAuthLogin,
-    hubSteamLogin,
-    logout,
-    initListener: initAuthListener,
-  } = useAuthStore(
-    useShallow((s) => ({
-      login: s.login,
-      hubLogin: s.hubLogin,
-      hubOAuthLogin: s.hubOAuthLogin,
-      hubSteamLogin: s.hubSteamLogin,
-      logout: s.logout,
-      initListener: s.initListener,
-    })),
-  );
+    authModal,
+    handleLogin,
+    handleLogout,
+    handleByondLogin,
+    handleByondLogout,
+    handleHubLogin,
+    handleOAuthLogin,
+    handleSteamLogin,
+    handleAuthModalClose,
+    onLoginRequired,
+  } = useAuthHandlers();
 
   const {
-    available: steamAvailable,
-    initialize: initializeSteam,
-    authenticate: authenticateSteam,
-    logout: steamLogout,
-    cancelAuthTicket: cancelSteamAuthTicket,
-  } = useSteamStore(
-    useShallow((s) => ({
-      available: s.available,
-      initialize: s.initialize,
-      authenticate: s.authenticate,
-      logout: s.logout,
-      cancelAuthTicket: s.cancelAuthTicket,
-    })),
-  );
-
-  const { initListener: initByondListener, checkSession: checkByondSession } = useByondStore(
-    useShallow((s) => ({
-      initListener: s.initListener,
-      checkSession: s.checkSession,
-    })),
-  );
+    steamModal,
+    handleSteamAuthenticate,
+    handleSteamModalClose,
+    handleSteamLogout,
+    onSteamAuthRequired,
+    onAutoConnectLinkingRequired,
+  } = useSteamLinking();
 
   const {
     servers,
@@ -111,8 +74,6 @@ const AppContent = () => {
     relays,
     selectedRelay,
     setSelectedRelay,
-    initListener: initServerListener,
-    initRelays,
     lastUpdated,
   } = useServerStore(
     useShallow((s) => ({
@@ -122,50 +83,19 @@ const AppContent = () => {
       relays: s.relays,
       selectedRelay: s.selectedRelay,
       setSelectedRelay: s.setSelectedRelay,
-      initListener: s.initListener,
-      initRelays: s.initRelays,
       lastUpdated: s.lastUpdated,
     })),
   );
 
-  const {
-    authMode,
-    theme,
-    devMode,
-    load: loadSettings,
-    saveAuthMode,
-    saveTheme,
-  } = useSettingsStore(
+  const { authMode, theme, devMode, saveAuthMode, saveTheme } = useSettingsStore(
     useShallow((s) => ({
       authMode: s.authMode,
       theme: s.theme,
       devMode: s.devMode,
-      load: s.load,
       saveAuthMode: s.saveAuthMode,
       saveTheme: s.saveTheme,
     })),
   );
-
-  const [authModal, setAuthModal] = useState<{
-    visible: boolean;
-    state: AuthModalState;
-    error?: string;
-  }>({ visible: false, state: "idle", error: undefined });
-
-  const [steamModal, setSteamModal] = useState<{
-    visible: boolean;
-    state: SteamAuthModalState;
-    error?: string;
-    linkingUrl?: string;
-  }>({
-    visible: false,
-    state: "idle",
-    error: undefined,
-    linkingUrl: undefined,
-  });
-
-  const [settingsVisible, setSettingsVisible] = useState(false);
-  const [relayDropdownOpen, setRelayDropdownOpen] = useState(false);
 
   const {
     gameConnectionState,
@@ -174,8 +104,6 @@ const AppContent = () => {
     closeGameConnectionModal,
     showGameConnectionModal,
   } = useGameConnection();
-
-  const { connect } = useConnect();
 
   const {
     platform,
@@ -188,104 +116,18 @@ const AppContent = () => {
     resetPrefix: resetWinePrefix,
   } = useWine();
 
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [relayDropdownOpen, setRelayDropdownOpen] = useState(false);
   const [wineModalVisible, setWineModalVisible] = useState(false);
 
-  const [autoConnecting, setAutoConnecting] = useState(false);
-  const [pendingServerName, setPendingServerName] = useState<string | null>(
-    null,
-  );
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
-  const [showSingleplayer, setShowSingleplayer] = useState(false);
-  const [show18Plus, setShow18Plus] = useState(false);
-  const [showOffline, setShowOffline] = useState(false);
-  const [showHubStatus, setShowHubStatus] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const filtersRef = useRef<HTMLDivElement>(null);
-  const [oauthProviders, setOauthProviders] = useState<string[]>([]);
+  const filters = useServerFilters(servers, config);
+  const { showHubStatus, showSingleplayer, filteredServers } = filters;
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
-        setFiltersOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (!config?.urls.hub_api) return;
-    commands
-      .getHubOauthProviders()
-      .then((res) => unwrap(res))
-      .then((providers) => setOauthProviders(providers.filter((p) => p !== "steam")))
-      .catch(() => {});
-  }, [config?.urls.hub_api]);
-
-  const categories = useMemo(() => {
-    const tagSet = new Set<string>();
-    for (const server of servers) {
-      if (server.tags) {
-        for (const tag of server.tags) {
-          tagSet.add(tag);
-        }
-      }
-    }
-    const sorted = Array.from(tagSet).sort();
-
-    const pvpIndex = sorted.findIndex((t) => t.toLowerCase() === "pvp");
-    if (pvpIndex > 0) {
-      const [pvp] = sorted.splice(pvpIndex, 1);
-      sorted.unshift(pvp);
-    }
-
-    if (config?.features.singleplayer) {
-      sorted.push("sandbox");
-    }
-
-    return sorted;
-  }, [servers, config?.features.singleplayer]);
-
-  const hasOffline = useMemo(() => servers.some((s) => s.status !== "available"), [servers]);
-  const hasHubStatus = useMemo(() => servers.some((s) => (s.hub_status ?? "").length > 0), [servers]);
-
-  const filteredServers = useMemo(() => {
-    const seen = new Set<string>();
-    const uniqueServers = servers.filter((server) => {
-      if (seen.has(server.url)) return false;
-      seen.add(server.url);
-      return true;
-    });
-
-    let filtered = selectedTags.size > 0
-      ? uniqueServers.filter((server) =>
-          server.tags?.some((t) => selectedTags.has(t)),
-        )
-      : uniqueServers;
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((server) =>
-        server.name.toLowerCase().includes(query),
-      );
-    }
-
-    if (!show18Plus) {
-      filtered = filtered.filter((server) => !server.is_18_plus);
-    }
-
-    if (!showOffline && !config?.features.show_offline_servers) {
-      filtered = filtered.filter((server) => server.status === "available");
-    }
-
-    return filtered.sort((a, b) => {
-      const aOnline = a.status === "available";
-      const bOnline = b.status === "available";
-      if (aOnline !== bOnline) return aOnline ? -1 : 1;
-      return (b.players ?? 0) - (a.players ?? 0);
-    });
-  }, [servers, selectedTags, searchQuery, show18Plus, showOffline, config?.features.show_offline_servers]);
+  const autoConnecting = useAutoConnect({
+    onLoginRequired,
+    onAutoConnectLinkingRequired,
+    showError,
+  });
 
   useEffect(() => {
     document.documentElement.className = `theme-${theme}`;
@@ -300,249 +142,6 @@ const AppContent = () => {
       });
     }
   }, [platform, checkWineStatus]);
-
-  useEffect(() => {
-    const unlistenAuthPromise = initAuthListener();
-    const unlistenServerPromise = initServerListener();
-    const unlistenRelaysPromise = initRelays();
-    const unlistenByondPromise = initByondListener();
-
-    return () => {
-      unlistenAuthPromise.then((unlisten) => unlisten());
-      unlistenServerPromise.then((unlisten) => unlisten());
-      unlistenRelaysPromise.then((unlisten) => unlisten());
-      unlistenByondPromise.then((unlisten) => unlisten());
-    };
-  }, [initAuthListener, initServerListener, initRelays, initByondListener]);
-
-  useEffect(() => {
-    loadConfig();
-    loadSettings();
-    initializeSteam();
-  }, [loadConfig, loadSettings, initializeSteam]);
-
-  useEffect(() => {
-    if (authMode === "byond") {
-      checkByondSession();
-    }
-  }, [authMode, checkByondSession]);
-
-  useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
-
-    const setupListener = async () => {
-      unlisten = await listen<AutoConnectEvent>(
-        "autoconnect-status",
-        (event) => {
-          const { status, server_name, message, linking_url } = event.payload;
-          console.log(`[autoconnect] status=${status} server=${server_name}`);
-
-          switch (status) {
-            case "starting":
-            case "waiting_for_servers":
-            case "connecting":
-              setAutoConnecting(true);
-              break;
-
-            case "auth_required":
-              setAutoConnecting(false);
-              setAuthModal({ visible: true, state: "idle", error: undefined });
-              break;
-
-            case "steam_linking_required":
-              setAutoConnecting(false);
-              setSteamModal({
-                visible: true,
-                state: "linking",
-                error: undefined,
-                linkingUrl: linking_url || undefined,
-              });
-              break;
-
-            case "server_not_found":
-            case "server_unavailable":
-            case "error":
-              setAutoConnecting(false);
-              if (message) {
-                showError(message);
-              }
-              break;
-
-            case "connected":
-              setAutoConnecting(false);
-              break;
-          }
-        },
-      );
-    };
-
-    setupListener();
-
-    return () => {
-      if (unlisten) {
-        unlisten();
-      }
-    };
-  }, [showError]);
-
-  const handleLogin = useCallback(async () => {
-    setAuthModal({ visible: true, state: "loading", error: undefined });
-    const result = await login();
-    if (result.success) {
-      setAuthModal({ visible: false, state: "idle", error: undefined });
-    } else {
-      setAuthModal({ visible: true, state: "error", error: result.error });
-    }
-  }, [login]);
-
-  const handleLogout = useCallback(async () => {
-    try {
-      await logout();
-    } catch (err) {
-      showError(err instanceof Error ? err.message : String(err));
-    }
-  }, [logout, showError]);
-
-  const handleByondLogin = useCallback(async () => {
-    try {
-      unwrap(await commands.startByondLogin());
-    } catch (err) {
-      showError(err instanceof Error ? err.message : String(err));
-    }
-  }, [showError]);
-
-  const handleByondLogout = useCallback(async () => {
-    try {
-      unwrap(await commands.logoutByondWeb());
-    } catch (err) {
-      showError(err instanceof Error ? err.message : String(err));
-    }
-  }, [showError]);
-
-  const handleHubLogin = useCallback(
-    async (username: string, password: string, totpCode?: string) => {
-      setAuthModal({ visible: true, state: "loading", error: undefined });
-      const result = await hubLogin(username, password, totpCode);
-      if (result.success) {
-        setAuthModal({ visible: false, state: "idle", error: undefined });
-      } else if (result.requires2fa) {
-        setAuthModal({ visible: true, state: "2fa", error: undefined });
-      } else {
-        setAuthModal({ visible: true, state: "error", error: result.error });
-      }
-    },
-    [hubLogin],
-  );
-
-  const handleOAuthLogin = useCallback(
-    async (provider: string) => {
-      setAuthModal({ visible: true, state: "loading", error: undefined });
-      const result = await hubOAuthLogin(provider);
-      if (result.success) {
-        setAuthModal({ visible: false, state: "idle", error: undefined });
-      } else {
-        setAuthModal({ visible: true, state: "error", error: result.error });
-      }
-    },
-    [hubOAuthLogin],
-  );
-
-  const handleSteamLogin = useCallback(async () => {
-    setAuthModal({ visible: true, state: "loading", error: undefined });
-    const result = await hubSteamLogin();
-    if (result.success) {
-      setAuthModal({ visible: false, state: "idle", error: undefined });
-    } else {
-      setAuthModal({ visible: true, state: "error", error: result.error });
-    }
-  }, [hubSteamLogin]);
-
-  const handleAuthModalClose = useCallback(() => {
-    setAuthModal({ visible: false, state: "idle", error: undefined });
-  }, []);
-
-  const onLoginRequired = useCallback(() => {
-    setAuthModal({ visible: true, state: "idle", error: undefined });
-  }, []);
-
-  const handleSteamAuthenticate = useCallback(
-    async (createAccountIfMissing: boolean) => {
-      setSteamModal((prev) => ({
-        ...prev,
-        state: "loading",
-        error: undefined,
-        linkingUrl: undefined,
-      }));
-
-      const result = await authenticateSteam(createAccountIfMissing);
-
-      if (result?.success && result.access_token) {
-        setSteamModal({
-          visible: false,
-          state: "idle",
-          error: undefined,
-          linkingUrl: undefined,
-        });
-
-        if (pendingServerName) {
-          const serverToConnect = pendingServerName;
-          setPendingServerName(null);
-          connect(serverToConnect, "SteamAuthModal.afterAuth").catch((err) => {
-            showError(err instanceof Error ? err.message : String(err));
-          });
-        }
-
-        return result;
-      }
-      if (result?.requires_linking) {
-        setSteamModal({
-          visible: true,
-          state: "linking",
-          error: undefined,
-          linkingUrl: result.linking_url || undefined,
-        });
-        return result;
-      }
-      setSteamModal({
-        visible: true,
-        state: "error",
-        error: result?.error || "Authentication failed",
-        linkingUrl: undefined,
-      });
-      return result;
-    },
-    [authenticateSteam, connect, pendingServerName, showError],
-  );
-
-  const handleSteamModalClose = useCallback(async () => {
-    setSteamModal({
-      visible: false,
-      state: "idle",
-      error: undefined,
-      linkingUrl: undefined,
-    });
-    await cancelSteamAuthTicket();
-  }, [cancelSteamAuthTicket]);
-
-  const handleSteamLogout = useCallback(() => {
-    steamLogout();
-  }, [steamLogout]);
-
-  const onSteamAuthRequired = useCallback(
-    (serverName?: string) => {
-      if (serverName) {
-        setPendingServerName(serverName);
-      }
-      setSteamModal({
-        visible: true,
-        state: "idle",
-        error: undefined,
-        linkingUrl: undefined,
-      });
-      handleSteamAuthenticate(false);
-    },
-    [handleSteamAuthenticate],
-  );
 
   const handleAuthModeChange = useCallback(
     async (mode: typeof authMode) => {
@@ -659,113 +258,15 @@ const AppContent = () => {
 
         <main className="main-content">
           <section className="section servers-section">
-            {(config?.features.server_stats || config?.features.server_search || config?.features.server_filters || config?.features.singleplayer) && (
-              <div className="server-header">
-                {config?.features.server_stats && (
-                  <div className="server-stats">
-                    <span className="stat-label">Servers</span>
-                    <span className="stat-value">{filteredServers.length}</span>
-                    <span className="stat-label">Players</span>
-                    <span className="stat-value">
-                      {filteredServers
-                        .filter((s) => s.status === "available")
-                        .reduce((sum, s) => sum + (s.players ?? 0), 0)}
-                    </span>
-                  </div>
-                )}
-                {(config?.features.server_search || config?.features.server_filters || config?.features.singleplayer) && (
-                  <div className="server-controls">
-                    {config?.features.server_search && (
-                      <input
-                        type="text"
-                        className="search-input"
-                        placeholder="Search servers..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    )}
-                    {(config?.features.server_filters || categories.filter((c) => c !== "sandbox").length > 0) && (
-                      <div className="filters-dropdown" ref={filtersRef}>
-                        <button
-                          type="button"
-                          className={`filters-button${selectedTags.size > 0 ? " active" : ""}`}
-                          onClick={() => setFiltersOpen(!filtersOpen)}
-                        >
-                          Filters{selectedTags.size > 0 ? ` (${selectedTags.size})` : ""}
-                        </button>
-                        {filtersOpen && (
-                          <div className="filters-menu">
-                            {config?.features.server_filters && (
-                              <>
-                                {hasHubStatus && (
-                                  <label className="filter-checkbox">
-                                    <input
-                                      type="checkbox"
-                                      checked={showHubStatus}
-                                      onChange={(e) => setShowHubStatus(e.target.checked)}
-                                    />
-                                    <span>hub status</span>
-                                  </label>
-                                )}
-                                <label className="filter-checkbox">
-                                  <input
-                                    type="checkbox"
-                                    checked={show18Plus}
-                                    onChange={(e) => setShow18Plus(e.target.checked)}
-                                  />
-                                  <span>18+ servers</span>
-                                </label>
-                                {hasOffline && (
-                                  <label className="filter-checkbox">
-                                    <input
-                                      type="checkbox"
-                                      checked={showOffline}
-                                      onChange={(e) => setShowOffline(e.target.checked)}
-                                    />
-                                    <span>offline servers</span>
-                                  </label>
-                                )}
-                              </>
-                            )}
-                            {config?.features.server_filters && categories.filter((c) => c !== "sandbox").length > 0 && (
-                              <div className="filter-divider" />
-                            )}
-                            {categories
-                              .filter((c) => c !== "sandbox")
-                              .map((tag) => (
-                                <label className="filter-checkbox" key={tag}>
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedTags.has(tag)}
-                                    onChange={(e) => {
-                                      const next = new Set(selectedTags);
-                                      if (e.target.checked) {
-                                        next.add(tag);
-                                      } else {
-                                        next.delete(tag);
-                                      }
-                                      setSelectedTags(next);
-                                    }}
-                                  />
-                                  <span>{tag}</span>
-                                </label>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {config?.features.singleplayer && (
-                      <button
-                        type="button"
-                        className={`filters-button${showSingleplayer ? " active" : ""}`}
-                        onClick={() => setShowSingleplayer(!showSingleplayer)}
-                      >
-                        Singleplayer
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
+            {config && (
+              <ServerFilterPanel
+                features={config.features}
+                filters={filters}
+                serverCount={filteredServers.length}
+                playerCount={filteredServers
+                  .filter((s) => s.status === "available")
+                  .reduce((sum, s) => sum + (s.players ?? 0), 0)}
+              />
             )}
             {showSingleplayer && config?.features.singleplayer ? (
               <SinglePlayerPanel />

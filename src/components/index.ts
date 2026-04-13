@@ -6,6 +6,7 @@ export type { GameConnectionState } from "./GameConnectionModal";
 export { GameConnectionModal } from "./GameConnectionModal";
 export { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
 export { RelayDropdown } from "./RelayDropdown";
+export { ServerFilterPanel } from "./ServerFilterPanel";
 export { ServerItem } from "./ServerItem";
 export { SettingsModal } from "./SettingsModal";
 export { SinglePlayerPanel } from "./SinglePlayerPanel";

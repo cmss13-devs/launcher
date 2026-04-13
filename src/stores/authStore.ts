@@ -6,6 +6,7 @@ import { unwrap } from "../lib/unwrap";
 
 interface AuthStore {
   authState: AuthState;
+  oauthProviders: string[];
   setAuthState: (state: AuthState) => void;
   login: () => Promise<{ success: boolean; error?: string }>;
   hubLogin: (
@@ -19,6 +20,7 @@ interface AuthStore {
   hubSteamLogin: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   initListener: () => Promise<() => void>;
+  loadOauthProviders: () => Promise<void>;
 }
 
 const initialAuthState: AuthState = {
@@ -30,8 +32,18 @@ const initialAuthState: AuthState = {
 
 export const useAuthStore = create<AuthStore>()((set, get) => ({
   authState: initialAuthState,
+  oauthProviders: [],
 
   setAuthState: (authState) => set({ authState }),
+
+  loadOauthProviders: async () => {
+    try {
+      const providers = unwrap(await commands.getHubOauthProviders());
+      set({ oauthProviders: providers.filter((p) => p !== "steam") });
+    } catch {
+      // Non-fatal — leave providers empty
+    }
+  },
 
   login: async () => {
     try {
