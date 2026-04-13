@@ -130,7 +130,6 @@ const AppContent = () => {
 
   const {
     authMode,
-    setAuthMode,
     theme,
     devMode,
     load: loadSettings,
@@ -139,7 +138,6 @@ const AppContent = () => {
   } = useSettingsStore(
     useShallow((s) => ({
       authMode: s.authMode,
-      setAuthMode: s.setAuthMode,
       theme: s.theme,
       devMode: s.devMode,
       load: s.load,
@@ -318,23 +316,10 @@ const AppContent = () => {
   }, [initAuthListener, initServerListener, initRelays, initByondListener]);
 
   useEffect(() => {
-    const loadInitialState = async () => {
-      const launcherConfig = await loadConfig();
-      const settings = await loadSettings();
-      const steamAvail = await initializeSteam();
-
-      if (settings?.auth_mode) {
-        setAuthMode(settings.auth_mode);
-      } else if (steamAvail) {
-        setAuthMode("steam");
-      } else if (launcherConfig.oidc) {
-        setAuthMode("oidc");
-      } else {
-        setAuthMode("byond");
-      }
-    };
-    loadInitialState();
-  }, [loadConfig, loadSettings, initializeSteam, setAuthMode]);
+    loadConfig();
+    loadSettings();
+    initializeSteam();
+  }, [loadConfig, loadSettings, initializeSteam]);
 
   useEffect(() => {
     if (authMode === "byond") {
