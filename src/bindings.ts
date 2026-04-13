@@ -9,7 +9,7 @@ export const commands = {
 async greet(name: string) : Promise<string> {
     return await TAURI_INVOKE("greet", { name });
 },
-async checkByondVersion(version: string) : Promise<Result<ByondVersionInfo, string>> {
+async checkByondVersion(version: string) : Promise<Result<ByondVersionInfo, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("check_byond_version", { version }) };
 } catch (e) {
@@ -17,7 +17,7 @@ async checkByondVersion(version: string) : Promise<Result<ByondVersionInfo, stri
     else return { status: "error", error: e  as any };
 }
 },
-async installByondVersion(version: string) : Promise<Result<ByondVersionInfo, string>> {
+async installByondVersion(version: string) : Promise<Result<ByondVersionInfo, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("install_byond_version", { version }) };
 } catch (e) {
@@ -25,7 +25,7 @@ async installByondVersion(version: string) : Promise<Result<ByondVersionInfo, st
     else return { status: "error", error: e  as any };
 }
 },
-async connectToServer(serverName: string, source: string | null) : Promise<Result<ConnectionResult, string>> {
+async connectToServer(serverName: string, source: string | null) : Promise<Result<ConnectionResult, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("connect_to_server", { serverName, source }) };
 } catch (e) {
@@ -33,7 +33,7 @@ async connectToServer(serverName: string, source: string | null) : Promise<Resul
     else return { status: "error", error: e  as any };
 }
 },
-async connectToUrl(url: string, version: string, source: string | null) : Promise<Result<ConnectionResult, string>> {
+async connectToUrl(url: string, version: string, source: string | null) : Promise<Result<ConnectionResult, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("connect_to_url", { url, version, source }) };
 } catch (e) {
@@ -44,7 +44,7 @@ async connectToUrl(url: string, version: string, source: string | null) : Promis
 async isDevMode() : Promise<boolean> {
     return await TAURI_INVOKE("is_dev_mode");
 },
-async listInstalledByondVersions() : Promise<Result<ByondVersionInfo[], string>> {
+async listInstalledByondVersions() : Promise<Result<ByondVersionInfo[], CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("list_installed_byond_versions") };
 } catch (e) {
@@ -52,7 +52,7 @@ async listInstalledByondVersions() : Promise<Result<ByondVersionInfo[], string>>
     else return { status: "error", error: e  as any };
 }
 },
-async deleteByondVersion(version: string) : Promise<Result<boolean, string>> {
+async deleteByondVersion(version: string) : Promise<Result<boolean, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_byond_version", { version }) };
 } catch (e) {
@@ -60,7 +60,7 @@ async deleteByondVersion(version: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async isByondPagerRunning() : Promise<Result<boolean, string>> {
+async isByondPagerRunning() : Promise<Result<boolean, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("is_byond_pager_running") };
 } catch (e) {
@@ -71,7 +71,7 @@ async isByondPagerRunning() : Promise<Result<boolean, string>> {
 /**
  * Get the logged-in BYOND username from Documents/BYOND/key.txt
  */
-async getByondUsername() : Promise<Result<string | null, string>> {
+async getByondUsername() : Promise<Result<string | null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_byond_username") };
 } catch (e) {
@@ -79,7 +79,7 @@ async getByondUsername() : Promise<Result<string | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async startLogin() : Promise<Result<AuthState, string>> {
+async startLogin() : Promise<Result<AuthState, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_login") };
 } catch (e) {
@@ -87,7 +87,7 @@ async startLogin() : Promise<Result<AuthState, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async hubLogin(username: string, password: string, totpCode: string | null) : Promise<Result<AuthState, string>> {
+async hubLogin(username: string, password: string, totpCode: string | null) : Promise<Result<AuthState, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("hub_login", { username, password, totpCode }) };
 } catch (e) {
@@ -95,7 +95,7 @@ async hubLogin(username: string, password: string, totpCode: string | null) : Pr
     else return { status: "error", error: e  as any };
 }
 },
-async hubOauthLogin(provider: string) : Promise<Result<AuthState, string>> {
+async hubOauthLogin(provider: string) : Promise<Result<AuthState, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("hub_oauth_login", { provider }) };
 } catch (e) {
@@ -103,7 +103,7 @@ async hubOauthLogin(provider: string) : Promise<Result<AuthState, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async hubSteamLogin() : Promise<Result<AuthState, string>> {
+async hubSteamLogin() : Promise<Result<AuthState, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("hub_steam_login") };
 } catch (e) {
@@ -111,7 +111,7 @@ async hubSteamLogin() : Promise<Result<AuthState, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getHubOauthProviders() : Promise<Result<string[], string>> {
+async getHubOauthProviders() : Promise<Result<string[], CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_hub_oauth_providers") };
 } catch (e) {
@@ -119,7 +119,7 @@ async getHubOauthProviders() : Promise<Result<string[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async logout() : Promise<Result<AuthState, string>> {
+async logout() : Promise<Result<AuthState, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("logout") };
 } catch (e) {
@@ -127,7 +127,7 @@ async logout() : Promise<Result<AuthState, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getAuthState() : Promise<Result<AuthState, string>> {
+async getAuthState() : Promise<Result<AuthState, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_auth_state") };
 } catch (e) {
@@ -135,7 +135,7 @@ async getAuthState() : Promise<Result<AuthState, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async refreshAuth() : Promise<Result<AuthState, string>> {
+async refreshAuth() : Promise<Result<AuthState, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("refresh_auth") };
 } catch (e) {
@@ -143,7 +143,7 @@ async refreshAuth() : Promise<Result<AuthState, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getAccessToken() : Promise<Result<string | null, string>> {
+async getAccessToken() : Promise<Result<string | null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_access_token") };
 } catch (e) {
@@ -151,7 +151,7 @@ async getAccessToken() : Promise<Result<string | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getSettings() : Promise<Result<AppSettings, string>> {
+async getSettings() : Promise<Result<AppSettings, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_settings") };
 } catch (e) {
@@ -159,7 +159,7 @@ async getSettings() : Promise<Result<AppSettings, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setAuthMode(mode: AuthMode) : Promise<Result<AppSettings, string>> {
+async setAuthMode(mode: AuthMode) : Promise<Result<AppSettings, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_auth_mode", { mode }) };
 } catch (e) {
@@ -167,7 +167,7 @@ async setAuthMode(mode: AuthMode) : Promise<Result<AppSettings, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setTheme(theme: Theme) : Promise<Result<AppSettings, string>> {
+async setTheme(theme: Theme) : Promise<Result<AppSettings, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_theme", { theme }) };
 } catch (e) {
@@ -175,7 +175,7 @@ async setTheme(theme: Theme) : Promise<Result<AppSettings, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async toggleServerNotifications(serverName: string, enabled: boolean) : Promise<Result<AppSettings, string>> {
+async toggleServerNotifications(serverName: string, enabled: boolean) : Promise<Result<AppSettings, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("toggle_server_notifications", { serverName, enabled }) };
 } catch (e) {
@@ -189,7 +189,7 @@ async getControlServerPort() : Promise<number> {
 async killGame() : Promise<boolean> {
     return await TAURI_INVOKE("kill_game");
 },
-async getServers() : Promise<Result<Server[], string>> {
+async getServers() : Promise<Result<Server[], CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_servers") };
 } catch (e) {
@@ -197,7 +197,7 @@ async getServers() : Promise<Result<Server[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getRelays() : Promise<Result<RelayWithPing[], null>> {
+async getRelays() : Promise<Result<RelayWithPing[], CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_relays") };
 } catch (e) {
@@ -205,7 +205,7 @@ async getRelays() : Promise<Result<RelayWithPing[], null>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getSelectedRelay() : Promise<Result<string, null>> {
+async getSelectedRelay() : Promise<Result<string, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_selected_relay") };
 } catch (e) {
@@ -213,7 +213,7 @@ async getSelectedRelay() : Promise<Result<string, null>> {
     else return { status: "error", error: e  as any };
 }
 },
-async setSelectedRelay(id: string) : Promise<Result<null, null>> {
+async setSelectedRelay(id: string) : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_selected_relay", { id }) };
 } catch (e) {
@@ -221,7 +221,7 @@ async setSelectedRelay(id: string) : Promise<Result<null, null>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getSteamUserInfo() : Promise<Result<SteamUserInfo, string>> {
+async getSteamUserInfo() : Promise<Result<SteamUserInfo, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_steam_user_info") };
 } catch (e) {
@@ -229,7 +229,7 @@ async getSteamUserInfo() : Promise<Result<SteamUserInfo, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getSteamAuthTicket() : Promise<Result<string, string>> {
+async getSteamAuthTicket() : Promise<Result<string, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_steam_auth_ticket") };
 } catch (e) {
@@ -237,7 +237,7 @@ async getSteamAuthTicket() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async cancelSteamAuthTicket() : Promise<Result<null, string>> {
+async cancelSteamAuthTicket() : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("cancel_steam_auth_ticket") };
 } catch (e) {
@@ -245,7 +245,7 @@ async cancelSteamAuthTicket() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async steamAuthenticate(createAccountIfMissing: boolean) : Promise<Result<SteamAuthResult, string>> {
+async steamAuthenticate(createAccountIfMissing: boolean) : Promise<Result<SteamAuthResult, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("steam_authenticate", { createAccountIfMissing }) };
 } catch (e) {
@@ -253,7 +253,7 @@ async steamAuthenticate(createAccountIfMissing: boolean) : Promise<Result<SteamA
     else return { status: "error", error: e  as any };
 }
 },
-async getSteamLaunchOptions() : Promise<Result<SteamLaunchOptions, string>> {
+async getSteamLaunchOptions() : Promise<Result<SteamLaunchOptions, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_steam_launch_options") };
 } catch (e) {
@@ -264,7 +264,7 @@ async getSteamLaunchOptions() : Promise<Result<SteamLaunchOptions, string>> {
 async getPlatform() : Promise<string> {
     return await TAURI_INVOKE("get_platform");
 },
-async checkWineStatus() : Promise<Result<WineStatus, string>> {
+async checkWineStatus() : Promise<Result<WineStatus, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("check_wine_status") };
 } catch (e) {
@@ -272,7 +272,7 @@ async checkWineStatus() : Promise<Result<WineStatus, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async initializeWinePrefix() : Promise<Result<null, string>> {
+async initializeWinePrefix() : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("initialize_wine_prefix") };
 } catch (e) {
@@ -280,7 +280,7 @@ async initializeWinePrefix() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async resetWinePrefix() : Promise<Result<null, string>> {
+async resetWinePrefix() : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("reset_wine_prefix") };
 } catch (e) {
@@ -288,7 +288,7 @@ async resetWinePrefix() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async openUrl(url: string) : Promise<Result<null, string>> {
+async openUrl(url: string) : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("open_url", { url }) };
 } catch (e) {
@@ -299,7 +299,7 @@ async openUrl(url: string) : Promise<Result<null, string>> {
 /**
  * Check the current single player installation status
  */
-async getSingleplayerStatus() : Promise<Result<SinglePlayerStatus, string>> {
+async getSingleplayerStatus() : Promise<Result<SinglePlayerStatus, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_singleplayer_status") };
 } catch (e) {
@@ -310,7 +310,7 @@ async getSingleplayerStatus() : Promise<Result<SinglePlayerStatus, string>> {
 /**
  * Get the latest available release info from GitHub
  */
-async getLatestSingleplayerRelease() : Promise<Result<ReleaseInfo, string>> {
+async getLatestSingleplayerRelease() : Promise<Result<ReleaseInfo, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_latest_singleplayer_release") };
 } catch (e) {
@@ -321,7 +321,7 @@ async getLatestSingleplayerRelease() : Promise<Result<ReleaseInfo, string>> {
 /**
  * Install or update the single player game files
  */
-async installSingleplayer() : Promise<Result<SinglePlayerStatus, string>> {
+async installSingleplayer() : Promise<Result<SinglePlayerStatus, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("install_singleplayer") };
 } catch (e) {
@@ -332,7 +332,7 @@ async installSingleplayer() : Promise<Result<SinglePlayerStatus, string>> {
 /**
  * Delete the single player installation
  */
-async deleteSingleplayer() : Promise<Result<boolean, string>> {
+async deleteSingleplayer() : Promise<Result<boolean, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_singleplayer") };
 } catch (e) {
@@ -343,7 +343,7 @@ async deleteSingleplayer() : Promise<Result<boolean, string>> {
 /**
  * Launch the single player game
  */
-async launchSingleplayer() : Promise<Result<null, string>> {
+async launchSingleplayer() : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("launch_singleplayer") };
 } catch (e) {
@@ -357,7 +357,7 @@ async getLauncherConfig() : Promise<LauncherConfig> {
 /**
  * Open BYOND login window and wait for user to authenticate
  */
-async startByondLogin() : Promise<Result<ByondLoginResult, string>> {
+async startByondLogin() : Promise<Result<ByondLoginResult, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("start_byond_login") };
 } catch (e) {
@@ -386,7 +386,7 @@ async clearByondSession() : Promise<void> {
 /**
  * Log out from BYOND web session
  */
-async logoutByondWeb() : Promise<Result<null, string>> {
+async logoutByondWeb() : Promise<Result<null, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("logout_byond_web") };
 } catch (e) {
@@ -394,7 +394,7 @@ async logoutByondWeb() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async checkByondWebSession() : Promise<Result<ByondSessionCheck, string>> {
+async checkByondWebSession() : Promise<Result<ByondSessionCheck, CommandError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("check_byond_web_session") };
 } catch (e) {
@@ -430,6 +430,7 @@ export type AuthState = { logged_in: boolean; user: UserInfo | null; loading: bo
 export type ByondLoginResult = { username: string | null }
 export type ByondSessionCheck = { logged_in: boolean; username: string | null; web_id: string | null }
 export type ByondVersionInfo = { version: string; installed: boolean; path: string | null; last_used: string | null }
+export type CommandError = { type: "network"; data: string } | { type: "not_authenticated" } | { type: "token_expired" } | { type: "requires_2fa" } | { type: "invalid_credentials" } | { type: "account_locked" } | { type: "requires_linking"; data: { url: string } } | { type: "not_found"; data: string } | { type: "io"; data: string } | { type: "not_configured"; data: { feature: string } } | { type: "unsupported_platform"; data: { feature: string; platform: string } } | { type: "busy"; data: { operation: string } } | { type: "cancelled"; data: { operation: string } } | { type: "timeout"; data: { operation: string } } | { type: "internal"; data: string } | { type: "webview"; data: string } | { type: "invalid_response"; data: string } | { type: "invalid_input"; data: string }
 export type ConnectionResult = { success: boolean; message: string; auth_error: AuthError | null }
 export type EngineRequirements = { min_version?: string | null; max_version?: string | null; blacklisted_versions?: string[] }
 export type LauncherConfig = { variant: string; product_name: string; logo: string; default_theme: string; app_identifier: string; discord_app_id: number; default_byond_version: string | null; server_api: ServerApiType; features: LauncherFeatures; urls: LauncherUrls; strings: LauncherStrings; singleplayer: SingleplayerConfig; oidc: OidcConfig | null; social_links: SocialLink[] }

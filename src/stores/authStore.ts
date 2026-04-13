@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
 import { type AuthState, commands } from "../bindings";
+import { formatCommandError } from "../lib/formatCommandError";
 import { unwrap } from "../lib/unwrap";
 
 interface AuthStore {
@@ -44,17 +45,15 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
   },
 
   hubLogin: async (username, password, totpCode?) => {
-    try {
-      const state = unwrap(await commands.hubLogin(username, password, totpCode || null));
-      set({ authState: state });
-      return { success: state.logged_in };
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      if (error === "requires_2fa") {
-        return { success: false, requires2fa: true };
-      }
-      return { success: false, error };
+    const r = await commands.hubLogin(username, password, totpCode || null);
+    if (r.status === "ok") {
+      set({ authState: r.data });
+      return { success: r.data.logged_in };
     }
+    if (r.error.type === "requires_2fa") {
+      return { success: false, requires2fa: true };
+    }
+    return { success: false, error: formatCommandError(r.error) };
   },
 
   hubOAuthLogin: async (provider) => {

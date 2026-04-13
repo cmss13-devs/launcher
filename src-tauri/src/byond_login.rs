@@ -4,6 +4,7 @@
 //! storing the username and using persistent cookies to fetch the user's
 //! `web_id` for automatic BYOND authentication.
 
+use crate::error::{CommandError, CommandResult};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -126,7 +127,7 @@ pub fn clear_byond_session(app: AppHandle) {
 /// Log out from BYOND web session
 #[tauri::command]
 #[specta::specta]
-pub async fn logout_byond_web(app: AppHandle) -> Result<(), String> {
+pub async fn logout_byond_web(app: AppHandle) -> CommandResult<()> {
     tracing::info!("Logging out from BYOND web session");
 
     if let Some(state) = app.try_state::<ByondSessionState>() {
@@ -137,12 +138,11 @@ pub async fn logout_byond_web(app: AppHandle) -> Result<(), String> {
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {e}"))?
+        .map_err(|e| CommandError::Io(e.to_string()))?
         .join("byond_webview");
 
     if data_dir.exists() {
-        std::fs::remove_dir_all(&data_dir)
-            .map_err(|e| format!("Failed to delete webview data: {e}"))?;
+        std::fs::remove_dir_all(&data_dir)?;
         tracing::info!("Deleted BYOND webview data at {:?}", data_dir);
     }
 
@@ -155,10 +155,12 @@ pub async fn logout_byond_web(app: AppHandle) -> Result<(), String> {
 /// Open BYOND login window and wait for user to authenticate
 #[tauri::command]
 #[specta::specta]
-pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, String> {
+pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult> {
     // Check if login window already exists
     if app.get_webview_window("byond_login").is_some() {
-        return Err("Login already in progress".to_string());
+        return Err(CommandError::Busy {
+            operation: "byond_login".into(),
+        });
     }
 
     tracing::info!("Starting BYOND web login flow");
@@ -225,7 +227,7 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {e}"))?
+        .map_err(|e| CommandError::Io(e.to_string()))?
         .join("byond_webview");
 
     let window = WebviewWindowBuilder::new(
@@ -234,7 +236,7 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
         WebviewUrl::External(
             "https://secure.byond.com/login.cgi"
                 .parse()
-                .map_err(|e| format!("{e}"))?,
+                .map_err(|e: url::ParseError| CommandError::Webview(e.to_string()))?,
         ),
     )
     .title("BYOND Login")
@@ -259,13 +261,13 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
         true
     })
     .build()
-    .map_err(|e| format!("Failed to create login window: {e}"))?;
+    .map_err(|e| CommandError::Webview(format!("Failed to create login window: {e}")))?;
 
     window.on_window_event(move |event| {
         if let tauri::WindowEvent::CloseRequested { .. } = event {
             tracing::info!("BYOND login window closed by user");
             if let Some(state) = app_for_close.try_state::<ByondLoginState>() {
-                state.complete(Err("Login cancelled".to_string()));
+                state.complete(Err("byond_login".to_string()));
             }
         }
     });
@@ -274,18 +276,20 @@ pub async fn start_byond_login(app: AppHandle) -> Result<ByondLoginResult, Strin
     match tokio::time::timeout(std::time::Duration::from_secs(300), rx).await {
         Ok(Ok(result)) => {
             tracing::info!("BYOND login flow completed successfully",);
-            result
+            result.map_err(|operation| CommandError::Cancelled { operation })
         }
         Ok(Err(_)) => {
             tracing::warn!("BYOND login channel closed unexpectedly");
-            Err("Login channel closed".to_string())
+            Err(CommandError::Internal("login channel closed".into()))
         }
         Err(_) => {
             tracing::warn!("BYOND login timed out after 5 minutes");
             if let Some(w) = app.get_webview_window("byond_login") {
                 let _ = w.close();
             }
-            Err("Login timed out".to_string())
+            Err(CommandError::Timeout {
+                operation: "byond_login".into(),
+            })
         }
     }
 }
@@ -359,9 +363,11 @@ pub fn byond_session_check_complete(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck, String> {
+pub async fn check_byond_web_session(app: AppHandle) -> CommandResult<ByondSessionCheck> {
     if app.get_webview_window("byond_session_check").is_some() {
-        return Err("Session check already in progress".to_string());
+        return Err(CommandError::Busy {
+            operation: "byond_session_check".into(),
+        });
     }
 
     tracing::info!("Checking BYOND web session");
@@ -432,7 +438,7 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
     let data_dir = app
         .path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {e}"))?
+        .map_err(|e| CommandError::Io(e.to_string()))?
         .join("byond_webview");
 
     let url = "https://www.byond.com/games/Exadv1.SpaceStation13";
@@ -445,7 +451,10 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
     let window = WebviewWindowBuilder::new(
         &app,
         "byond_session_check",
-        WebviewUrl::External(url.parse().map_err(|e| format!("{e}"))?),
+        WebviewUrl::External(
+            url.parse()
+                .map_err(|e: url::ParseError| CommandError::Webview(e.to_string()))?,
+        ),
     )
     .title("Checking BYOND Session...")
     .inner_size(400.0, 300.0)
@@ -464,7 +473,7 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
         }
     })
     .build()
-    .map_err(|e| format!("Failed to create webview: {e}"))?;
+    .map_err(|e| CommandError::Webview(format!("Failed to create webview: {e}")))?;
 
     tracing::info!("Session check webview created successfully");
 
@@ -503,14 +512,18 @@ pub async fn check_byond_web_session(app: AppHandle) -> Result<ByondSessionCheck
             if let Some(w) = app.get_webview_window("byond_session_check") {
                 let _ = w.close();
             }
-            Err("Session check channel closed".to_string())
+            Err(CommandError::Internal(
+                "session check channel closed".into(),
+            ))
         }
         Err(_) => {
             tracing::warn!("BYOND session check timed out");
             if let Some(w) = app.get_webview_window("byond_session_check") {
                 let _ = w.close();
             }
-            Err("Session check timed out".to_string())
+            Err(CommandError::Timeout {
+                operation: "byond_session_check".into(),
+            })
         }
     }
 }

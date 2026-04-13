@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter, Manager};
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::byond::get_byond_base_dir;
 use crate::byond::install_byond_version;
+use crate::error::{CommandError, CommandResult};
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::presence::PresenceManager;
 
@@ -223,7 +224,7 @@ fn extract_tar_zst(_data: &[u8], _dest: &PathBuf) -> Result<(), String> {
 /// Check the current single player installation status
 #[tauri::command]
 #[specta::specta]
-pub async fn get_singleplayer_status(_app: AppHandle) -> Result<SinglePlayerStatus, String> {
+pub async fn get_singleplayer_status(_app: AppHandle) -> CommandResult<SinglePlayerStatus> {
     let base_dir = get_singleplayer_base_dir()?;
 
     if !base_dir.exists() {
@@ -253,24 +254,26 @@ pub async fn get_singleplayer_status(_app: AppHandle) -> Result<SinglePlayerStat
 /// Get the latest available release info from GitHub
 #[tauri::command]
 #[specta::specta]
-pub async fn get_latest_singleplayer_release(_app: AppHandle) -> Result<ReleaseInfo, String> {
-    fetch_latest_release().await
+pub async fn get_latest_singleplayer_release(_app: AppHandle) -> CommandResult<ReleaseInfo> {
+    fetch_latest_release().await.map_err(CommandError::Network)
 }
 
 /// Install or update the single player game files
 #[tauri::command]
 #[specta::specta]
-pub async fn install_singleplayer(_app: AppHandle) -> Result<SinglePlayerStatus, String> {
+pub async fn install_singleplayer(_app: AppHandle) -> CommandResult<SinglePlayerStatus> {
     tracing::info!("Starting single player installation");
 
     let (_, build_asset_name) = get_singleplayer_config()?;
-    let release = fetch_latest_release().await?;
+    let release = fetch_latest_release()
+        .await
+        .map_err(CommandError::Network)?;
 
     let download_url = release.download_url.ok_or_else(|| {
-        format!(
+        CommandError::NotFound(format!(
             "Release {} does not contain {}",
             release.tag_name, build_asset_name
-        )
+        ))
     })?;
 
     if let Some(installed_version) = read_installed_version() {
@@ -298,7 +301,9 @@ pub async fn install_singleplayer(_app: AppHandle) -> Result<SinglePlayerStatus,
     }
 
     tracing::info!("Downloading single player build {}", release.tag_name);
-    let data = download_file(&download_url).await?;
+    let data = download_file(&download_url)
+        .await
+        .map_err(CommandError::Network)?;
 
     tracing::info!("Extracting single player build");
     extract_tar_zst(&data, &base_dir)?;
@@ -318,7 +323,7 @@ pub async fn install_singleplayer(_app: AppHandle) -> Result<SinglePlayerStatus,
 /// Delete the single player installation
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_singleplayer(_app: AppHandle) -> Result<bool, String> {
+pub async fn delete_singleplayer(_app: AppHandle) -> CommandResult<bool> {
     let base_dir = get_singleplayer_base_dir()?;
 
     if base_dir.exists() {
@@ -394,17 +399,21 @@ fn find_dmb_file() -> Result<PathBuf, String> {
 /// Launch the single player game
 #[tauri::command]
 #[specta::specta]
-pub async fn launch_singleplayer(app: AppHandle) -> Result<(), String> {
+pub async fn launch_singleplayer(app: AppHandle) -> CommandResult<()> {
     let byond_version = get_byond_version_from_dependencies()?;
     tracing::info!("Launching singleplayer with BYOND {}", byond_version);
 
     let version_info = install_byond_version(app.clone(), byond_version.clone()).await?;
 
     if !version_info.installed {
-        return Err(format!("Failed to install BYOND version {byond_version}"));
+        return Err(CommandError::Internal(format!(
+            "Failed to install BYOND version {byond_version}"
+        )));
     }
 
-    let dreamseeker_path = version_info.path.ok_or("DreamSeeker path not found")?;
+    let dreamseeker_path = version_info
+        .path
+        .ok_or_else(|| CommandError::NotFound("dreamseeker executable".into()))?;
 
     let dmb_path = find_dmb_file()?;
 
@@ -427,8 +436,7 @@ pub async fn launch_singleplayer(app: AppHandle) -> Result<(), String> {
             .arg("-trusted")
             .arg(&dmb_path)
             .env("WEBVIEW2_USER_DATA_FOLDER", &webview2_data_dir)
-            .spawn()
-            .map_err(|e| format!("Failed to launch DreamSeeker: {}", e))?;
+            .spawn()?;
 
         app.emit("game-connected", "Sandbox").ok();
         if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
@@ -442,9 +450,9 @@ pub async fn launch_singleplayer(app: AppHandle) -> Result<(), String> {
 
         let status = wine::check_prefix_status(&app).await;
         if !status.prefix_initialized || !status.webview2_installed {
-            return Err(
-                "Wine environment not fully configured. Please complete setup first.".to_string(),
-            );
+            return Err(CommandError::NotConfigured {
+                feature: "wine_prefix".into(),
+            });
         }
 
         // Convert Linux path to Wine path (Z:\...)
@@ -462,7 +470,7 @@ pub async fn launch_singleplayer(app: AppHandle) -> Result<(), String> {
                 webview2_data_dir.to_str().unwrap(),
             )],
         )
-        .map_err(|e| format!("Failed to launch DreamSeeker via Wine: {}", e))?;
+        .map_err(|e| CommandError::Io(format!("Failed to launch DreamSeeker via Wine: {e}")))?;
 
         app.emit("game-connected", "Sandbox").ok();
         if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
@@ -473,7 +481,10 @@ pub async fn launch_singleplayer(app: AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         let _ = (dreamseeker_path, dmb_path);
-        Err("BYOND is not supported on macOS".to_string())
+        Err(CommandError::UnsupportedPlatform {
+            feature: "byond".into(),
+            platform: "macos".into(),
+        })
     }
 
     #[cfg(not(target_os = "macos"))]

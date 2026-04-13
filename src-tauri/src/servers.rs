@@ -1,4 +1,5 @@
 use crate::config::get_config;
+use crate::error::CommandResult;
 use crate::settings::load_settings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -394,7 +395,7 @@ pub async fn init_servers(state: &Arc<ServerState>) {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_servers(state: tauri::State<'_, Arc<ServerState>>) -> Result<Vec<Server>, String> {
+pub async fn get_servers(state: tauri::State<'_, Arc<ServerState>>) -> CommandResult<Vec<Server>> {
     Ok(state.servers.read().await.clone())
 }
 

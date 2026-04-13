@@ -1,3 +1,4 @@
+use crate::error::CommandResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
@@ -123,13 +124,13 @@ pub fn save_settings(app: &AppHandle, settings: &AppSettings) -> Result<(), Stri
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_settings(app: AppHandle) -> Result<AppSettings, String> {
-    load_settings(&app)
+pub async fn get_settings(app: AppHandle) -> CommandResult<AppSettings> {
+    Ok(load_settings(&app)?)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn set_auth_mode(app: AppHandle, mode: AuthMode) -> Result<AppSettings, String> {
+pub async fn set_auth_mode(app: AppHandle, mode: AuthMode) -> CommandResult<AppSettings> {
     let mut settings = load_settings(&app)?;
     settings.auth_mode = mode;
     save_settings(&app, &settings)?;
@@ -138,7 +139,7 @@ pub async fn set_auth_mode(app: AppHandle, mode: AuthMode) -> Result<AppSettings
 
 #[tauri::command]
 #[specta::specta]
-pub async fn set_theme(app: AppHandle, theme: Theme) -> Result<AppSettings, String> {
+pub async fn set_theme(app: AppHandle, theme: Theme) -> CommandResult<AppSettings> {
     let mut settings = load_settings(&app)?;
     settings.theme = theme;
     save_settings(&app, &settings)?;
@@ -151,7 +152,7 @@ pub async fn toggle_server_notifications(
     app: AppHandle,
     server_name: String,
     enabled: bool,
-) -> Result<AppSettings, String> {
+) -> CommandResult<AppSettings> {
     let mut settings = load_settings(&app)?;
     if enabled {
         settings.notification_servers.insert(server_name);

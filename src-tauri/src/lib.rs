@@ -5,6 +5,7 @@ mod byond_login;
 pub mod config;
 mod control_server;
 mod discord;
+mod error;
 #[cfg(target_os = "windows")]
 mod job_object;
 mod logging;
@@ -90,7 +91,7 @@ struct WineStatus {
 #[cfg(not(target_os = "linux"))]
 #[tauri::command]
 #[specta::specta]
-async fn check_wine_status() -> Result<WineStatus, String> {
+async fn check_wine_status() -> error::CommandResult<WineStatus> {
     Ok(WineStatus {
         installed: false,
         version: None,
@@ -105,15 +106,21 @@ async fn check_wine_status() -> Result<WineStatus, String> {
 #[cfg(not(target_os = "linux"))]
 #[tauri::command]
 #[specta::specta]
-async fn initialize_wine_prefix() -> Result<(), String> {
-    Err("Wine is only available on Linux".to_string())
+async fn initialize_wine_prefix() -> error::CommandResult<()> {
+    Err(error::CommandError::UnsupportedPlatform {
+        feature: "wine".into(),
+        platform: std::env::consts::OS.into(),
+    })
 }
 
 #[cfg(not(target_os = "linux"))]
 #[tauri::command]
 #[specta::specta]
-async fn reset_wine_prefix() -> Result<(), String> {
-    Err("Wine is only available on Linux".to_string())
+async fn reset_wine_prefix() -> error::CommandResult<()> {
+    Err(error::CommandError::UnsupportedPlatform {
+        feature: "wine".into(),
+        platform: std::env::consts::OS.into(),
+    })
 }
 
 #[cfg(feature = "steam")]
@@ -146,8 +153,8 @@ fn kill_game(
 
 #[tauri::command]
 #[specta::specta]
-fn open_url(url: String) -> Result<(), String> {
-    open_url::open(&url)
+fn open_url(url: String) -> error::CommandResult<()> {
+    open_url::open(&url).map_err(error::CommandError::Io)
 }
 
 #[cfg(not(feature = "steam"))]

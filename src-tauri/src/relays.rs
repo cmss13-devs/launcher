@@ -1,3 +1,4 @@
+use crate::error::CommandResult;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -240,13 +241,15 @@ pub async fn init_relays(state: &Arc<RelayState>, handle: &AppHandle) {
 #[specta::specta]
 pub async fn get_relays(
     state: tauri::State<'_, Arc<RelayState>>,
-) -> Result<Vec<RelayWithPing>, ()> {
+) -> CommandResult<Vec<RelayWithPing>> {
     Ok(state.get_relays().await)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_selected_relay(state: tauri::State<'_, Arc<RelayState>>) -> Result<String, ()> {
+pub async fn get_selected_relay(
+    state: tauri::State<'_, Arc<RelayState>>,
+) -> CommandResult<String> {
     Ok(state.get_selected().await)
 }
 
@@ -256,7 +259,7 @@ pub async fn set_selected_relay(
     id: String,
     state: tauri::State<'_, Arc<RelayState>>,
     handle: AppHandle,
-) -> Result<(), ()> {
+) -> CommandResult<()> {
     state.set_selected(id.clone()).await;
     let _ = handle.emit("relay-selected", &id);
     Ok(())

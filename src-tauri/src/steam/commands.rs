@@ -3,6 +3,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::error::{CommandError, CommandResult};
 use crate::steam::get_steam_app_name;
 
 use super::SteamState;
@@ -52,7 +53,7 @@ struct SteamAuthResponse {
 #[specta::specta]
 pub async fn get_steam_user_info(
     steam_state: State<'_, Arc<SteamState>>,
-) -> Result<SteamUserInfo, String> {
+) -> CommandResult<SteamUserInfo> {
     let steam_id = steam_state.get_steam_id().to_string();
     let display_name = steam_state.get_display_name();
 
@@ -66,7 +67,7 @@ pub async fn get_steam_user_info(
 #[specta::specta]
 pub async fn get_steam_auth_ticket(
     steam_state: State<'_, Arc<SteamState>>,
-) -> Result<String, String> {
+) -> CommandResult<String> {
     tracing::debug!("Generating Steam auth ticket");
     let ticket_bytes = steam_state.get_auth_session_ticket().await?;
     Ok(hex::encode(ticket_bytes))
@@ -76,7 +77,7 @@ pub async fn get_steam_auth_ticket(
 #[specta::specta]
 pub async fn cancel_steam_auth_ticket(
     steam_state: State<'_, Arc<SteamState>>,
-) -> Result<(), String> {
+) -> CommandResult<()> {
     tracing::debug!("Cancelling Steam auth ticket");
     steam_state.cancel_auth_ticket();
     Ok(())
@@ -151,8 +152,10 @@ pub async fn authenticate_with_steam(
 pub async fn steam_authenticate(
     steam_state: State<'_, Arc<SteamState>>,
     create_account_if_missing: bool,
-) -> Result<SteamAuthResult, String> {
-    authenticate_with_steam(&steam_state, create_account_if_missing).await
+) -> CommandResult<SteamAuthResult> {
+    authenticate_with_steam(&steam_state, create_account_if_missing)
+        .await
+        .map_err(CommandError::Internal)
 }
 
 fn parse_server_name(command_line: &str) -> Option<String> {
@@ -174,7 +177,7 @@ fn parse_server_name(command_line: &str) -> Option<String> {
 #[specta::specta]
 pub async fn get_steam_launch_options(
     steam_state: State<'_, Arc<SteamState>>,
-) -> Result<SteamLaunchOptions, String> {
+) -> CommandResult<SteamLaunchOptions> {
     let raw = steam_state.get_launch_command_line();
     let server_name = parse_server_name(&raw);
 

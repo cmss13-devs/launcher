@@ -989,20 +989,24 @@ pub fn launch_with_wine(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn check_wine_status(app: AppHandle) -> Result<WineStatus, String> {
+pub async fn check_wine_status(app: AppHandle) -> crate::error::CommandResult<WineStatus> {
     Ok(check_prefix_status(&app).await)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn initialize_wine_prefix(app: AppHandle) -> Result<(), String> {
-    initialize_prefix(&app).await.map_err(|e| e.to_string())
+pub async fn initialize_wine_prefix(app: AppHandle) -> crate::error::CommandResult<()> {
+    initialize_prefix(&app)
+        .await
+        .map_err(|e| crate::error::CommandError::Io(e.to_string()))
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn reset_wine_prefix(app: AppHandle) -> Result<(), String> {
-    reset_prefix(&app).await.map_err(|e| e.to_string())
+pub async fn reset_wine_prefix(app: AppHandle) -> crate::error::CommandResult<()> {
+    reset_prefix(&app)
+        .await
+        .map_err(|e| crate::error::CommandError::Io(e.to_string()))
 }
 
 #[tauri::command]

@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
 use crate::auth::TokenStorage;
+use crate::error::{CommandError, CommandResult};
 use crate::relays::RelayState;
 use crate::servers::ServerState;
 use crate::settings::{load_settings, AuthMode};
@@ -450,7 +451,7 @@ fn get_byond_pager_path(app: &AppHandle, version: &str) -> Result<PathBuf, Strin
 pub async fn check_byond_version(
     app: AppHandle,
     version: String,
-) -> Result<ByondVersionInfo, String> {
+) -> CommandResult<ByondVersionInfo> {
     tracing::debug!("Checking BYOND version: {}", version);
     let dreamseeker_path = get_dreamseeker_path(&app, &version)?;
     let installed = dreamseeker_path.exists();
@@ -564,7 +565,7 @@ fn verify_sha256(data: &[u8], expected_hex: &str) -> Result<(), String> {
 pub async fn install_byond_version(
     app: AppHandle,
     version: String,
-) -> Result<ByondVersionInfo, String> {
+) -> CommandResult<ByondVersionInfo> {
     let existing = check_byond_version(app.clone(), version.clone()).await?;
     if existing.installed {
         tracing::debug!("BYOND version {} already installed", version);
@@ -846,12 +847,12 @@ pub async fn connect_to_server(
     app: AppHandle,
     server_name: String,
     source: Option<String>,
-) -> Result<ConnectionResult, String> {
+) -> CommandResult<ConnectionResult> {
     let source_str = source.as_deref().unwrap_or("unknown");
 
     let server_state = app
         .try_state::<Arc<ServerState>>()
-        .ok_or("Server state not available")?;
+        .ok_or_else(|| CommandError::Internal("server state not available".into()))?;
     let servers = server_state.get_servers().await;
     let server = servers
         .iter()
@@ -887,7 +888,10 @@ pub async fn connect_to_server(
         // SS13 mode: use host:port directly from server URL
         let parts: Vec<&str> = address.split(':').collect();
         if parts.len() != 2 {
-            return Err(format!("Invalid server URL format: {}", server.url));
+            return Err(CommandError::InvalidInput(format!(
+                "Invalid server URL format: {}",
+                server.url
+            )));
         }
         #[allow(clippy::indexing_slicing)] // length checked above
         (parts[0].to_string(), parts[1].to_string())
@@ -962,6 +966,7 @@ pub async fn connect_to_server(
         },
     )
     .await
+    .map_err(CommandError::Internal)
 }
 
 async fn connect_impl(
@@ -980,7 +985,9 @@ async fn connect_impl(
         server_id,
     } = req;
 
-    let version_info = install_byond_version(app.clone(), version.clone()).await?;
+    let version_info = install_byond_version(app.clone(), version.clone())
+        .await
+        .map_err(|e| e.to_string())?;
 
     if !version_info.installed {
         let msg = format!("Failed to install BYOND version {version}");
@@ -1246,7 +1253,7 @@ async fn connect_impl(
 #[specta::specta]
 pub async fn list_installed_byond_versions(
     app: AppHandle,
-) -> Result<Vec<ByondVersionInfo>, String> {
+) -> CommandResult<Vec<ByondVersionInfo>> {
     let base_dir = get_byond_base_dir(&app)?;
 
     if !base_dir.exists() {
@@ -1295,7 +1302,7 @@ pub async fn list_installed_byond_versions(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_byond_version(app: AppHandle, version: String) -> Result<bool, String> {
+pub async fn delete_byond_version(app: AppHandle, version: String) -> CommandResult<bool> {
     let version_dir = get_byond_version_dir(&app, &version)?;
 
     if version_dir.exists() {
@@ -1416,25 +1423,25 @@ async fn wait_for_new_dreamseeker(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn is_byond_pager_running() -> Result<bool, String> {
+pub async fn is_byond_pager_running() -> CommandResult<bool> {
     Ok(check_byond_pager_running())
 }
 
 /// Get the logged-in BYOND username from Documents/BYOND/key.txt
 #[tauri::command]
 #[specta::specta]
-pub async fn get_byond_username() -> Result<Option<String>, String> {
+pub async fn get_byond_username() -> CommandResult<Option<String>> {
     #[cfg(target_os = "windows")]
     {
-        let documents = dirs::document_dir().ok_or("Could not find Documents directory")?;
+        let documents = dirs::document_dir()
+            .ok_or_else(|| CommandError::Io("Could not find Documents directory".into()))?;
         let key_path = documents.join("BYOND").join("key.txt");
 
         if !key_path.exists() {
             return Ok(None);
         }
 
-        let contents =
-            fs::read_to_string(&key_path).map_err(|e| format!("Failed to read key.txt: {}", e))?;
+        let contents = fs::read_to_string(&key_path)?;
 
         // Look for "BEGIN KEY <username>" but not "BEGIN KEY Guest"
         for line in contents.lines() {
@@ -1468,11 +1475,13 @@ pub async fn connect_to_url(
     url: String,
     version: String,
     source: Option<String>,
-) -> Result<ConnectionResult, String> {
+) -> CommandResult<ConnectionResult> {
     #[cfg(not(feature = "dev"))]
     {
         let _ = (app, url, version, source);
-        Err("Dev mode is not enabled".to_string())
+        Err(CommandError::NotConfigured {
+            feature: "dev_mode".into(),
+        })
     }
 
     #[cfg(feature = "dev")]
@@ -1480,7 +1489,9 @@ pub async fn connect_to_url(
         let url = url.strip_prefix("byond://").unwrap_or(&url).to_string();
 
         let Some((host, port)) = url.split_once(':') else {
-            return Err("Invalid URL format. Expected 'host:port'".to_string());
+            return Err(CommandError::InvalidInput(
+                "Invalid URL format. Expected 'host:port'".into(),
+            ));
         };
         let host = host.to_string();
         let port = port.to_string();
@@ -1518,5 +1529,6 @@ pub async fn connect_to_url(
             },
         )
         .await
+        .map_err(CommandError::Internal)
     }
 }
