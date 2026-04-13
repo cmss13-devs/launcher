@@ -1,5 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import { commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
 import { useAuthStore, useByondStore, useSettingsStore, useSteamStore } from "../stores";
 
 interface AccountAction {
@@ -68,7 +69,7 @@ export const AccountInfo = ({
         checkByondStatus();
         if (byondPagerRunning) {
           try {
-            const username = await invoke<string | null>("get_byond_username");
+            const username = unwrap(await commands.getByondUsername());
             setByondPagerUsername(username);
           } catch {
             setByondPagerUsername(null);
@@ -117,7 +118,7 @@ export const AccountInfo = ({
         status={status}
         actions={[
           { label: "Login", onClick: onByondLogin, primary: true },
-          { label: "Create Account", onClick: () => invoke("open_url", { url: "https://secure.byond.com/Join" }) },
+          { label: "Create Account", onClick: () => commands.openUrl("https://secure.byond.com/Join") },
         ]}
       />
     );

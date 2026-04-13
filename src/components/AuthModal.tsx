@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../bindings";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSteam, faDiscord } from "@fortawesome/free-brands-svg-icons";
 import { faKey } from "@fortawesome/free-solid-svg-icons";
@@ -113,7 +113,7 @@ export const AuthModal = ({
               <button
                 type="button"
                 className="register-link"
-                onClick={() => invoke("open_url", { url: registerUrl })}
+                onClick={() => commands.openUrl(registerUrl)}
               >
                 Don't have an account? <span>Create one</span>
               </button>

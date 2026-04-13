@@ -1,7 +1,9 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Platform, WineSetupProgress, WineStatus } from "../types";
+import { commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
+import type { WineStatus } from "../bindings";
+import type { Platform, WineSetupProgress } from "../types";
 
 const initialWineStatus: WineStatus = {
   installed: false,
@@ -26,7 +28,7 @@ export const useWine = () => {
 
   const checkStatus = useCallback(async (): Promise<WineStatus> => {
     try {
-      const wineStatus = await invoke<WineStatus>("check_wine_status");
+      const wineStatus = unwrap(await commands.checkWineStatus());
       setStatus(wineStatus);
       setSetupError(wineStatus.error);
       return wineStatus;
@@ -46,8 +48,9 @@ export const useWine = () => {
   };
 
   useEffect(() => {
-    invoke<Platform>("get_platform")
-      .then(setPlatform)
+    commands
+      .getPlatform()
+      .then((p) => setPlatform(p as Platform))
       .catch(() => setPlatform("unknown"));
   }, []);
 
@@ -82,7 +85,7 @@ export const useWine = () => {
     });
 
     try {
-      await invoke("initialize_wine_prefix");
+      unwrap(await commands.initializeWinePrefix());
       await checkStatus();
       return true;
     } catch (err) {
@@ -108,7 +111,7 @@ export const useWine = () => {
     });
 
     try {
-      await invoke("reset_wine_prefix");
+      unwrap(await commands.resetWinePrefix());
       await checkStatus();
       return true;
     } catch (err) {

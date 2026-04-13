@@ -1,7 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { create } from "zustand";
-import type { RelayWithPing, Server } from "../types";
+import { commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
+import type { RelayWithPing, Server } from "../bindings";
 
 interface ServerUpdateEvent {
   servers: Server[];
@@ -40,12 +41,12 @@ export const useServerStore = create<ServerStore>()((set) => ({
 
   setSelectedRelay: async (selectedRelay) => {
     set({ selectedRelay });
-    await invoke("set_selected_relay", { id: selectedRelay });
+    await commands.setSelectedRelay(selectedRelay);
   },
 
   initListener: async () => {
     try {
-      const servers = await invoke<Server[]>("get_servers");
+      const servers = unwrap(await commands.getServers());
       if (servers.length > 0) {
         set({ servers, loading: false, error: null, lastUpdated: Date.now() });
       }
@@ -75,11 +76,11 @@ export const useServerStore = create<ServerStore>()((set) => ({
 
   initRelays: async () => {
     try {
-      const relays = await invoke<RelayWithPing[]>("get_relays");
+      const relays = unwrap(await commands.getRelays());
       const ready = hasValidPing(relays);
       set({ relays, relaysReady: ready });
 
-      const selectedRelay = await invoke<string>("get_selected_relay");
+      const selectedRelay = unwrap(await commands.getSelectedRelay());
       set({ selectedRelay });
     } catch (err) {
       console.error("Failed to get initial relays:", err);

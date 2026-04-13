@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { commands, type AppSettings, type AuthMode, type Theme } from "../bindings";
+import { type AppSettings, type AuthMode, commands, type Theme } from "../bindings";
+import { unwrap } from "../lib/unwrap";
 
 interface SettingsStore {
   authMode: AuthMode;
@@ -14,11 +15,6 @@ interface SettingsStore {
   saveTheme: (theme: Theme) => Promise<void>;
   toggleServerNotifications: (serverName: string, enabled: boolean) => Promise<void>;
   isServerNotificationsEnabled: (serverName: string) => boolean;
-}
-
-function unwrap<T>(result: { status: "ok"; data: T } | { status: "error"; error: string }): T {
-  if (result.status === "error") throw new Error(result.error);
-  return result.data;
 }
 
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({

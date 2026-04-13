@@ -1,6 +1,6 @@
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import type { RelayWithPing } from "../types";
+import type { RelayWithPing } from "../bindings";
 
 interface RelayDropdownProps {
   relays: RelayWithPing[];

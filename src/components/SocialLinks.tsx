@@ -2,8 +2,8 @@ import { faDiscord, faTwitch } from "@fortawesome/free-brands-svg-icons";
 import { faBook, faComments } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { invoke } from "@tauri-apps/api/core";
-import type { SocialLink } from "../stores/configStore";
+import { commands } from "../bindings";
+import type { SocialLink } from "../bindings";
 
 const iconMap: Record<string, IconDefinition> = {
   discord: faDiscord,
@@ -22,7 +22,7 @@ export const SocialLinks = ({ links }: SocialLinksProps) => {
   }
 
   const handleClick = async (url: string) => {
-    await invoke("open_url", { url });
+    await commands.openUrl(url);
   };
 
   return (

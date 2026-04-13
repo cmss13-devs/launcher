@@ -1,9 +1,10 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import type { ConnectionResult } from "../hooks/useConnect";
+import { commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
 import { useByondStore, useConfigStore } from "../stores";
-import type { AuthMode, ByondLoginResult, Platform, Theme, WineStatus } from "../types";
+import type { AuthMode, Theme, WineStatus } from "../bindings";
+import type { Platform } from "../types";
 import { Modal, ModalCloseButton } from "./Modal";
 
 interface AuthModeOptionProps {
@@ -155,11 +156,7 @@ const DevConnectSection = ({
     setError(null);
 
     try {
-      const result = await invoke<ConnectionResult>("connect_to_url", {
-        url,
-        version,
-        source: "DevConnectSection",
-      });
+      const result = unwrap(await commands.connectToUrl(url, version, "DevConnectSection"));
 
       if (!result.success && result.auth_error) {
         if (result.auth_error.code === "auth_required") {
@@ -272,7 +269,7 @@ export const SettingsModal = ({
     setByondLoginState("loading");
     setByondLoginError(null);
     try {
-      const result = await invoke<ByondLoginResult>("start_byond_login");
+      const result = unwrap(await commands.startByondLogin());
       console.log("BYOND login successful, username:", result.username);
       setByondLoginState("success");
     } catch (err) {
@@ -297,7 +294,7 @@ export const SettingsModal = ({
           type="button"
           className="help-link"
           onClick={() =>
-            invoke("open_url", { url: config?.urls.help_url || "https://github.com/cmss13-devs/cm-launcher/issues" })
+            commands.openUrl(config?.urls.help_url || "https://github.com/cmss13-devs/cm-launcher/issues")
           }
           title="Report an issue"
         >
@@ -353,7 +350,7 @@ export const SettingsModal = ({
                     <button
                       type="button"
                       className="button-secondary"
-                      onClick={() => invoke("open_url", { url: "https://secure.byond.com/Join" })}
+                      onClick={() => commands.openUrl("https://secure.byond.com/Join")}
                     >
                       Create Account
                     </button>

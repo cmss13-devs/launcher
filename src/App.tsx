@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import type { ByondLoginResult } from "./types";
+import { commands } from "./bindings";
+import { unwrap } from "./lib/unwrap";
 
 import {
   AccountInfo,
@@ -218,7 +218,9 @@ const AppContent = () => {
 
   useEffect(() => {
     if (!config?.urls.hub_api) return;
-    invoke<string[]>("get_hub_oauth_providers")
+    commands
+      .getHubOauthProviders()
+      .then((res) => unwrap(res))
       .then((providers) => setOauthProviders(providers.filter((p) => p !== "steam")))
       .catch(() => {});
   }, [config?.urls.hub_api]);
@@ -248,7 +250,7 @@ const AppContent = () => {
   }, [servers, config?.features.singleplayer]);
 
   const hasOffline = useMemo(() => servers.some((s) => s.status !== "available"), [servers]);
-  const hasHubStatus = useMemo(() => servers.some((s) => s.hub_status.length > 0), [servers]);
+  const hasHubStatus = useMemo(() => servers.some((s) => (s.hub_status ?? "").length > 0), [servers]);
 
   const filteredServers = useMemo(() => {
     const seen = new Set<string>();
@@ -283,7 +285,7 @@ const AppContent = () => {
       const aOnline = a.status === "available";
       const bOnline = b.status === "available";
       if (aOnline !== bOnline) return aOnline ? -1 : 1;
-      return b.players - a.players;
+      return (b.players ?? 0) - (a.players ?? 0);
     });
   }, [servers, selectedTags, searchQuery, show18Plus, showOffline, config?.features.show_offline_servers]);
 
@@ -418,7 +420,7 @@ const AppContent = () => {
 
   const handleByondLogin = useCallback(async () => {
     try {
-      await invoke<ByondLoginResult>("start_byond_login");
+      unwrap(await commands.startByondLogin());
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     }
@@ -426,7 +428,7 @@ const AppContent = () => {
 
   const handleByondLogout = useCallback(async () => {
     try {
-      await invoke("logout_byond_web");
+      unwrap(await commands.logoutByondWeb());
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     }
@@ -682,7 +684,7 @@ const AppContent = () => {
                     <span className="stat-value">
                       {filteredServers
                         .filter((s) => s.status === "available")
-                        .reduce((sum, s) => sum + s.players, 0)}
+                        .reduce((sum, s) => sum + (s.players ?? 0), 0)}
                     </span>
                   </div>
                 )}

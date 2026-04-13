@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
-import type { ReleaseInfo, SinglePlayerStatus } from "../types";
+import { commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
+import type { ReleaseInfo, SinglePlayerStatus } from "../bindings";
 
 const initialStatus: SinglePlayerStatus = {
   installed: false,
@@ -18,7 +19,7 @@ export const useSinglePlayer = () => {
 
   const checkStatus = useCallback(async (): Promise<SinglePlayerStatus> => {
     try {
-      const result = await invoke<SinglePlayerStatus>("get_singleplayer_status");
+      const result = unwrap(await commands.getSingleplayerStatus());
       setStatus(result);
       return result;
     } catch (err) {
@@ -30,7 +31,7 @@ export const useSinglePlayer = () => {
 
   const checkLatestRelease = useCallback(async (): Promise<ReleaseInfo | null> => {
     try {
-      const result = await invoke<ReleaseInfo>("get_latest_singleplayer_release");
+      const result = unwrap(await commands.getLatestSingleplayerRelease());
       setLatestRelease(result);
       return result;
     } catch (err) {
@@ -52,7 +53,7 @@ export const useSinglePlayer = () => {
     setError(null);
 
     try {
-      const result = await invoke<SinglePlayerStatus>("install_singleplayer");
+      const result = unwrap(await commands.installSingleplayer());
       setStatus(result);
       return true;
     } catch (err) {
@@ -69,7 +70,7 @@ export const useSinglePlayer = () => {
     setError(null);
 
     try {
-      await invoke<boolean>("delete_singleplayer");
+      unwrap(await commands.deleteSingleplayer());
       setStatus(initialStatus);
       return true;
     } catch (err) {
@@ -86,7 +87,7 @@ export const useSinglePlayer = () => {
     setError(null);
 
     try {
-      await invoke("launch_singleplayer");
+      unwrap(await commands.launchSingleplayer());
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);

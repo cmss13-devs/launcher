@@ -1,4 +1,5 @@
-import type { WineSetupProgress, WineStatus } from "../types";
+import type { WineStatus } from "../bindings";
+import type { WineSetupProgress } from "../types";
 import { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
 
 interface WineSetupModalProps {

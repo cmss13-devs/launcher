@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
-import type { SteamAuthResult, SteamUserInfo } from "../types";
+import { commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
+import type { SteamAuthResult, SteamUserInfo } from "../bindings";
 
 interface SteamStore {
   available: boolean;
@@ -23,7 +24,7 @@ export const useSteamStore = create<SteamStore>()((set) => ({
 
   initialize: async () => {
     try {
-      const user = await invoke<SteamUserInfo>("get_steam_user_info");
+      const user = unwrap(await commands.getSteamUserInfo());
       set({ available: true, user });
       return true;
     } catch {
@@ -34,9 +35,7 @@ export const useSteamStore = create<SteamStore>()((set) => ({
 
   authenticate: async (createAccountIfMissing: boolean) => {
     try {
-      const result = await invoke<SteamAuthResult>("steam_authenticate", {
-        createAccountIfMissing,
-      });
+      const result = unwrap(await commands.steamAuthenticate(createAccountIfMissing));
 
       if (result.success && result.access_token) {
         set({ accessToken: result.access_token });
@@ -61,7 +60,7 @@ export const useSteamStore = create<SteamStore>()((set) => ({
 
   cancelAuthTicket: async () => {
     try {
-      await invoke("cancel_steam_auth_ticket");
+      await commands.cancelSteamAuthTicket();
     } catch {
       // Ignore errors when canceling
     }

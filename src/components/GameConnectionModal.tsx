@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useState, useEffect } from "react";
+import { commands } from "../bindings";
 
 export type GameConnectionState = "idle" | "connecting" | "connected" | "restarting";
 
@@ -38,7 +38,7 @@ export const GameConnectionModal = ({
   const handleCloseGame = async () => {
     setClosing(true);
     try {
-      await invoke("kill_game");
+      await commands.killGame();
       onClose();
     } catch (err) {
       console.error("Failed to close game:", err);

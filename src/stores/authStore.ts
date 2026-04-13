@@ -1,7 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { create } from "zustand";
-import type { AuthState } from "../types";
+import { type AuthState, commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
 
 interface AuthStore {
   authState: AuthState;
@@ -34,7 +34,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
 
   login: async () => {
     try {
-      const state = await invoke<AuthState>("start_login");
+      const state = unwrap(await commands.startLogin());
       set({ authState: state });
       return { success: state.logged_in };
     } catch (err) {
@@ -45,11 +45,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
 
   hubLogin: async (username, password, totpCode?) => {
     try {
-      const state = await invoke<AuthState>("hub_login", {
-        username,
-        password,
-        totpCode: totpCode || null,
-      });
+      const state = unwrap(await commands.hubLogin(username, password, totpCode || null));
       set({ authState: state });
       return { success: state.logged_in };
     } catch (err) {
@@ -63,7 +59,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
 
   hubOAuthLogin: async (provider) => {
     try {
-      const state = await invoke<AuthState>("hub_oauth_login", { provider });
+      const state = unwrap(await commands.hubOauthLogin(provider));
       set({ authState: state });
       return { success: state.logged_in };
     } catch (err) {
@@ -74,7 +70,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
 
   hubSteamLogin: async () => {
     try {
-      const state = await invoke<AuthState>("hub_steam_login");
+      const state = unwrap(await commands.hubSteamLogin());
       set({ authState: state });
       return { success: state.logged_in };
     } catch (err) {
@@ -85,7 +81,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
 
   logout: async () => {
     try {
-      const state = await invoke<AuthState>("logout");
+      const state = unwrap(await commands.logout());
       set({ authState: state });
     } catch (err) {
       console.error("Logout failed:", err);
@@ -94,7 +90,7 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
 
   initListener: async () => {
     try {
-      const state = await invoke<AuthState>("get_auth_state");
+      const state = unwrap(await commands.getAuthState());
       get().setAuthState(state);
     } catch (err) {
       get().setAuthState({

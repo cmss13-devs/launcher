@@ -2,12 +2,12 @@ import { faDiscord, faGithub, faSignalMessenger } from "@fortawesome/free-brands
 import { faBell, faBellSlash, faBook, faChevronDown, faComments, faGlobe, faShield, faUsers } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { invoke } from "@tauri-apps/api/core";
 import type { MouseEvent } from "react";
+import { commands } from "../bindings";
 import { useState } from "react";
 import { useConnect, useError } from "../hooks";
 import { useConfigStore, useServerStore, useSettingsStore } from "../stores";
-import type { Server } from "../types";
+import type { Server } from "../bindings";
 import { formatDuration } from "../utils";
 import { Modal, ModalContent } from "./Modal";
 
@@ -57,7 +57,7 @@ export const ServerItem = ({
     const anchor = target.closest("a");
     if (anchor?.href) {
       e.preventDefault();
-      invoke("open_url", { url: anchor.href });
+      commands.openUrl(anchor.href);
     }
   };
 
@@ -133,7 +133,7 @@ export const ServerItem = ({
               type="button"
               className="button"
               onClick={() => {
-                if (pendingUrl) invoke("open_url", { url: pendingUrl });
+                if (pendingUrl) commands.openUrl(pendingUrl);
                 setPendingUrl(null);
               }}
             >
@@ -158,7 +158,7 @@ export const ServerItem = ({
                 onClick={handleHubStatusClick}
                 onKeyDown={() => {}}
                 // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML from BYOND hub
-                dangerouslySetInnerHTML={{ __html: server.hub_status }}
+                dangerouslySetInnerHTML={{ __html: server.hub_status ?? "" }}
               />
             ) : (
               <>

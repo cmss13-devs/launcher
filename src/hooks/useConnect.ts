@@ -1,5 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback } from "react";
+import { commands } from "../bindings";
+import { unwrap } from "../lib/unwrap";
 
 export interface AuthError {
   code: string;
@@ -18,10 +19,7 @@ export const useConnect = () => {
     async (serverName: string, source: string): Promise<ConnectionResult> => {
       console.log(`[useConnect] connect called, source=${source}`);
 
-      return await invoke<ConnectionResult>("connect_to_server", {
-        serverName,
-        source,
-      });
+      return unwrap(await commands.connectToServer(serverName, source));
     },
     [],
   );
