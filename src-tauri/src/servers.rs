@@ -64,6 +64,8 @@ pub struct Server {
     pub description: Option<String>,
     #[serde(default)]
     pub links: Vec<ServerLink>,
+    #[serde(default)]
+    pub verified_domain: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -86,6 +88,8 @@ struct HubServer {
     status: Option<HubServerStatus>,
     #[serde(default)]
     auth_methods: Vec<String>,
+    #[serde(default)]
+    verified_domain: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -211,6 +215,7 @@ impl HubApi {
             auth_methods: hub.auth_methods,
             description,
             links,
+            verified_domain: hub.verified_domain,
         }
     }
 }
@@ -305,6 +310,7 @@ impl CmApi {
             auth_methods: Vec::new(),
             description: None,
             links: Vec::new(),
+            verified_domain: None,
         }
     }
 }

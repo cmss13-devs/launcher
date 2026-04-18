@@ -1,5 +1,5 @@
 import { faDiscord, faGithub, faSignalMessenger } from "@fortawesome/free-brands-svg-icons";
-import { faBell, faBellSlash, faBook, faChevronDown, faComments, faGlobe, faShield, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faBellSlash, faBook, faChevronDown, faCircleCheck, faComments, faGlobe, faShield, faUsers } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { MouseEvent } from "react";
@@ -161,7 +161,6 @@ export const ServerItem = ({
               <>
                 <div className="server-name">
                   {server.name}
-                  {server.is_18_plus && <span className="badge badge-18plus">18+</span>}
                 </div>
                 {data ? (
                   <div className="server-details">
@@ -188,9 +187,20 @@ export const ServerItem = ({
                           ),
                         )}
                     </div>
-                    {server.tags && server.tags.length > 0 && (
+                    {(server.verified_domain || server.is_18_plus || (server.tags && server.tags.length > 0)) && (
                       <div className="server-tags">
-                        {server.tags.map((tag) => (
+                        {server.verified_domain && (
+                          <button
+                            type="button"
+                            className="badge badge-verified"
+                            title={server.verified_domain}
+                            onClick={() => setPendingUrl(`https://${server.verified_domain}`)}
+                          >
+                            <FontAwesomeIcon icon={faCircleCheck} /> {server.verified_domain}
+                          </button>
+                        )}
+                        {server.is_18_plus && <span className="badge badge-18plus">18+</span>}
+                        {server.tags?.map((tag) => (
                           <span key={tag} className="badge badge-tag">{tag}</span>
                         ))}
                       </div>
