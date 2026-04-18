@@ -175,9 +175,7 @@ pub async fn refresh_auth(app: AppHandle) -> CommandResult<AuthState> {
         return Ok(AuthState::logged_out());
     };
 
-    let refresh_token = tokens
-        .refresh_token
-        .ok_or(CommandError::NotAuthenticated)?;
+    let refresh_token = tokens.refresh_token.ok_or(CommandError::NotAuthenticated)?;
 
     let auth_state = refresh_tokens_internal(&refresh_token).await?;
     app.emit("auth-state-changed", &auth_state).ok();

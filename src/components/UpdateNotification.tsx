@@ -1,5 +1,6 @@
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface UpdateInfo {
   version: string;
@@ -7,6 +8,7 @@ interface UpdateInfo {
 }
 
 export const UpdateNotification = () => {
+  const { t } = useTranslation();
   const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -40,7 +42,7 @@ export const UpdateNotification = () => {
       const { check } = await import("@tauri-apps/plugin-updater");
       const update = await check();
       if (!update) {
-        setError("Update no longer available");
+        setError(t("update.noLongerAvailable"));
         setDownloading(false);
         return;
       }
@@ -85,7 +87,7 @@ export const UpdateNotification = () => {
     <div className="update-notification">
       <div className="update-content">
         <span className="update-message">
-          Update available: v{updateAvailable.version}
+          {t("update.available", { version: updateAvailable.version })}
         </span>
         {downloading ? (
           <div className="update-progress">
@@ -99,14 +101,14 @@ export const UpdateNotification = () => {
               className="update-button"
               onClick={handleUpdate}
             >
-              Install
+              {t("common.install")}
             </button>
             <button
               type="button"
               className="update-dismiss"
               onClick={handleDismiss}
             >
-              Later
+              {t("common.later")}
             </button>
           </div>
         )}

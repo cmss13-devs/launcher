@@ -559,13 +559,20 @@ body {
   width: 120px;
 }
 
-.connect-button {
+.button.connect-button {
   flex: 1;
   min-width: 0;
   padding: 8px 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+}
+
+.connect-auth-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
 }
 
 .notify-toggle {
@@ -1040,6 +1047,12 @@ body {
     color: var(--error);
   }
 
+  p.age-disclaimer {
+    font-size: 11px;
+    opacity: 0.6;
+    margin: 0;
+  }
+
   .button {
     margin-top: 8px;
   }
@@ -1106,6 +1119,52 @@ body {
       outline: none;
       border-color: var(--primary);
     }
+  }
+
+  .button {
+    margin-top: 4px;
+  }
+}
+
+.age-verification-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+
+  .dob-inputs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+
+    input {
+      width: 60px;
+      padding: 8px 10px;
+      border: 1px solid var(--primary-dim);
+      background: transparent;
+      color: var(--primary);
+      font-family: inherit;
+      font-size: 13px;
+      text-align: center;
+      box-sizing: border-box;
+
+      &:last-of-type {
+        width: 80px;
+      }
+
+      &::placeholder {
+        color: var(--primary-dim);
+        opacity: 0.7;
+      }
+
+      &:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+    }
+
   }
 
   .button {
@@ -1663,6 +1722,26 @@ body {
   font-size: 11px;
   color: var(--primary-dim);
   margin-top: 8px;
+}
+
+.locale-select {
+  padding: 8px 12px;
+  border: 1px solid var(--primary-dim);
+  background: transparent;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  option {
+    background: var(--bg-darker);
+    color: var(--text);
+  }
 }
 
 .singleplayer-panel {

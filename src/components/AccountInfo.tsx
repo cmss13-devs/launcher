@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { commands } from "../bindings";
 import { useAuthFlow } from "../hooks";
 import { unwrap } from "../lib/unwrap";
@@ -40,6 +41,7 @@ const AccountDisplay = ({ avatar, name, status, actions }: AccountDisplayProps) 
 };
 
 export const AccountInfo = () => {
+  const { t } = useTranslation();
   const {
     onLoginRequired: onLogin,
     handleLogout: onLogout,
@@ -86,8 +88,8 @@ export const AccountInfo = () => {
         <AccountDisplay
           avatar={byondWebUsername.charAt(0).toUpperCase()}
           name={byondWebUsername}
-          status="Logged in via BYOND Web"
-          actions={[{ label: "Logout", onClick: onByondLogout }]}
+          status={t("account.loggedInViaByondWeb")}
+          actions={[{ label: t("common.logout"), onClick: onByondLogout }]}
         />
       );
     }
@@ -97,22 +99,22 @@ export const AccountInfo = () => {
         <AccountDisplay
           avatar={byondPagerUsername.charAt(0).toUpperCase()}
           name={byondPagerUsername}
-          status="Logged in via BYOND Pager"
+          status={t("account.loggedInViaByondPager")}
         />
       );
     }
     // Not logged in via web or pager - show login button
     const status = byondPagerRunning === true
-      ? "Pager open (not logged in)"
-      : "Not logged in";
+      ? t("account.pagerOpenNotLoggedIn")
+      : t("account.notLoggedIn");
     return (
       <AccountDisplay
         avatar="B"
         name="BYOND"
         status={status}
         actions={[
-          { label: "Login", onClick: onByondLogin, primary: true },
-          { label: "Create Account", onClick: () => commands.openUrl("https://secure.byond.com/Join") },
+          { label: t("common.login"), onClick: onByondLogin, primary: true },
+          { label: t("common.createAccount"), onClick: () => commands.openUrl("https://secure.byond.com/Join") },
         ]}
       />
     );
@@ -123,9 +125,9 @@ export const AccountInfo = () => {
       return (
         <AccountDisplay
           avatar="S"
-          name={steamUser?.display_name || "Steam User"}
-          status="Logged in via Steam"
-          actions={[{ label: "Logout", onClick: onSteamLogout }]}
+          name={steamUser?.display_name || t("account.steamUser")}
+          status={t("account.loggedInViaSteam")}
+          actions={[{ label: t("common.logout"), onClick: onSteamLogout }]}
         />
       );
     }
@@ -133,7 +135,7 @@ export const AccountInfo = () => {
       <AccountDisplay
         avatar="S"
         name={steamUser?.display_name || "Steam"}
-        status="Click connect to authenticate"
+        status={t("account.clickToAuth")}
       />
     );
   }
@@ -145,8 +147,8 @@ export const AccountInfo = () => {
       <AccountDisplay
         avatar={displayName.charAt(0).toUpperCase()}
         name={displayName}
-        status={authState.user.email || "Logged in"}
-        actions={[{ label: "Logout", onClick: onLogout }]}
+        status={authState.user.email || t("account.loggedIn")}
+        actions={[{ label: t("common.logout"), onClick: onLogout }]}
       />
     );
   }
@@ -154,9 +156,9 @@ export const AccountInfo = () => {
   return (
     <AccountDisplay
       avatar="?"
-      name="Not logged in"
-      status={authState.loading ? "Checking..." : "Click to authenticate"}
-      actions={[{ label: "Login", onClick: onLogin, primary: true }]}
+      name={t("account.notLoggedIn")}
+      status={authState.loading ? t("account.checking") : t("account.clickToAuth")}
+      actions={[{ label: t("common.login"), onClick: onLogin, primary: true }]}
     />
   );
 };

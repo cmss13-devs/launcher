@@ -35,6 +35,7 @@ export function useServerFilters(servers: Server[], config: LauncherConfig | nul
     for (const server of servers) {
       if (server.tags) for (const tag of server.tags) tagSet.add(tag);
     }
+    tagSet.delete("18+");
     const sorted = Array.from(tagSet).sort();
 
     const pvpIndex = sorted.findIndex((t) => t.toLowerCase() === "pvp");

@@ -35,6 +35,10 @@ pub struct AppSettings {
     pub theme: Theme,
     #[serde(default)]
     pub notification_servers: HashSet<String>,
+    #[serde(default)]
+    pub age_verified: bool,
+    #[serde(default)]
+    pub locale: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -66,6 +70,8 @@ impl Default for AppSettings {
             auth_mode,
             theme: default_theme,
             notification_servers: HashSet::new(),
+            age_verified: false,
+            locale: None,
         }
     }
 }
@@ -148,6 +154,24 @@ pub async fn set_theme(app: AppHandle, theme: Theme) -> CommandResult<AppSetting
 
 #[tauri::command]
 #[specta::specta]
+pub async fn set_age_verified(app: AppHandle) -> CommandResult<AppSettings> {
+    let mut settings = load_settings(&app)?;
+    settings.age_verified = true;
+    save_settings(&app, &settings)?;
+    Ok(settings)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_locale(app: AppHandle, locale: Option<String>) -> CommandResult<AppSettings> {
+    let mut settings = load_settings(&app)?;
+    settings.locale = locale;
+    save_settings(&app, &settings)?;
+    Ok(settings)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn toggle_server_notifications(
     app: AppHandle,
     server_name: String,
@@ -163,4 +187,3 @@ pub async fn toggle_server_notifications(
 
     Ok(settings)
 }
-

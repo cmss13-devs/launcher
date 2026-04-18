@@ -3,8 +3,9 @@ import { faBell, faBellSlash, faBook, faChevronDown, faCircleCheck, faComments, 
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { MouseEvent } from "react";
-import { commands } from "../bindings";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { commands } from "../bindings";
 import { useAuthFlow, useConnect, useError } from "../hooks";
 import { useConfigStore, useServerStore, useSettingsStore } from "../stores";
 import type { Server } from "../bindings";
@@ -31,12 +32,13 @@ export const ServerItem = ({
   showHubStatus = false,
   autoConnecting = false,
 }: ServerItemProps) => {
+  const { t } = useTranslation();
   const [connecting, setConnecting] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const { showError } = useError();
   const { connect } = useConnect();
-  const { onLoginRequired, onSteamAuthRequired } = useAuthFlow();
+  const { onLoginRequired, onSteamAuthRequired, handleByondLogin } = useAuthFlow();
 
   const hasInfo = !!(server.description || (server.links && server.links.length > 0));
 
@@ -71,6 +73,8 @@ export const ServerItem = ({
       if (!result.success && result.auth_error) {
         if (result.auth_error.code === "auth_required") {
           onLoginRequired();
+        } else if (result.auth_error.code === "byond_auth_required") {
+          handleByondLogin();
         } else if (result.auth_error.code === "steam_linking_required") {
           onSteamAuthRequired(server.name);
         } else {
@@ -85,6 +89,8 @@ export const ServerItem = ({
       setConnecting(false);
     }
   };
+
+  const supportsHub = server.auth_methods?.includes("hub") ?? false;
 
   const canConnect = isOnline && (!needsRelays || relaysReady);
 
@@ -122,8 +128,8 @@ export const ServerItem = ({
         onClose={() => setPendingUrl(null)}
         closeOnOverlayClick
       >
-        <ModalContent title="Open External Link">
-          <p className="external-link-prompt">This will open in your browser:</p>
+        <ModalContent title={t("servers.openExternalLink")}>
+          <p className="external-link-prompt">{t("servers.externalLinkPrompt")}</p>
           <p className="external-link-url">{pendingUrl}</p>
           <div className="external-link-actions">
             <button
@@ -134,14 +140,14 @@ export const ServerItem = ({
                 setPendingUrl(null);
               }}
             >
-              Open
+              {t("common.open")}
             </button>
             <button
               type="button"
               className="button-cancel"
               onClick={() => setPendingUrl(null)}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
           </div>
         </ModalContent>
@@ -200,7 +206,7 @@ export const ServerItem = ({
                           </button>
                         )}
                         {server.is_18_plus && <span className="badge badge-18plus">18+</span>}
-                        {server.tags?.map((tag) => (
+                        {server.tags?.filter((tag) => tag !== "18+").map((tag) => (
                           <span key={tag} className="badge badge-tag">{tag}</span>
                         ))}
                       </div>
@@ -208,7 +214,7 @@ export const ServerItem = ({
                   </div>
                 ) : !isOnline ? (
                   <div className="server-details">
-                    <div className="detail-line dim">Offline</div>
+                    <div className="detail-line dim">{t("servers.offline")}</div>
                   </div>
                 ) : null}
               </>
@@ -251,7 +257,16 @@ export const ServerItem = ({
                 onClick={handleConnect}
                 disabled={!canConnect || connecting || autoConnecting}
               >
-                {connecting || autoConnecting ? "..." : "Connect"}
+                {connecting || autoConnecting ? "..." : (
+                  <>
+                    <img
+                      src={supportsHub ? "/logo-ss13.png" : "/byond.png"}
+                      alt=""
+                      className="connect-auth-icon"
+                    />
+                    {t("common.join")}
+                  </>
+                )}
               </button>
               {data?.round_id != null && (
                 <button
@@ -260,8 +275,8 @@ export const ServerItem = ({
                   onClick={handleToggleNotifications}
                   title={
                     notificationsEnabled
-                      ? "Disable restart notifications"
-                      : "Enable restart notifications"
+                      ? t("servers.disableNotifications")
+                      : t("servers.enableNotifications")
                   }
                 >
                   <FontAwesomeIcon icon={notificationsEnabled ? faBell : faBellSlash} />

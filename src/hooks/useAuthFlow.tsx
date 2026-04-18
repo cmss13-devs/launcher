@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { AuthModal } from "../components/AuthModal";
 import { SteamAuthModal } from "../components/SteamAuthModal";
 import { useAuthStore, useConfigStore, useSteamStore } from "../stores";
@@ -26,6 +27,7 @@ export function useAuthFlow(): AuthFlowContextValue {
 }
 
 export const AuthFlowProvider = ({ children }: { children: ReactNode }) => {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const oauthProviders = useAuthStore((s) => s.oauthProviders);
   const steamAvailable = useSteamStore((s) => s.available);
@@ -66,7 +68,7 @@ export const AuthFlowProvider = ({ children }: { children: ReactNode }) => {
     >
       <AuthModal
         {...authModal}
-        loginPrompt={config?.strings.login_prompt ?? "Please log in to continue."}
+        loginPrompt={config?.strings.login_prompt ?? t("auth.loginPromptDefault")}
         useHubAuth={config?.urls.hub_api != null}
         oauthProviders={oauthProviders}
         steamAvailable={steamAvailable}

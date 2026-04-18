@@ -32,12 +32,13 @@ fn get_singleplayer_config() -> CommandResult<(String, String)> {
         .ok_or_else(|| CommandError::NotConfigured {
             feature: "singleplayer".to_string(),
         })?;
-    let asset = config
-        .singleplayer
-        .build_asset_name
-        .ok_or_else(|| CommandError::NotConfigured {
-            feature: "singleplayer".to_string(),
-        })?;
+    let asset =
+        config
+            .singleplayer
+            .build_asset_name
+            .ok_or_else(|| CommandError::NotConfigured {
+                feature: "singleplayer".to_string(),
+            })?;
     Ok((repo.to_string(), asset.to_string()))
 }
 
@@ -119,9 +120,10 @@ async fn fetch_latest_release() -> CommandResult<ReleaseInfo> {
         )));
     }
 
-    let release: GitHubRelease = response.json().await.map_err(|e| {
-        CommandError::InvalidResponse(format!("Failed to parse release info: {e}"))
-    })?;
+    let release: GitHubRelease = response
+        .json()
+        .await
+        .map_err(|e| CommandError::InvalidResponse(format!("Failed to parse release info: {e}")))?;
 
     let build_asset = release.assets.iter().find(|a| a.name == build_asset_name);
 

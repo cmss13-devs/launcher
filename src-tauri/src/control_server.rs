@@ -19,8 +19,11 @@ fn cors_headers() -> Vec<tiny_http::Header> {
         tiny_http::Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
         tiny_http::Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, OPTIONS"[..])
             .unwrap(),
-        tiny_http::Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"Content-Type, Launcher-Key"[..])
-            .unwrap(),
+        tiny_http::Header::from_bytes(
+            &b"Access-Control-Allow-Headers"[..],
+            &b"Content-Type, Launcher-Key"[..],
+        )
+        .unwrap(),
     ]
 }
 
@@ -128,7 +131,13 @@ impl ControlServer {
         let launcher_key_clone = Arc::clone(&launcher_key);
 
         thread::spawn(move || {
-            Self::run_server(server, app_handle, presence_manager, game_connected_clone, launcher_key_clone);
+            Self::run_server(
+                server,
+                app_handle,
+                presence_manager,
+                game_connected_clone,
+                launcher_key_clone,
+            );
         });
 
         let event_tx_ws = event_tx;
@@ -306,7 +315,9 @@ impl ControlServer {
             match provided_key {
                 Some(ref key) if key == &expected_key => {}
                 _ => {
-                    tracing::warn!("Control server request rejected: invalid or missing Launcher-Key");
+                    tracing::warn!(
+                        "Control server request rejected: invalid or missing Launcher-Key"
+                    );
                     let response = json_response(403, serde_json::json!({"error": "Forbidden"}));
                     request.respond(response).ok();
                     continue;
@@ -522,36 +533,25 @@ impl ControlServer {
             return;
         };
 
-        let result: Result<String, String> =
-            tauri::async_runtime::block_on(async {
-                let session_token = match crate::auth::TokenStorage::get_tokens() {
-                    Ok(Some(tokens)) if !crate::auth::TokenStorage::is_expired() => {
-                        tokens.access_token
-                    }
-                    Ok(_) => return Err("Hub authentication expired or not available".to_string()),
-                    Err(e) => return Err(format!("Failed to read auth tokens: {e}")),
-                };
+        let result: Result<String, String> = tauri::async_runtime::block_on(async {
+            let session_token = match crate::auth::TokenStorage::get_tokens() {
+                Ok(Some(tokens)) if !crate::auth::TokenStorage::is_expired() => tokens.access_token,
+                Ok(_) => return Err("Hub authentication expired or not available".to_string()),
+                Err(e) => return Err(format!("Failed to read auth tokens: {e}")),
+            };
 
-                let server_id = params
-                    .server_id
-                    .as_deref()
-                    .ok_or("Server has no hub ID")?;
+            let server_id = params.server_id.as_deref().ok_or("Server has no hub ID")?;
 
-                let hwid = generate_hwid();
+            let hwid = generate_hwid();
 
-                crate::auth::hub_client::HubClient::join(
-                    &session_token,
-                    server_id,
-                    hwid.as_deref(),
-                )
+            crate::auth::hub_client::HubClient::join(&session_token, server_id, hwid.as_deref())
                 .await
                 .map_err(|e| format!("Failed to get auth ticket: {e}"))
-            });
+        });
 
         match result {
             Ok(ticket) => {
-                let response =
-                    json_response(200, serde_json::json!({"auth_ticket": ticket}));
+                let response = json_response(200, serde_json::json!({"auth_ticket": ticket}));
                 request.respond(response).ok();
             }
             Err(e) => {

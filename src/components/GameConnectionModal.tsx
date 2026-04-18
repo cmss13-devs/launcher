@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { commands } from "../bindings";
 
 export type GameConnectionState = "idle" | "connecting" | "connected" | "restarting";
@@ -20,6 +21,7 @@ export const GameConnectionModal = ({
   restartReason,
   onClose,
 }: GameConnectionModalProps) => {
+  const { t } = useTranslation();
   const [closing, setClosing] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(CONNECTION_TIMEOUT_SECONDS);
 
@@ -50,11 +52,11 @@ export const GameConnectionModal = ({
   const getStatusText = () => {
     switch (state) {
       case "restarting":
-        return `Restarting ${serverName}...`;
+        return t("connection.restarting", { server: serverName });
       case "connecting":
-        return `Connecting to ${serverName}...`;
+        return t("connection.connecting", { server: serverName });
       default:
-        return `Connected to ${serverName}`;
+        return t("connection.connected", { server: serverName });
     }
   };
 
@@ -85,7 +87,7 @@ export const GameConnectionModal = ({
           onClick={handleCloseGame}
           disabled={closing}
         >
-          {closing ? "Closing..." : "Close Game"}
+          {closing ? t("connection.closing") : t("connection.closeGame")}
         </button>
       </div>
     </div>

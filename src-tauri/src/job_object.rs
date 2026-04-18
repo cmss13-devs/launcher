@@ -10,8 +10,8 @@ pub fn init_job_object() -> CommandResult<()> {
         return Ok(());
     }
 
-    let job =
-        Job::create().map_err(|e| CommandError::Internal(format!("Failed to create job object: {e}")))?;
+    let job = Job::create()
+        .map_err(|e| CommandError::Internal(format!("Failed to create job object: {e}")))?;
 
     let mut info = job
         .query_extended_limit_info()

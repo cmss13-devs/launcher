@@ -45,7 +45,8 @@ use byond_login::{
 use relays::{get_relays, get_selected_relay, set_selected_relay};
 use servers::get_servers;
 use settings::{
-    get_settings, set_auth_mode, set_theme, toggle_server_notifications,
+    get_settings, set_age_verified, set_auth_mode, set_locale, set_theme,
+    toggle_server_notifications,
 };
 
 use singleplayer::{
@@ -179,8 +180,10 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         refresh_auth,
         get_access_token,
         get_settings,
+        set_age_verified,
         set_auth_mode,
         set_theme,
+        set_locale,
         toggle_server_notifications,
         get_control_server_port,
         kill_game,
@@ -232,8 +235,10 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         refresh_auth,
         get_access_token,
         get_settings,
+        set_age_verified,
         set_auth_mode,
         set_theme,
+        set_locale,
         toggle_server_notifications,
         get_control_server_port,
         kill_game,
@@ -390,9 +395,8 @@ pub fn run() {
                 background_refresh_task(handle_for_auth).await;
             });
 
-            let server_state = std::sync::Arc::clone(
-                app.state::<std::sync::Arc<servers::ServerState>>().inner(),
-            );
+            let server_state =
+                std::sync::Arc::clone(app.state::<std::sync::Arc<servers::ServerState>>().inner());
 
             let server_state_init = std::sync::Arc::clone(&server_state);
             tauri::async_runtime::block_on(async {
@@ -404,9 +408,8 @@ pub fn run() {
                 servers::server_fetch_background_task(handle_for_server_task, server_state).await;
             });
 
-            let relay_state = std::sync::Arc::clone(
-                app.state::<std::sync::Arc<relays::RelayState>>().inner(),
-            );
+            let relay_state =
+                std::sync::Arc::clone(app.state::<std::sync::Arc<relays::RelayState>>().inner());
 
             let relay_state_init = relay_state;
             let handle_for_relay_init = handle.clone();

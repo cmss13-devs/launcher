@@ -8,9 +8,11 @@ use crate::config::{get_config, OidcConfig};
 use crate::error::{CommandError, CommandResult};
 
 fn get_oidc_config() -> CommandResult<OidcConfig> {
-    get_config().oidc.ok_or_else(|| CommandError::NotConfigured {
-        feature: "oidc".to_string(),
-    })
+    get_config()
+        .oidc
+        .ok_or_else(|| CommandError::NotConfigured {
+            feature: "oidc".to_string(),
+        })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -53,12 +55,12 @@ impl OidcClient {
             redirect_uri_string
         );
         let oidc = get_oidc_config()?;
-        let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| CommandError::NotConfigured {
+        let auth_url =
+            AuthUrl::new(oidc.auth_url.to_string()).map_err(|e| CommandError::NotConfigured {
                 feature: format!("oidc.auth_url ({e})"),
             })?;
-        let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| CommandError::NotConfigured {
+        let token_url =
+            TokenUrl::new(oidc.token_url.to_string()).map_err(|e| CommandError::NotConfigured {
                 feature: format!("oidc.token_url ({e})"),
             })?;
         let redirect_url = RedirectUrl::new(redirect_uri_string.to_string())
@@ -95,12 +97,12 @@ impl OidcClient {
     ) -> CommandResult<TokenResult> {
         tracing::debug!("Exchanging authorization code for tokens");
         let oidc = get_oidc_config()?;
-        let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| CommandError::NotConfigured {
+        let auth_url =
+            AuthUrl::new(oidc.auth_url.to_string()).map_err(|e| CommandError::NotConfigured {
                 feature: format!("oidc.auth_url ({e})"),
             })?;
-        let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| CommandError::NotConfigured {
+        let token_url =
+            TokenUrl::new(oidc.token_url.to_string()).map_err(|e| CommandError::NotConfigured {
                 feature: format!("oidc.token_url ({e})"),
             })?;
         let redirect_url = RedirectUrl::new(redirect_uri.to_string())
@@ -149,12 +151,12 @@ impl OidcClient {
     pub async fn refresh_tokens(refresh_token: &str) -> CommandResult<TokenResult> {
         tracing::debug!("Refreshing tokens");
         let oidc = get_oidc_config()?;
-        let auth_url = AuthUrl::new(oidc.auth_url.to_string())
-            .map_err(|e| CommandError::NotConfigured {
+        let auth_url =
+            AuthUrl::new(oidc.auth_url.to_string()).map_err(|e| CommandError::NotConfigured {
                 feature: format!("oidc.auth_url ({e})"),
             })?;
-        let token_url = TokenUrl::new(oidc.token_url.to_string())
-            .map_err(|e| CommandError::NotConfigured {
+        let token_url =
+            TokenUrl::new(oidc.token_url.to_string()).map_err(|e| CommandError::NotConfigured {
                 feature: format!("oidc.token_url ({e})"),
             })?;
 
@@ -216,9 +218,10 @@ impl OidcClient {
             )));
         }
 
-        let userinfo: UserInfo = response.json().await.map_err(|e| {
-            CommandError::InvalidResponse(format!("Failed to parse userinfo: {e}"))
-        })?;
+        let userinfo: UserInfo = response
+            .json()
+            .await
+            .map_err(|e| CommandError::InvalidResponse(format!("Failed to parse userinfo: {e}")))?;
 
         Ok(userinfo)
     }

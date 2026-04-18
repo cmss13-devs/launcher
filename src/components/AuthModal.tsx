@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { commands } from "../bindings";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSteam, faDiscord } from "@fortawesome/free-brands-svg-icons";
@@ -53,6 +54,7 @@ export const AuthModal = ({
   onSteamLogin,
   onClose,
 }: AuthModalProps) => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -70,15 +72,15 @@ export const AuthModal = ({
     <Modal visible={visible} onClose={onClose}>
       <ModalCloseButton onClick={onClose} />
       {state === "idle" && !useHubAuth && (
-        <ModalContent title="Authentication Required">
+        <ModalContent title={t("auth.authRequired")}>
           <p>{loginPrompt}</p>
           <button type="button" className="button" onClick={onLogin}>
-            Login
+            {t("common.login")}
           </button>
         </ModalContent>
       )}
       {state === "idle" && useHubAuth && (
-        <ModalContent title="Login">
+        <ModalContent title={t("auth.loginTitle")}>
           {steamAvailable && (
             <div className="steam-login-section">
               <button
@@ -87,27 +89,27 @@ export const AuthModal = ({
                 onClick={onSteamLogin}
               >
                 <FontAwesomeIcon icon={faSteam} />
-                Sign in with Steam
+                {t("auth.signInWithSteam")}
               </button>
-              <div className="oauth-divider"><span>or</span></div>
+              <div className="oauth-divider"><span>{t("common.or")}</span></div>
             </div>
           )}
           <form onSubmit={handleSubmit} className="hub-login-form">
             <input
               type="text"
-              placeholder="Username or email"
+              placeholder={t("auth.usernamePlaceholder")}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoFocus={!steamAvailable}
             />
             <input
               type="password"
-              placeholder="Password"
+              placeholder={t("auth.passwordPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <button type="submit" className="button" disabled={!username || !password}>
-              Login
+              {t("common.login")}
             </button>
             {registerUrl && (
               <button
@@ -115,13 +117,13 @@ export const AuthModal = ({
                 className="register-link"
                 onClick={() => commands.openUrl(registerUrl)}
               >
-                Don't have an account? <span>Create one</span>
+                {t("auth.noAccount")} <span>{t("auth.createOne")}</span>
               </button>
             )}
           </form>
           {oauthProviders.length > 0 && (
             <div className="oauth-providers">
-              <div className="oauth-divider"><span>or</span></div>
+              <div className="oauth-divider"><span>{t("common.or")}</span></div>
               {oauthProviders.map((provider) => (
                 <button
                   key={provider}
@@ -138,12 +140,12 @@ export const AuthModal = ({
         </ModalContent>
       )}
       {state === "2fa" && (
-        <ModalContent title="Two-Factor Authentication">
+        <ModalContent title={t("auth.twoFactorTitle")}>
           <form onSubmit={handleSubmit} className="hub-login-form">
-            <p>Enter the code from your authenticator app.</p>
+            <p>{t("auth.twoFactorPrompt")}</p>
             <input
               type="text"
-              placeholder="6-digit code"
+              placeholder={t("auth.codePlaceholder")}
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
               autoFocus
@@ -152,19 +154,19 @@ export const AuthModal = ({
               autoComplete="one-time-code"
             />
             <button type="submit" className="button" disabled={totpCode.length < 6}>
-              Verify
+              {t("auth.verify")}
             </button>
           </form>
         </ModalContent>
       )}
       {state === "loading" && (
-        <ModalContent title="Authenticating...">
-          {useHubAuth ? <p>Logging in...</p> : <p>Please complete login in your browser.</p>}
+        <ModalContent title={t("auth.authenticating")}>
+          {useHubAuth ? <p>{t("auth.loggingIn")}</p> : <p>{t("auth.completeBrowserLogin")}</p>}
           <ModalSpinner />
         </ModalContent>
       )}
       {state === "error" && (
-        <ModalContent title="Authentication Failed">
+        <ModalContent title={t("auth.authFailed")}>
           <p className="auth-error-message">{error}</p>
           {useHubAuth ? (
             <button
@@ -175,11 +177,11 @@ export const AuthModal = ({
                 setTotpCode("");
               }}
             >
-              Try Again
+              {t("common.tryAgain")}
             </button>
           ) : (
             <button type="button" className="button" onClick={onLogin}>
-              Try Again
+              {t("common.tryAgain")}
             </button>
           )}
         </ModalContent>

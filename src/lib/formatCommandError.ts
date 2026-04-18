@@ -1,42 +1,44 @@
+import i18next from "i18next";
 import type { CommandError } from "../bindings";
 
 export function formatCommandError(err: CommandError): string {
+  const t = i18next.t.bind(i18next);
   switch (err.type) {
     case "network":
-      return `Network error: ${err.data}`;
+      return t("errors.network", { detail: err.data });
     case "not_authenticated":
-      return "You must log in to continue.";
+      return t("errors.not_authenticated");
     case "token_expired":
-      return "Your session has expired. Please log in again.";
+      return t("errors.token_expired");
     case "requires_2fa":
-      return "Two-factor authentication required.";
+      return t("errors.requires_2fa");
     case "invalid_credentials":
-      return "Invalid username or password.";
+      return t("errors.invalid_credentials");
     case "account_locked":
-      return "This account is locked.";
+      return t("errors.account_locked");
     case "requires_linking":
-      return `Account linking required: ${err.data.url}`;
+      return t("errors.requires_linking", { url: err.data.url });
     case "not_found":
-      return `Not found: ${err.data}`;
+      return t("errors.not_found", { detail: err.data });
     case "io":
-      return `I/O error: ${err.data}`;
+      return t("errors.io", { detail: err.data });
     case "not_configured":
-      return `${err.data.feature} is not configured.`;
+      return t("errors.not_configured", { feature: err.data.feature });
     case "unsupported_platform":
-      return `${err.data.feature} is not supported on ${err.data.platform}.`;
+      return t("errors.unsupported_platform", { feature: err.data.feature, platform: err.data.platform });
     case "busy":
-      return `${err.data.operation} is already in progress.`;
+      return t("errors.busy", { operation: err.data.operation });
     case "cancelled":
-      return `${err.data.operation} was cancelled.`;
+      return t("errors.cancelled", { operation: err.data.operation });
     case "timeout":
-      return `${err.data.operation} timed out.`;
+      return t("errors.timeout", { operation: err.data.operation });
     case "internal":
-      return `Internal error: ${err.data}`;
+      return t("errors.internal", { detail: err.data });
     case "webview":
-      return `Webview error: ${err.data}`;
+      return t("errors.webview", { detail: err.data });
     case "invalid_response":
-      return `Invalid response: ${err.data}`;
+      return t("errors.invalid_response", { detail: err.data });
     case "invalid_input":
-      return `Invalid input: ${err.data}`;
+      return t("errors.invalid_input", { detail: err.data });
   }
 }

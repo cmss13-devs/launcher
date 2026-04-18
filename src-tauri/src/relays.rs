@@ -247,9 +247,7 @@ pub async fn get_relays(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_selected_relay(
-    state: tauri::State<'_, Arc<RelayState>>,
-) -> CommandResult<String> {
+pub async fn get_selected_relay(state: tauri::State<'_, Arc<RelayState>>) -> CommandResult<String> {
     Ok(state.get_selected().await)
 }
 

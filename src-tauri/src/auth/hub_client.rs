@@ -96,12 +96,8 @@ impl HubClient {
             .unwrap_or_else(|_| format!("HTTP {status}"));
 
         match status {
-            s if s == reqwest::StatusCode::UNAUTHORIZED => {
-                Err(HubAuthError::InvalidCredentials)
-            }
-            s if s == reqwest::StatusCode::FORBIDDEN => {
-                Err(HubAuthError::AccountLocked)
-            }
+            s if s == reqwest::StatusCode::UNAUTHORIZED => Err(HubAuthError::InvalidCredentials),
+            s if s == reqwest::StatusCode::FORBIDDEN => Err(HubAuthError::AccountLocked),
             _ => Err(HubAuthError::Server(message)),
         }
     }
@@ -151,7 +147,9 @@ impl HubClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(HubAuthError::Server(format!("Join failed (HTTP {status}): {body}")));
+            return Err(HubAuthError::Server(format!(
+                "Join failed (HTTP {status}): {body}"
+            )));
         }
 
         let body: serde_json::Value = response
@@ -231,10 +229,7 @@ impl HubClient {
 
         let user = &body["user"];
         Ok(UserInfo {
-            sub: user["id"]
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
+            sub: user["id"].as_str().unwrap_or_default().to_string(),
             name: user["username"].as_str().map(String::from),
             preferred_username: user["username"].as_str().map(String::from),
             email: user["email"].as_str().map(String::from),

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { WineStatus } from "../bindings";
 import type { WineSetupProgress } from "../types";
 import { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
@@ -19,15 +20,15 @@ const WineErrorContent = ({
   status: WineStatus;
   onRetry: () => void;
 }) => {
+  const { t } = useTranslation();
   return (
-    <ModalContent title="Wine Error">
+    <ModalContent title={t("wine.errorTitle")}>
       <p>
-        {status.error ||
-          "Failed to initialize bundled Wine. Please try again or check the logs for details."}
+        {status.error || t("wine.errorDefault")}
       </p>
       <div>
         <button type="button" className="button" onClick={onRetry}>
-          Retry
+          {t("common.retry")}
         </button>
       </div>
     </ModalContent>
@@ -39,12 +40,13 @@ const SetupProgressContent = ({
 }: {
   progress: WineSetupProgress | null;
 }) => {
+  const { t } = useTranslation();
   const displayProgress = progress?.progress ?? 0;
   const displayMessage =
-    progress?.message ?? "Starting Wine environment setup...";
+    progress?.message ?? t("wine.setupStarting");
 
   return (
-    <ModalContent title="Setting Up Wine Environment">
+    <ModalContent title={t("wine.setupTitle")}>
       <p>{displayMessage}</p>
       <div className="wine-progress-bar">
         <div
@@ -53,22 +55,22 @@ const SetupProgressContent = ({
         />
       </div>
       <p className="wine-progress-percent">{displayProgress}%</p>
-      <p>This may take several minutes. Please do not close the launcher.</p>
+      <p>{t("wine.setupWarning")}</p>
       <ModalSpinner />
     </ModalContent>
   );
 };
 
 const SetupRequiredContent = ({ onSetup }: { onSetup: () => void }) => {
+  const { t } = useTranslation();
   return (
-    <ModalContent title="Wine Setup Required">
+    <ModalContent title={t("wine.setupRequired")}>
       <p>
-        Launching DreamSeeker requires a one-time setup, may take up to 5
-        minutes.
+        {t("wine.setupRequiredDesc")}
       </p>
       <div>
         <button type="button" className="button" onClick={onSetup}>
-          Start Setup
+          {t("wine.startSetup")}
         </button>
       </div>
     </ModalContent>
@@ -82,17 +84,18 @@ const SetupErrorContent = ({
   error: string;
   onRetry: () => void;
 }) => {
+  const { t } = useTranslation();
   return (
-    <ModalContent title="Setup Failed">
+    <ModalContent title={t("wine.setupFailed")}>
       <p>{error}</p>
-      <p>You can try:</p>
+      <p>{t("wine.youCanTry")}</p>
       <ul>
-        <li>Reset the Wine prefix from Settings</li>
-        <li>Check the logs for more details</li>
+        <li>{t("wine.resetSuggestion")}</li>
+        <li>{t("wine.checkLogs")}</li>
       </ul>
       <div>
         <button type="button" className="button" onClick={onRetry}>
-          Try Again
+          {t("common.tryAgain")}
         </button>
       </div>
     </ModalContent>
@@ -100,14 +103,15 @@ const SetupErrorContent = ({
 };
 
 const SetupCompleteContent = ({ onClose }: { onClose: () => void }) => {
+  const { t } = useTranslation();
   return (
-    <ModalContent title="Setup Complete">
+    <ModalContent title={t("wine.setupComplete")}>
       <div>
-        <p>Wine setup complete!</p>
+        <p>{t("wine.setupCompleteMsg")}</p>
       </div>
       <div>
         <button type="button" className="button" onClick={onClose}>
-          Continue
+          {t("wine.continue")}
         </button>
       </div>
     </ModalContent>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -33,6 +34,7 @@ import {
 } from "./stores";
 
 const AppContent = () => {
+  const { t } = useTranslation();
   const { errors, dismissError, showError } = useError();
 
   useAppBootstrap();
@@ -221,10 +223,10 @@ const AppContent = () => {
             ) : (
               <div className="server-list">
                 {serversLoading && servers.length === 0 && (
-                  <div className="server-loading">Loading servers...</div>
+                  <div className="server-loading">{t("servers.loading")}</div>
                 )}
                 {serversError && (
-                  <div className="server-error">Error: {serversError}</div>
+                  <div className="server-error">{t("errors.prefix", { message: serversError })}</div>
                 )}
                 {filteredServers.map((server) => (
                   <ServerItem
@@ -265,9 +267,9 @@ const AppContent = () => {
               type="button"
               className="button-secondary settings-button"
               onClick={() => setSettingsVisible(true)}
-              title="Settings"
+              title={t("common.settings")}
             >
-              Settings
+              {t("common.settings")}
             </button>
           </div>
         </footer>

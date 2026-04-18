@@ -538,10 +538,9 @@ async fn fetch_expected_hash(version: &str) -> CommandResult<Option<String>> {
         return Ok(None);
     }
 
-    let hash_response: ByondHashResponse = response
-        .json()
-        .await
-        .map_err(|e| CommandError::InvalidResponse(format!("Failed to parse hash response: {e}")))?;
+    let hash_response: ByondHashResponse = response.json().await.map_err(|e| {
+        CommandError::InvalidResponse(format!("Failed to parse hash response: {e}"))
+    })?;
 
     Ok(hash_response.sha256)
 }
@@ -713,10 +712,7 @@ pub async fn install_byond_version(
 }
 
 /// Internal function for connecting with explicit auth params.
-pub async fn connect(
-    app: AppHandle,
-    req: ConnectionRequest,
-) -> CommandResult<ConnectionResult> {
+pub async fn connect(app: AppHandle, req: ConnectionRequest) -> CommandResult<ConnectionResult> {
     let source_str = req.source.as_deref().unwrap_or("unknown");
 
     if CONNECTING.swap(true, Ordering::SeqCst) {
@@ -748,14 +744,27 @@ pub async fn connect(
 #[allow(clippy::unused_async)] // Uses await when steam feature is enabled
 async fn get_auth_for_connection(
     app: &AppHandle,
+    auth_methods: &[String],
 ) -> Result<(Option<String>, Option<String>), AuthError> {
+    let supports_hub = auth_methods.iter().any(|m| m == "hub");
+    let supports_byond = auth_methods.iter().any(|m| m == "byond");
+
     let settings = load_settings(app).map_err(|e| AuthError {
         code: "settings_error".to_string(),
         message: e.to_string(),
         linking_url: None,
     })?;
 
-    match settings.auth_mode {
+    let effective_mode = match settings.auth_mode {
+        AuthMode::Oidc => AuthMode::Oidc,
+        AuthMode::Steam => AuthMode::Steam,
+        AuthMode::Hub if supports_hub => AuthMode::Hub,
+        AuthMode::Hub | AuthMode::Byond if supports_byond => AuthMode::Byond,
+        _ if supports_hub => AuthMode::Hub,
+        _ => AuthMode::Byond,
+    };
+
+    match effective_mode {
         AuthMode::Oidc | AuthMode::Hub => {
             let tokens = TokenStorage::get_tokens().map_err(|e| AuthError {
                 code: "token_error".to_string(),
@@ -827,11 +836,10 @@ async fn get_auth_for_connection(
         }
         AuthMode::Byond => {
             let config = crate::config::get_config();
-            // If auto_launch_byond is enabled, we'll launch BYOND later in the connection flow
             if !config.features.auto_launch_byond && !check_byond_pager_running() {
                 return Err(AuthError {
-                    code: "byond_pager_not_running".to_string(),
-                    message: "BYOND pager is not running. Please open BYOND and log in before connecting.".to_string(),
+                    code: "byond_auth_required".to_string(),
+                    message: "Please log in to BYOND before connecting.".to_string(),
                     linking_url: None,
                 });
             }
@@ -898,20 +906,23 @@ pub async fn connect_to_server(
         (parts[0].to_string(), parts[1].to_string())
     };
 
-    let (access_type, access_token) = match get_auth_for_connection(&app).await {
-        Ok((t, tok)) => (t, tok),
-        Err(auth_error) => {
-            return Ok(ConnectionResult {
-                success: false,
-                message: auth_error.message.clone(),
-                auth_error: Some(auth_error),
-            });
-        }
-    };
+    let (access_type, access_token) =
+        match get_auth_for_connection(&app, &server.auth_methods).await {
+            Ok((t, tok)) => (t, tok),
+            Err(auth_error) => {
+                return Ok(ConnectionResult {
+                    success: false,
+                    message: auth_error.message.clone(),
+                    auth_error: Some(auth_error),
+                });
+            }
+        };
 
     // For hub auth, exchange the session token for a short-lived auth ticket
-    let current_auth_mode = load_settings(&app).map(|s| s.auth_mode).unwrap_or_default();
-    let (access_type, access_token) = if current_auth_mode == AuthMode::Hub {
+    let hub_active = access_type.as_deref() != Some("byond")
+        && access_type.as_deref() != Some("steam")
+        && server.auth_methods.iter().any(|m| m == "hub");
+    let (access_type, access_token) = if hub_active {
         if let Some(session_token) = &access_token {
             let server_id = server
                 .id
@@ -972,10 +983,7 @@ pub async fn connect_to_server(
     .await
 }
 
-async fn connect_impl(
-    app: AppHandle,
-    req: ConnectionRequest,
-) -> CommandResult<ConnectionResult> {
+async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<ConnectionResult> {
     let ConnectionRequest {
         version,
         host,
@@ -1073,9 +1081,7 @@ async fn connect_impl(
             } else {
                 check_byond_web_session(app.clone()).await?
             };
-            let web_id = session
-                .web_id
-                .ok_or(CommandError::NotAuthenticated)?;
+            let web_id = session.web_id.ok_or(CommandError::NotAuthenticated)?;
             if !session.logged_in {
                 return Err(CommandError::NotAuthenticated);
             }
@@ -1128,9 +1134,7 @@ async fn connect_impl(
                         webview2_data_dir.to_str().unwrap(),
                     )],
                 )
-                .map_err(|e| {
-                    CommandError::Io(format!("Failed to launch BYOND via Wine: {e}"))
-                })?
+                .map_err(|e| CommandError::Io(format!("Failed to launch BYOND via Wine: {e}")))?
             };
 
             let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
@@ -1259,9 +1263,7 @@ async fn connect_impl(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn list_installed_byond_versions(
-    app: AppHandle,
-) -> CommandResult<Vec<ByondVersionInfo>> {
+pub async fn list_installed_byond_versions(app: AppHandle) -> CommandResult<Vec<ByondVersionInfo>> {
     let base_dir = get_byond_base_dir(&app)?;
 
     if !base_dir.exists() {

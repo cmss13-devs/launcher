@@ -195,7 +195,17 @@ impl HubApi {
                     s.connection_address.clone(),
                 )
             } else {
-                (hub.address.clone(), 0, None, None, Vec::new(), false, None, Vec::new(), None)
+                (
+                    hub.address.clone(),
+                    0,
+                    None,
+                    None,
+                    Vec::new(),
+                    false,
+                    None,
+                    Vec::new(),
+                    None,
+                )
             };
 
         let address = connection_address.unwrap_or(hub.address);

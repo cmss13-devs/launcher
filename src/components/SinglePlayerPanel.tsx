@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useSinglePlayer } from "../hooks";
 
 const formatBytes = (bytes: number): string => {
@@ -8,6 +9,7 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const SinglePlayerPanel = () => {
+  const { t } = useTranslation();
   const {
     status,
     latestRelease,
@@ -26,7 +28,7 @@ export const SinglePlayerPanel = () => {
       <div className="singleplayer-panel">
         <div className="singleplayer-loading">
           <div className="singleplayer-spinner" />
-          <p>Checking single player status...</p>
+          <p>{t("singleplayer.checkingStatus")}</p>
         </div>
       </div>
     );
@@ -35,9 +37,9 @@ export const SinglePlayerPanel = () => {
   return (
     <div className="singleplayer-panel">
       <div className="singleplayer-header">
-        <h3>Sandbox</h3>
+        <h3>{t("singleplayer.title")}</h3>
         <p className="singleplayer-description">
-          Run a local server to explore maps, test features, and experiment with admin tools. Not a playable single-player experience.
+          {t("singleplayer.description")}
         </p>
       </div>
 
@@ -45,7 +47,7 @@ export const SinglePlayerPanel = () => {
         <div className="singleplayer-error">
           <span>{error}</span>
           <button type="button" className="button-secondary" onClick={refresh}>
-            Retry
+            {t("common.retry")}
           </button>
         </div>
       )}
@@ -54,7 +56,7 @@ export const SinglePlayerPanel = () => {
         {loading ? (
           <div className="singleplayer-progress">
             <div className="singleplayer-spinner" />
-            <p>This may take a while depending on your connection...</p>
+            <p>{t("singleplayer.downloadingHint")}</p>
           </div>
         ) : (
           <div className="singleplayer-connect-area">
@@ -64,11 +66,11 @@ export const SinglePlayerPanel = () => {
               disabled={!status.installed || loading}
               onClick={launch}
             >
-              Connect
+              {t("common.connect")}
             </button>
             {!status.installed && latestRelease?.size && (
               <p className="singleplayer-size-hint">
-                Download Size: {formatBytes(latestRelease.size)}
+                {t("singleplayer.downloadSize", { size: formatBytes(latestRelease.size) })}
               </p>
             )}
           </div>
@@ -79,10 +81,10 @@ export const SinglePlayerPanel = () => {
         <div className="singleplayer-status-indicator">
           {status.installed ? (
             <span className={updateAvailable ? "status-warning" : "status-ok"}>
-              {updateAvailable ? "Update Required" : `Up to Date (${status.version})`}
+              {updateAvailable ? t("singleplayer.updateRequired") : t("singleplayer.upToDate", { version: status.version })}
             </span>
           ) : (
-            <span>Not Installed</span>
+            <span>{t("singleplayer.notInstalled")}</span>
           )}
         </div>
         <div className="singleplayer-actions">
@@ -95,7 +97,7 @@ export const SinglePlayerPanel = () => {
                   onClick={install}
                   disabled={loading}
                 >
-                  {loading ? "Updating..." : "Update"}
+                  {loading ? t("singleplayer.updating") : t("singleplayer.update")}
                 </button>
               )}
               <button
@@ -104,7 +106,7 @@ export const SinglePlayerPanel = () => {
                 onClick={remove}
                 disabled={loading}
               >
-                {loading ? "Removing..." : "Remove"}
+                {loading ? t("singleplayer.removing") : t("singleplayer.remove")}
               </button>
             </>
           ) : (
@@ -114,7 +116,7 @@ export const SinglePlayerPanel = () => {
               onClick={install}
               disabled={loading || !latestRelease?.download_url}
             >
-              {loading ? "Downloading..." : "Download"}
+              {loading ? t("singleplayer.downloading") : t("singleplayer.download")}
             </button>
           )}
           <button
@@ -123,7 +125,7 @@ export const SinglePlayerPanel = () => {
             onClick={refresh}
             disabled={loading}
           >
-            Refresh
+            {t("common.refresh")}
           </button>
         </div>
       </div>

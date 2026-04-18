@@ -1,9 +1,11 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { commands } from "../bindings";
 import { useAuthFlow } from "../hooks";
 import { unwrap } from "../lib/unwrap";
-import { useByondStore, useConfigStore } from "../stores";
+import { getAvailableLocales } from "../i18n";
+import { useByondStore, useConfigStore, useSettingsStore } from "../stores";
 import type { AuthMode, Theme, WineStatus } from "../bindings";
 import type { Platform } from "../types";
 import { Modal, ModalCloseButton } from "./Modal";
@@ -89,36 +91,38 @@ const WineSettings = ({
   isResetting,
   onResetPrefix,
 }: WineSettingsProps) => {
+  const { t } = useTranslation();
+
   if (platform !== "linux") {
     return null;
   }
 
   return (
     <div className="settings-section">
-      <h3>Wine Configuration</h3>
+      <h3>{t("wine.configuration")}</h3>
       <div className="wine-status-info">
         <p>
-          <strong>Wine:</strong>{" "}
+          <strong>{t("wine.wineLabel")}</strong>{" "}
           {wineStatus.installed ? (
             <span className="status-ok">{wineStatus.version}</span>
           ) : (
-            <span className="status-error">Not installed</span>
+            <span className="status-error">{t("wine.notInstalled")}</span>
           )}
         </p>
         <p>
-          <strong>Prefix:</strong>{" "}
+          <strong>{t("wine.prefixLabel")}</strong>{" "}
           {wineStatus.prefix_initialized ? (
-            <span className="status-ok">Initialized</span>
+            <span className="status-ok">{t("wine.initialized")}</span>
           ) : (
-            <span className="status-warning">Not initialized</span>
+            <span className="status-warning">{t("wine.notInitialized")}</span>
           )}
         </p>
         <p>
-          <strong>WebView2:</strong>{" "}
+          <strong>{t("wine.webview2Label")}</strong>{" "}
           {wineStatus.webview2_installed ? (
-            <span className="status-ok">Installed</span>
+            <span className="status-ok">{t("wine.installed")}</span>
           ) : (
-            <span className="status-warning">Not installed</span>
+            <span className="status-warning">{t("wine.notInstalled")}</span>
           )}
         </p>
       </div>
@@ -128,17 +132,17 @@ const WineSettings = ({
         onClick={onResetPrefix}
         disabled={isResetting}
       >
-        {isResetting ? "Resetting..." : "Reset Wine Prefix"}
+        {isResetting ? t("wine.resetting") : t("wine.resetPrefix")}
       </button>
       <p className="settings-hint">
-        Use this if you're experiencing issues. This will reinstall all
-        dependencies.
+        {t("wine.resetHint")}
       </p>
     </div>
   );
 };
 
 const DevConnectSection = () => {
+  const { t } = useTranslation();
   const { onLoginRequired, onSteamAuthRequired } = useAuthFlow();
   const [url, setUrl] = useState("localhost:1337");
   const [version, setVersion] = useState("516.1667");
@@ -173,7 +177,7 @@ const DevConnectSection = () => {
   return (
     <div className="dev-connect-section">
       <div className="dev-input-group">
-        <label htmlFor="dev-url">Server URL</label>
+        <label htmlFor="dev-url">{t("settings.serverUrl")}</label>
         <input
           id="dev-url"
           type="text"
@@ -183,7 +187,7 @@ const DevConnectSection = () => {
         />
       </div>
       <div className="dev-input-group">
-        <label htmlFor="dev-version">BYOND Version</label>
+        <label htmlFor="dev-version">{t("settings.byondVersion")}</label>
         <input
           id="dev-version"
           type="text"
@@ -199,7 +203,7 @@ const DevConnectSection = () => {
         onClick={handleConnect}
         disabled={connecting || !url || !version}
       >
-        {connecting ? "Connecting..." : "Connect"}
+        {connecting ? t("settings.connecting") : t("common.connect")}
       </button>
     </div>
   );
@@ -234,10 +238,13 @@ export const SettingsModal = ({
   onResetWinePrefix,
   onClose,
 }: SettingsModalProps) => {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const byondWebUsername = useByondStore((s) => s.username);
   const byondPagerRunning = useByondStore((s) => s.pagerRunning);
   const checkByondStatus = useByondStore((s) => s.checkStatus);
+  const locale = useSettingsStore((s) => s.locale);
+  const saveLocale = useSettingsStore((s) => s.saveLocale);
 
   const [appVersion, setAppVersion] = useState<string>("");
   const [byondLoginState, setByondLoginState] = useState<
@@ -279,53 +286,69 @@ export const SettingsModal = ({
       closeOnOverlayClick
     >
       <div className="settings-modal-header">
-        <h2>Settings</h2>
+        <h2>{t("settings.title")}</h2>
         <button
           type="button"
           className="help-link"
           onClick={() =>
             commands.openUrl(config?.urls.help_url || "https://github.com/cmss13-devs/cm-launcher/issues")
           }
-          title="Report an issue"
+          title={t("settings.reportIssue")}
         >
-          Help
+          {t("common.help")}
         </button>
         <ModalCloseButton onClick={onClose} />
       </div>
       <div className="settings-modal-content">
         <div className="settings-section">
-          <h3>Appearance</h3>
+          <h3>{t("settings.appearance")}</h3>
           <p className="settings-description">
-            Choose a visual theme for the launcher.
+            {t("settings.themeDescription")}
           </p>
           <div className="theme-options">
             <ThemeOption
               theme="tgui"
               currentTheme={theme}
-              name="TGUI"
-              description="Modern flat interface"
+              name={t("settings.tguiName")}
+              description={t("settings.tguiDescription")}
               onChange={onThemeChange}
             />
             <ThemeOption
               theme="crt"
               currentTheme={theme}
-              name="CRT Terminal"
-              description="Classic green CRT terminal"
+              name={t("settings.crtName")}
+              description={t("settings.crtDescription")}
               onChange={onThemeChange}
             />
           </div>
         </div>
 
         <div className="settings-section">
-          <h3>Authentication Mode</h3>
+          <h3>{t("settings.language")}</h3>
           <p className="settings-description">
-            Choose how you want to authenticate when connecting to servers.
+            {t("settings.languageDescription")}
+          </p>
+          <select
+            className="locale-select"
+            value={locale ?? ""}
+            onChange={(e) => saveLocale(e.target.value || null)}
+          >
+            <option value="">{t("settings.languageAuto")}</option>
+            {getAvailableLocales().map((loc) => (
+              <option key={loc} value={loc}>{loc.toUpperCase()}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="settings-section">
+          <h3>{t("settings.authMode")}</h3>
+          <p className="settings-description">
+            {t("settings.authModeDescription")}
           </p>
           {authMode === "byond" && byondPagerRunning === false && !byondWebUsername && (
             <div className="byond-login-section">
               <div className="auth-mode-warning">
-                BYOND pager is not running. You can either open BYOND and log
-                in, or use web login below.
+                {t("settings.byondPagerWarning")}
               </div>
               <div className="byond-web-login">
                 {byondLoginState === "idle" && (
@@ -335,37 +358,37 @@ export const SettingsModal = ({
                       className="button"
                       onClick={handleByondWebLogin}
                     >
-                      Login to BYOND
+                      {t("settings.loginToByond")}
                     </button>
                     <button
                       type="button"
                       className="button-secondary"
                       onClick={() => commands.openUrl("https://secure.byond.com/Join")}
                     >
-                      Create Account
+                      {t("common.createAccount")}
                     </button>
                   </>
                 )}
                 {byondLoginState === "loading" && (
                   <p className="byond-login-status">
-                    Waiting for BYOND login... (check the login window)
+                    {t("settings.byondWaiting")}
                   </p>
                 )}
                 {byondLoginState === "success" && (
                   <p className="byond-login-status success">
-                    Logged in to BYOND successfully!
+                    {t("settings.byondSuccess")}
                     {byondWebUsername && ` (${byondWebUsername})`}
                   </p>
                 )}
                 {byondLoginState === "error" && (
                   <div className="byond-login-error">
-                    <p>Login failed: {byondLoginError}</p>
+                    <p>{t("settings.byondLoginFailed", { error: byondLoginError })}</p>
                     <button
                       type="button"
                       className="button-secondary"
                       onClick={handleByondWebLogin}
                     >
-                      Try Again
+                      {t("common.tryAgain")}
                     </button>
                   </div>
                 )}
@@ -377,8 +400,8 @@ export const SettingsModal = ({
               <AuthModeOption
                 mode="hub"
                 currentMode={authMode}
-                name="SS13Hub Authentication"
-                description="Login with your SS13Hub account"
+                name={t("settings.hubAuth")}
+                description={t("settings.hubAuthDesc")}
                 onChange={onAuthModeChange}
               />
             )}
@@ -386,8 +409,8 @@ export const SettingsModal = ({
               <AuthModeOption
                 mode="oidc"
                 currentMode={authMode}
-                name={`${config.strings.auth_provider_name} Authentication`}
-                description={`Login with your ${config.strings.auth_provider_name} account for server access`}
+                name={t("settings.oidcAuth", { provider: config.strings.auth_provider_name })}
+                description={t("settings.oidcAuthDesc", { provider: config.strings.auth_provider_name })}
                 onChange={onAuthModeChange}
               />
             )}
@@ -395,16 +418,16 @@ export const SettingsModal = ({
               <AuthModeOption
                 mode="steam"
                 currentMode={authMode}
-                name="Steam Authentication"
-                description="Login with your Steam account"
+                name={t("settings.steamAuth")}
+                description={t("settings.steamAuthDesc")}
                 onChange={onAuthModeChange}
               />
             )}
             <AuthModeOption
               mode="byond"
               currentMode={authMode}
-              name="BYOND Authentication"
-              description="Login with your BYOND account, or via the pager"
+              name={t("settings.byondAuth")}
+              description={t("settings.byondAuthDesc")}
               onChange={onAuthModeChange}
             />
           </div>
@@ -419,9 +442,9 @@ export const SettingsModal = ({
 
         {devMode && (
           <div className="settings-section dev-section">
-            <h3>Developer Options</h3>
+            <h3>{t("settings.devOptions")}</h3>
             <p className="settings-description">
-              Connect to a local development server.
+              {t("settings.devDescription")}
             </p>
             <DevConnectSection />
           </div>

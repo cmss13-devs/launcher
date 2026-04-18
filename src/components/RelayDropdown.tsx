@@ -1,5 +1,6 @@
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useTranslation } from "react-i18next";
 import type { RelayWithPing } from "../bindings";
 
 interface RelayDropdownProps {
@@ -17,16 +18,17 @@ export const RelayDropdown = ({
   onToggle,
   onSelect,
 }: RelayDropdownProps) => {
+  const { t } = useTranslation();
   const allChecking = relays.length > 0 && relays.every((r) => r.checking);
   const selectedRelayData = relays.find((r) => r.id === selectedRelay);
 
   let selectedRelayName: string;
   if (allChecking) {
-    selectedRelayName = "PINGING...";
+    selectedRelayName = t("relay.pinging");
   } else if (selectedRelayData) {
     selectedRelayName = selectedRelayData.name;
   } else {
-    selectedRelayName = "Select";
+    selectedRelayName = t("relay.select");
   }
 
   return (
@@ -37,7 +39,7 @@ export const RelayDropdown = ({
         onClick={onToggle}
         disabled={allChecking}
       >
-        <span className="relay-dropdown-label">Relay:</span>
+        <span className="relay-dropdown-label">{t("relay.label")}</span>
         <span className="relay-dropdown-value">{selectedRelayName}</span>
         <span className="relay-dropdown-arrow">
           <FontAwesomeIcon icon={isOpen ? faChevronUp : faChevronDown} />
@@ -75,7 +77,7 @@ export const RelayDropdown = ({
                     ? "..."
                     : relay.ping !== null
                       ? `${relay.ping}ms`
-                      : "N/A"}
+                      : t("relay.na")}
                 </span>
               </label>
             );
