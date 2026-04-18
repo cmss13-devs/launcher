@@ -32,6 +32,10 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev
 
+      - name: Create stub resource files
+        working-directory: src-tauri
+        run: touch wine.tar.zst winetricks cabextract
+
       - name: Regenerate TS bindings
         working-directory: src-tauri
         run: cargo test --features steam --lib export_bindings
