@@ -26,7 +26,9 @@ import {
   useServerFilters,
   useWine,
 } from "./hooks";
+import { commands } from "./bindings";
 import {
+  useByondStore,
   useConfigStore,
   useServerStore,
   useSettingsStore,
@@ -62,13 +64,15 @@ const AppContent = () => {
     })),
   );
 
-  const { authMode, theme, devMode, saveAuthMode, saveTheme } = useSettingsStore(
+  const { authMode, theme, devMode, renderingPipeline, saveAuthMode, saveTheme, saveRenderingPipeline } = useSettingsStore(
     useShallow((s) => ({
       authMode: s.authMode,
       theme: s.theme,
       devMode: s.devMode,
+      renderingPipeline: s.renderingPipeline,
       saveAuthMode: s.saveAuthMode,
       saveTheme: s.saveTheme,
+      saveRenderingPipeline: s.saveRenderingPipeline,
     })),
   );
 
@@ -90,6 +94,8 @@ const AppContent = () => {
     initializePrefix: initializeWinePrefix,
     resetPrefix: resetWinePrefix,
   } = useWine();
+
+  const byondLoginVisible = useByondStore((s) => s.loginVisible);
 
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [relayDropdownOpen, setRelayDropdownOpen] = useState(false);
@@ -136,9 +142,21 @@ const AppContent = () => {
     [saveTheme, showError],
   );
 
-  const handleWineSetup = useCallback(async () => {
-    await initializeWinePrefix();
-  }, [initializeWinePrefix]);
+  const handleRenderingPipelineChange = useCallback(
+    async (pipeline: typeof renderingPipeline) => {
+      try {
+        await saveRenderingPipeline(pipeline);
+      } catch (err) {
+        showError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [saveRenderingPipeline, showError],
+  );
+
+  const handleWineSetup = useCallback(async (pipeline: typeof renderingPipeline) => {
+    await saveRenderingPipeline(pipeline);
+    await initializeWinePrefix(pipeline);
+  }, [initializeWinePrefix, saveRenderingPipeline]);
 
   const handleWineRetry = useCallback(async () => {
     await checkWineStatus();
@@ -170,6 +188,22 @@ const AppContent = () => {
           <div className="crt" />
         </>
       )}
+      {byondLoginVisible && (
+        <div className="byond-login-overlay" onClick={() => commands.cancelByondLogin()}>
+          <div className="byond-login-modal section" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>BYOND Login</h2>
+              <button
+                type="button"
+                className="modal-close-button"
+                onClick={() => commands.cancelByondLogin()}
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <UpdateNotification />
       <ErrorNotifications errors={errors} onDismiss={dismissError} />
       <SettingsModal
@@ -180,9 +214,11 @@ const AppContent = () => {
         devMode={devMode}
         platform={platform}
         wineStatus={wineStatus}
+        renderingPipeline={renderingPipeline}
         isResettingWine={wineIsSettingUp}
         onAuthModeChange={handleAuthModeChange}
         onThemeChange={handleThemeChange}
+        onRenderingPipelineChange={handleRenderingPipelineChange}
         onResetWinePrefix={resetWinePrefix}
         onClose={() => setSettingsVisible(false)}
       />
@@ -198,7 +234,9 @@ const AppContent = () => {
         status={wineStatus}
         progress={wineSetupProgress}
         isSettingUp={wineIsSettingUp}
+        renderingPipeline={renderingPipeline}
         onSetup={handleWineSetup}
+        onRenderingPipelineChange={handleRenderingPipelineChange}
         onClose={handleWineModalClose}
         onRetry={handleWineRetry}
       />

@@ -38,14 +38,14 @@ use byond::{
     list_installed_byond_versions,
 };
 use byond_login::{
-    byond_login_complete, byond_session_check_complete, check_byond_web_session,
-    clear_byond_session, get_byond_session_status, logout_byond_web, start_byond_login,
-    ByondSessionState,
+    byond_login_complete, byond_session_check_complete, cancel_byond_login,
+    check_byond_web_session, clear_byond_session, get_byond_session_status, logout_byond_web,
+    start_byond_login, ByondSessionState,
 };
 use relays::{get_relays, get_selected_relay, set_selected_relay};
 use servers::get_servers;
 use settings::{
-    get_settings, set_age_verified, set_auth_mode, set_locale, set_theme,
+    get_settings, set_age_verified, set_auth_mode, set_locale, set_rendering_pipeline, set_theme,
     toggle_server_notifications,
 };
 
@@ -107,7 +107,9 @@ async fn check_wine_status() -> error::CommandResult<WineStatus> {
 #[cfg(not(target_os = "linux"))]
 #[tauri::command]
 #[specta::specta]
-async fn initialize_wine_prefix() -> error::CommandResult<()> {
+async fn initialize_wine_prefix(
+    _pipeline: settings::RenderingPipeline,
+) -> error::CommandResult<()> {
     Err(error::CommandError::UnsupportedPlatform {
         feature: "wine".into(),
         platform: std::env::consts::OS.into(),
@@ -185,6 +187,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         set_theme,
         set_locale,
         toggle_server_notifications,
+        set_rendering_pipeline,
         get_control_server_port,
         kill_game,
         get_servers,
@@ -203,6 +206,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         launch_singleplayer,
         get_launcher_config,
         start_byond_login,
+        cancel_byond_login,
         byond_login_complete,
         get_byond_session_status,
         clear_byond_session,
@@ -240,6 +244,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         set_theme,
         set_locale,
         toggle_server_notifications,
+        set_rendering_pipeline,
         get_control_server_port,
         kill_game,
         get_servers,
@@ -263,6 +268,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         launch_singleplayer,
         get_launcher_config,
         start_byond_login,
+        cancel_byond_login,
         byond_login_complete,
         get_byond_session_status,
         clear_byond_session,
@@ -433,9 +439,10 @@ mod tests {
 
     #[test]
     fn export_bindings() {
-        if !cfg!(feature = "steam") {
-            panic!("export_bindings must be run with --features steam to generate complete bindings");
-        }
+        assert!(
+            cfg!(feature = "steam"),
+            "export_bindings must be run with --features steam to generate complete bindings"
+        );
 
         build_specta()
             .export(

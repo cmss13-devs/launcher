@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { type AppSettings, type AuthMode, commands, type Theme } from "../bindings";
+import { type AppSettings, type AuthMode, type RenderingPipeline, commands, type Theme } from "../bindings";
 import { setLocale } from "../i18n";
 import { unwrap } from "../lib/unwrap";
 
@@ -10,6 +10,7 @@ interface SettingsStore {
   notificationServers: Set<string>;
   ageVerified: boolean;
   locale: string | null;
+  renderingPipeline: RenderingPipeline;
 
   setAuthMode: (mode: AuthMode) => void;
   setTheme: (theme: Theme) => void;
@@ -18,6 +19,7 @@ interface SettingsStore {
   saveTheme: (theme: Theme) => Promise<void>;
   saveAgeVerified: () => Promise<void>;
   saveLocale: (locale: string | null) => Promise<void>;
+  saveRenderingPipeline: (pipeline: RenderingPipeline) => Promise<void>;
   toggleServerNotifications: (serverName: string, enabled: boolean) => Promise<void>;
   isServerNotificationsEnabled: (serverName: string) => boolean;
 }
@@ -29,6 +31,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   notificationServers: new Set<string>(),
   ageVerified: false,
   locale: null,
+  renderingPipeline: "dxvk",
 
   setAuthMode: (authMode) => set({ authMode }),
   setTheme: (theme) => set({ theme }),
@@ -46,6 +49,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
         notificationServers: new Set(settings.notification_servers ?? []),
         ageVerified: settings.age_verified ?? false,
         locale: settings.locale ?? null,
+        renderingPipeline: settings.rendering_pipeline ?? "dxvk",
       });
       if (settings.locale) {
         setLocale(settings.locale);
@@ -76,6 +80,11 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
     unwrap(await commands.setLocale(locale));
     setLocale(locale);
     set({ locale });
+  },
+
+  saveRenderingPipeline: async (pipeline: RenderingPipeline) => {
+    unwrap(await commands.setRenderingPipeline(pipeline));
+    set({ renderingPipeline: pipeline });
   },
 
   toggleServerNotifications: async (serverName: string, enabled: boolean) => {

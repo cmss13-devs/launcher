@@ -109,8 +109,6 @@ struct HubServerStatus {
     #[serde(default)]
     pop_cap: Option<i32>,
     #[serde(default)]
-    community_name: Option<String>,
-    #[serde(default)]
     region: Option<String>,
     #[serde(default)]
     server_tags: Option<Vec<String>>,

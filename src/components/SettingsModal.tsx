@@ -6,7 +6,7 @@ import { useAuthFlow } from "../hooks";
 import { unwrap } from "../lib/unwrap";
 import { getAvailableLocales } from "../i18n";
 import { useByondStore, useConfigStore, useSettingsStore } from "../stores";
-import type { AuthMode, Theme, WineStatus } from "../bindings";
+import type { AuthMode, RenderingPipeline, Theme, WineStatus } from "../bindings";
 import type { Platform } from "../types";
 import { Modal, ModalCloseButton } from "./Modal";
 
@@ -81,15 +81,19 @@ const ThemeOption = ({
 interface WineSettingsProps {
   platform: Platform;
   wineStatus: WineStatus;
+  renderingPipeline: RenderingPipeline;
   isResetting: boolean;
   onResetPrefix: () => void;
+  onRenderingPipelineChange: (pipeline: RenderingPipeline) => void;
 }
 
 const WineSettings = ({
   platform,
   wineStatus,
+  renderingPipeline,
   isResetting,
   onResetPrefix,
+  onRenderingPipelineChange,
 }: WineSettingsProps) => {
   const { t } = useTranslation();
 
@@ -125,6 +129,39 @@ const WineSettings = ({
             <span className="status-warning">{t("wine.notInstalled")}</span>
           )}
         </p>
+      </div>
+      <div className="wine-rendering-pipeline">
+        <h4>{t("wine.renderingPipeline")}</h4>
+        <p className="settings-description">{t("wine.renderingPipelineDesc")}</p>
+        <div className="theme-options">
+          <label className={`theme-option ${renderingPipeline === "dxvk" ? "selected" : ""}`}>
+            <input
+              type="radio"
+              name="renderingPipeline"
+              value="dxvk"
+              checked={renderingPipeline === "dxvk"}
+              onChange={() => onRenderingPipelineChange("dxvk")}
+            />
+            <div className="theme-info">
+              <span className="theme-name">{t("wine.dxvkName")}</span>
+              <span className="theme-desc">{t("wine.dxvkDesc")}</span>
+            </div>
+          </label>
+          <label className={`theme-option ${renderingPipeline === "wined3d" ? "selected" : ""}`}>
+            <input
+              type="radio"
+              name="renderingPipeline"
+              value="wined3d"
+              checked={renderingPipeline === "wined3d"}
+              onChange={() => onRenderingPipelineChange("wined3d")}
+            />
+            <div className="theme-info">
+              <span className="theme-name">{t("wine.wined3dName")}</span>
+              <span className="theme-desc">{t("wine.wined3dDesc")}</span>
+            </div>
+          </label>
+        </div>
+        <p className="settings-hint">{t("wine.renderingPipelineHint")}</p>
       </div>
       <button
         type="button"
@@ -217,9 +254,11 @@ interface SettingsModalProps {
   devMode: boolean;
   platform: Platform;
   wineStatus: WineStatus;
+  renderingPipeline: RenderingPipeline;
   isResettingWine: boolean;
   onAuthModeChange: (mode: AuthMode) => void;
   onThemeChange: (theme: Theme) => void;
+  onRenderingPipelineChange: (pipeline: RenderingPipeline) => void;
   onResetWinePrefix: () => void;
   onClose: () => void;
 }
@@ -232,9 +271,11 @@ export const SettingsModal = ({
   devMode,
   platform,
   wineStatus,
+  renderingPipeline,
   isResettingWine,
   onAuthModeChange,
   onThemeChange,
+  onRenderingPipelineChange,
   onResetWinePrefix,
   onClose,
 }: SettingsModalProps) => {
@@ -285,7 +326,7 @@ export const SettingsModal = ({
       overlayClassName="settings-modal-overlay"
       closeOnOverlayClick
     >
-      <div className="settings-modal-header">
+      <div className="modal-header">
         <h2>{t("settings.title")}</h2>
         <button
           type="button"
@@ -436,8 +477,10 @@ export const SettingsModal = ({
         <WineSettings
           platform={platform}
           wineStatus={wineStatus}
+          renderingPipeline={renderingPipeline}
           isResetting={isResettingWine}
           onResetPrefix={onResetWinePrefix}
+          onRenderingPipelineChange={onRenderingPipelineChange}
         />
 
         {devMode && (

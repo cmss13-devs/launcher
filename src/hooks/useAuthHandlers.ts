@@ -47,10 +47,12 @@ export function useAuthHandlers() {
   }, [logout, showError]);
 
   const handleByondLogin = useCallback(async () => {
-    try {
-      unwrap(await commands.startByondLogin());
-    } catch (err) {
-      showError(err instanceof Error ? err.message : String(err));
+    const result = await commands.startByondLogin();
+    if (result.status === "error") {
+      if (result.error.type === "cancelled") return;
+      try { unwrap(result); } catch (err) {
+        showError(err instanceof Error ? err.message : String(err));
+      }
     }
   }, [showError]);
 

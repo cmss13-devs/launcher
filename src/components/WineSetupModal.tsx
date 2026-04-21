@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { WineStatus } from "../bindings";
+import type { RenderingPipeline, WineStatus } from "../bindings";
 import type { WineSetupProgress } from "../types";
 import { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
 
@@ -8,7 +8,9 @@ interface WineSetupModalProps {
   status: WineStatus;
   progress: WineSetupProgress | null;
   isSettingUp: boolean;
-  onSetup: () => void;
+  renderingPipeline: RenderingPipeline;
+  onSetup: (pipeline: RenderingPipeline) => void;
+  onRenderingPipelineChange: (pipeline: RenderingPipeline) => void;
   onClose: () => void;
   onRetry: () => void;
 }
@@ -61,15 +63,53 @@ const SetupProgressContent = ({
   );
 };
 
-const SetupRequiredContent = ({ onSetup }: { onSetup: () => void }) => {
+const SetupRequiredContent = ({
+  renderingPipeline,
+  onRenderingPipelineChange,
+  onSetup,
+}: {
+  renderingPipeline: RenderingPipeline;
+  onRenderingPipelineChange: (pipeline: RenderingPipeline) => void;
+  onSetup: (pipeline: RenderingPipeline) => void;
+}) => {
   const { t } = useTranslation();
   return (
     <ModalContent title={t("wine.setupRequired")}>
-      <p>
-        {t("wine.setupRequiredDesc")}
-      </p>
+      <p>{t("wine.setupRequiredDesc")}</p>
+      <div className="wine-rendering-pipeline">
+        <h4>{t("wine.renderingPipeline")}</h4>
+        <p className="settings-description">{t("wine.renderingPipelineDesc")}</p>
+        <div className="theme-options">
+          <label className={`theme-option ${renderingPipeline === "dxvk" ? "selected" : ""}`}>
+            <input
+              type="radio"
+              name="setupRenderingPipeline"
+              value="dxvk"
+              checked={renderingPipeline === "dxvk"}
+              onChange={() => onRenderingPipelineChange("dxvk")}
+            />
+            <div className="theme-info">
+              <span className="theme-name">{t("wine.dxvkName")}</span>
+              <span className="theme-desc">{t("wine.dxvkDesc")}</span>
+            </div>
+          </label>
+          <label className={`theme-option ${renderingPipeline === "wined3d" ? "selected" : ""}`}>
+            <input
+              type="radio"
+              name="setupRenderingPipeline"
+              value="wined3d"
+              checked={renderingPipeline === "wined3d"}
+              onChange={() => onRenderingPipelineChange("wined3d")}
+            />
+            <div className="theme-info">
+              <span className="theme-name">{t("wine.wined3dName")}</span>
+              <span className="theme-desc">{t("wine.wined3dDesc")}</span>
+            </div>
+          </label>
+        </div>
+      </div>
       <div>
-        <button type="button" className="button" onClick={onSetup}>
+        <button type="button" className="button" onClick={() => onSetup(renderingPipeline)}>
           {t("wine.startSetup")}
         </button>
       </div>
@@ -123,7 +163,9 @@ export const WineSetupModal = ({
   status,
   progress,
   isSettingUp,
+  renderingPipeline,
   onSetup,
+  onRenderingPipelineChange,
   onClose,
   onRetry,
 }: WineSetupModalProps) => {
@@ -153,7 +195,11 @@ export const WineSetupModal = ({
       ) : setupComplete ? (
         <SetupCompleteContent onClose={onClose} />
       ) : (
-        <SetupRequiredContent onSetup={onSetup} />
+        <SetupRequiredContent
+          renderingPipeline={renderingPipeline}
+          onRenderingPipelineChange={onRenderingPipelineChange}
+          onSetup={onSetup}
+        />
       )}
     </Modal>
   );

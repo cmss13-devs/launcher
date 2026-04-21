@@ -181,7 +181,14 @@
     "continue": "Continue",
     "resetSuggestion": "Reset the Wine prefix from Settings",
     "checkLogs": "Check the logs for more details",
-    "youCanTry": "You can try:"
+    "youCanTry": "You can try:",
+    "renderingPipeline": "Rendering Pipeline",
+    "renderingPipelineDesc": "Choose how DirectX rendering is handled. DXVK uses Vulkan and works best on modern GPUs. WineD3D uses OpenGL and may fix flickering or tile layering issues.",
+    "renderingPipelineHint": "Changing this requires a Wine prefix reset to take effect.",
+    "dxvkName": "DXVK",
+    "dxvkDesc": "Vulkan-based rendering (recommended for most systems)",
+    "wined3dName": "WineD3D",
+    "wined3dDesc": "OpenGL-based rendering (may fix flickering issues)"
   },
   "age": {
     "title": "Age Verification",

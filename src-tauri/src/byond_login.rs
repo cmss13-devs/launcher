@@ -8,7 +8,8 @@ use crate::error::{CommandError, CommandResult};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{
-    webview::PageLoadEvent, AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
+    webview::{PageLoadEvent, WebviewBuilder},
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tokio::sync::oneshot;
 
@@ -101,9 +102,6 @@ pub fn byond_login_complete(app: AppHandle, username: Option<String>) {
         state.complete(Ok(ByondLoginResult { username }));
     }
 
-    if let Some(window) = app.get_webview_window("byond_login") {
-        let _ = window.close();
-    }
 }
 
 /// Get current BYOND session status
@@ -121,6 +119,22 @@ pub fn clear_byond_session(app: AppHandle) {
     if let Some(state) = app.try_state::<ByondSessionState>() {
         state.clear_session();
         tracing::info!("BYOND session cleared");
+    }
+}
+
+/// Cancel an in-progress BYOND login
+#[tauri::command]
+#[specta::specta]
+pub fn cancel_byond_login(app: AppHandle) {
+    tracing::info!("BYOND login cancelled by user");
+    if let Some(webview) = app.get_webview("byond_login_content") {
+        let _ = webview.close();
+    }
+    let _ = app.emit("byond-login-visible", false);
+    if let Some(state) = app.try_state::<ByondLoginState>() {
+        state.complete(Err(CommandError::Cancelled {
+            operation: "byond_login".into(),
+        }));
     }
 }
 
@@ -152,12 +166,24 @@ pub async fn logout_byond_web(app: AppHandle) -> CommandResult<()> {
     Ok(())
 }
 
+// BYOND login webview dimensions within the main window (800x540)
+const WEBVIEW_WIDTH: f64 = 480.0;
+const WEBVIEW_HEIGHT: f64 = 360.0;
+// Modal box: 504x380, centered below titlebar
+const MODAL_WIDTH: f64 = 520.0;
+const MODAL_HEIGHT: f64 = 440.0;
+const MAIN_WINDOW_WIDTH: f64 = 800.0;
+const MAIN_WINDOW_HEIGHT: f64 = 540.0;
+const TITLEBAR_HEIGHT: f64 = 41.0;
+// Padding inside the modal: 56px top (title + close button area), 20px sides
+const MODAL_PAD_TOP: f64 = 56.0;
+const MODAL_PAD_SIDE: f64 = 20.0;
+
 /// Open BYOND login window and wait for user to authenticate
 #[tauri::command]
 #[specta::specta]
 pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult> {
-    // Check if login window already exists
-    if app.get_webview_window("byond_login").is_some() {
+    if app.get_webview("byond_login_content").is_some() {
         return Err(CommandError::Busy {
             operation: "byond_login".into(),
         });
@@ -167,7 +193,6 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
 
     let (tx, rx) = oneshot::channel();
 
-    // Set up state to receive the result (get existing or create new)
     if let Some(state) = app.try_state::<ByondLoginState>() {
         state.set_sender(tx);
     } else {
@@ -178,6 +203,23 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
 
     let init_script = r"
         if (window.location.hostname === 'secure.byond.com' || window.location.hostname === 'www.byond.com' || window.location.hostname === 'byond.com') {
+            function tweakLayout() {
+                const topbar = document.getElementById('topbar_outer');
+                if (topbar) topbar.style.display = 'none';
+
+                document.body.style.minWidth = 'unset';
+                document.body.style.overflow = 'hidden';
+                const bgOuter = document.querySelector('.main_background_outer');
+                if (bgOuter) bgOuter.style.width = 'unset';
+                const bgInner = document.querySelector('.main_background');
+                if (bgInner) bgInner.style.width = 'unset';
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', tweakLayout);
+            } else {
+                tweakLayout();
+            }
+
             const CHECK_INTERVAL = 500;
 
             function extractUsername() {
@@ -220,28 +262,29 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
         }
     ";
 
-    let app_for_close = app.clone();
-    let app_for_nav = app.clone();
-
-    // Persistent data directory for cookies
     let data_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| CommandError::Io(e.to_string()))?
         .join("byond_webview");
 
-    let window = WebviewWindowBuilder::new(
-        &app,
-        "byond_login",
+    let main_window = app.get_window("main").ok_or_else(|| {
+        CommandError::Internal("main window not found".into())
+    })?;
+
+    // Tell the frontend to show the login overlay backdrop
+    let _ = app.emit("byond-login-visible", true);
+
+    let app_for_nav = app.clone();
+
+    let login_webview = WebviewBuilder::new(
+        "byond_login_content",
         WebviewUrl::External(
             "https://secure.byond.com/login.cgi"
                 .parse()
                 .map_err(|e: url::ParseError| CommandError::Webview(e.to_string()))?,
         ),
     )
-    .title("BYOND Login")
-    .inner_size(990.0, 480.0)
-    .center()
     .user_agent(&get_user_agent())
     .data_directory(data_dir)
     .initialization_script(init_script)
@@ -254,46 +297,61 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
         let path = url.path().to_lowercase();
         if !path.contains("login") {
             tracing::debug!("BYOND login: navigating away from login page to {}", url);
-            if let Some(window) = app_for_nav.get_webview_window("byond_login") {
-                let _ = window.hide();
+            if let Some(webview) = app_for_nav.get_webview("byond_login_content") {
+                let _ = webview.close();
             }
-        }
-        true
-    })
-    .build()
-    .map_err(|e| CommandError::Webview(format!("Failed to create login window: {e}")))?;
-
-    window.on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { .. } = event {
-            tracing::info!("BYOND login window closed by user");
-            if let Some(state) = app_for_close.try_state::<ByondLoginState>() {
+            let _ = app_for_nav.emit("byond-login-visible", false);
+            if let Some(state) = app_for_nav.try_state::<ByondLoginState>() {
                 state.complete(Err(CommandError::Cancelled {
                     operation: "byond_login".into(),
                 }));
             }
+            return false;
         }
+        true
     });
 
+    // Position the webview inside the modal (which is centered below titlebar)
+    let modal_x = (MAIN_WINDOW_WIDTH - MODAL_WIDTH) / 2.0;
+    let modal_y = TITLEBAR_HEIGHT + (MAIN_WINDOW_HEIGHT - TITLEBAR_HEIGHT - MODAL_HEIGHT) / 2.0;
+    let x = modal_x + MODAL_PAD_SIDE;
+    let y = modal_y + MODAL_PAD_TOP;
+
+    main_window
+        .add_child(
+            login_webview,
+            LogicalPosition::new(x, y),
+            LogicalSize::new(WEBVIEW_WIDTH, WEBVIEW_HEIGHT),
+        )
+        .map_err(|e| CommandError::Webview(format!("Failed to create login webview: {e}")))?;
+
     // Wait for result with 5 minute timeout
-    match tokio::time::timeout(std::time::Duration::from_secs(300), rx).await {
+    let result = match tokio::time::timeout(std::time::Duration::from_secs(300), rx).await {
         Ok(Ok(result)) => {
-            tracing::info!("BYOND login flow completed successfully",);
+            tracing::info!("BYOND login flow completed successfully");
             result
         }
         Ok(Err(_)) => {
-            tracing::warn!("BYOND login channel closed unexpectedly");
-            Err(CommandError::Internal("login channel closed".into()))
+            tracing::debug!("BYOND login channel closed");
+            Err(CommandError::Cancelled {
+                operation: "byond_login".into(),
+            })
         }
         Err(_) => {
             tracing::warn!("BYOND login timed out after 5 minutes");
-            if let Some(w) = app.get_webview_window("byond_login") {
-                let _ = w.close();
-            }
             Err(CommandError::Timeout {
                 operation: "byond_login".into(),
             })
         }
+    };
+
+    // Clean up: remove the webview and hide the backdrop
+    if let Some(webview) = app.get_webview("byond_login_content") {
+        let _ = webview.close();
     }
+    let _ = app.emit("byond-login-visible", false);
+
+    result
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

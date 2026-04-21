@@ -9,6 +9,7 @@
 //! Wine is bundled as a compressed archive (wine.tar.zst) and extracted to the
 //! app data directory on first use.
 
+use crate::settings::RenderingPipeline;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::fs;
@@ -26,7 +27,7 @@ const WEBVIEW2_DOWNLOAD_URL: &str = "https://github.com/aedancullen/webview2-eve
 const INIT_MARKER_FILE: &str = ".cm_launcher_initialized";
 
 /// Current initialization version - bump this to force re-initialization
-const INIT_VERSION: u32 = 1;
+const INIT_VERSION: u32 = 2;
 
 /// Resource names for bundled Wine
 const WINE_ARCHIVE_RESOURCE: &str = "wine.tar.zst";
@@ -35,13 +36,30 @@ const CABEXTRACT_RESOURCE: &str = "cabextract";
 /// Directory name for extracted Wine in app data
 const WINE_EXTRACTED_DIR: &str = "wine";
 
-/// Winetricks verbs to install, in order
-const WINETRICKS_VERBS: &[(&str, &str)] = &[
+/// Winetricks verbs shared by all rendering pipelines
+const COMMON_WINETRICKS_VERBS: &[(&str, &str)] = &[
     ("vcrun2022", "Visual C++ 2022 runtime"),
     ("dxtrans", "DirectX Transform libraries"),
     ("corefonts", "Microsoft core fonts"),
-    ("dxvk", "DXVK (Vulkan-based DirectX)"),
 ];
+
+/// Additional verbs for the DXVK pipeline (Vulkan-based)
+const DXVK_VERBS: &[(&str, &str)] = &[("dxvk", "DXVK (Vulkan-based DirectX)")];
+
+/// Additional verbs for the WineD3D pipeline (OpenGL-based)
+const WINED3D_VERBS: &[(&str, &str)] = &[
+    ("d3dx9", "DirectX 9 runtime libraries"),
+    ("d3dcompiler_47", "DirectX shader compiler"),
+];
+
+fn get_winetricks_verbs(pipeline: RenderingPipeline) -> Vec<(&'static str, &'static str)> {
+    let mut verbs: Vec<(&str, &str)> = COMMON_WINETRICKS_VERBS.to_vec();
+    match pipeline {
+        RenderingPipeline::Dxvk => verbs.extend_from_slice(DXVK_VERBS),
+        RenderingPipeline::Wined3d => verbs.extend_from_slice(WINED3D_VERBS),
+    }
+    verbs
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct WineStatus {
@@ -748,7 +766,10 @@ fn kill_wine_process_with_paths(
 }
 
 /// Initialize the Wine prefix with all required dependencies
-pub async fn initialize_prefix(app: &AppHandle) -> Result<(), WineError> {
+pub async fn initialize_prefix(
+    app: &AppHandle,
+    pipeline: RenderingPipeline,
+) -> Result<(), WineError> {
     let prefix = get_wine_prefix(app)?;
 
     emit_progress(
@@ -795,8 +816,9 @@ pub async fn initialize_prefix(app: &AppHandle) -> Result<(), WineError> {
 
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-    let verb_count = WINETRICKS_VERBS.len();
-    for (i, (verb, description)) in WINETRICKS_VERBS.iter().enumerate() {
+    let verbs = get_winetricks_verbs(pipeline);
+    let verb_count = verbs.len();
+    for (i, (verb, description)) in verbs.iter().enumerate() {
         let progress = 10 + ((i as u8 * 40) / verb_count as u8);
         emit_progress(
             app,
@@ -931,7 +953,10 @@ async fn download_webview2(dest: &Path) -> Result<(), WineError> {
 }
 
 /// Reset the Wine prefix by deleting and recreating it
-pub async fn reset_prefix(app: &AppHandle) -> Result<(), WineError> {
+pub async fn reset_prefix(
+    app: &AppHandle,
+    pipeline: RenderingPipeline,
+) -> Result<(), WineError> {
     let prefix = get_wine_prefix(app)?;
 
     tracing::info!("Resetting Wine prefix at {:?}", prefix);
@@ -940,7 +965,7 @@ pub async fn reset_prefix(app: &AppHandle) -> Result<(), WineError> {
         fs::remove_dir_all(&prefix)?;
     }
 
-    initialize_prefix(app).await
+    initialize_prefix(app, pipeline).await
 }
 
 /// Launch an executable using Wine
@@ -995,8 +1020,11 @@ pub async fn check_wine_status(app: AppHandle) -> crate::error::CommandResult<Wi
 
 #[tauri::command]
 #[specta::specta]
-pub async fn initialize_wine_prefix(app: AppHandle) -> crate::error::CommandResult<()> {
-    initialize_prefix(&app)
+pub async fn initialize_wine_prefix(
+    app: AppHandle,
+    pipeline: RenderingPipeline,
+) -> crate::error::CommandResult<()> {
+    initialize_prefix(&app, pipeline)
         .await
         .map_err(|e| crate::error::CommandError::Io(e.to_string()))
 }
@@ -1004,7 +1032,10 @@ pub async fn initialize_wine_prefix(app: AppHandle) -> crate::error::CommandResu
 #[tauri::command]
 #[specta::specta]
 pub async fn reset_wine_prefix(app: AppHandle) -> crate::error::CommandResult<()> {
-    reset_prefix(&app)
+    let pipeline = crate::settings::load_settings(&app)
+        .map(|s| s.rendering_pipeline)
+        .unwrap_or_default();
+    reset_prefix(&app, pipeline)
         .await
         .map_err(|e| crate::error::CommandError::Io(e.to_string()))
 }

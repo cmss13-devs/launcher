@@ -1282,7 +1282,7 @@ body {
   position: relative;
 }
 
-.settings-modal-header {
+.modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1981,4 +1981,25 @@ body {
 .update-error {
   color: var(--error);
   font-size: 12px;
+}
+
+.byond-login-overlay {
+  position: fixed;
+  top: var(--titlebar-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.byond-login-modal {
+  position: relative;
+  width: 520px;
+  height: 440px;
+  padding: 0;
+  background-color: var(--bg);
 }

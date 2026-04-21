@@ -199,6 +199,14 @@ async toggleServerNotifications(serverName: string, enabled: boolean) : Promise<
     else return { status: "error", error: e  as any };
 }
 },
+async setRenderingPipeline(pipeline: RenderingPipeline) : Promise<Result<AppSettings, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_rendering_pipeline", { pipeline }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getControlServerPort() : Promise<number> {
     return await TAURI_INVOKE("get_control_server_port");
 },
@@ -288,9 +296,9 @@ async checkWineStatus() : Promise<Result<WineStatus, CommandError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async initializeWinePrefix() : Promise<Result<null, CommandError>> {
+async initializeWinePrefix(pipeline: RenderingPipeline) : Promise<Result<null, CommandError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("initialize_wine_prefix") };
+    return { status: "ok", data: await TAURI_INVOKE("initialize_wine_prefix", { pipeline }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -382,6 +390,12 @@ async startByondLogin() : Promise<Result<ByondLoginResult, CommandError>> {
 }
 },
 /**
+ * Cancel an in-progress BYOND login
+ */
+async cancelByondLogin() : Promise<void> {
+    await TAURI_INVOKE("cancel_byond_login");
+},
+/**
  * Called from the login webview's JS when login is complete
  */
 async byondLoginComplete(username: string | null) : Promise<void> {
@@ -436,7 +450,7 @@ async byondSessionCheckComplete(webId: string | null, username: string | null) :
 
 /** user-defined types **/
 
-export type AppSettings = { auth_mode: AuthMode; theme?: Theme; notification_servers?: string[]; age_verified?: boolean; locale?: string | null }
+export type AppSettings = { auth_mode: AuthMode; theme?: Theme; notification_servers?: string[]; age_verified?: boolean; locale?: string | null; rendering_pipeline?: RenderingPipeline }
 export type AuthError = { code: string; message: string; linking_url: string | null }
 export type AuthMode = "oidc" | "hub" | "byond" | "steam"
 export type AuthState = { logged_in: boolean; user: UserInfo | null; loading: boolean; error: string | null }
@@ -456,6 +470,7 @@ export type LauncherUrls = { server_api: string; hub_api: string | null; auth_ba
 export type OidcConfig = { client_id: string; auth_url: string; token_url: string; userinfo_url: string }
 export type RelayWithPing = ({ id: string; name: string; host: string }) & { ping: number | null; checking: boolean }
 export type ReleaseInfo = { tag_name: string; name: string; published_at: string; download_url: string | null; size: number }
+export type RenderingPipeline = "dxvk" | "wined3d"
 export type Server = { id: string | null; name: string; url: string; status: string; hub_status?: string; players?: number; data?: ServerData | null; is_18_plus?: boolean; version?: string | null; engine?: EngineRequirements | null; tags?: string[]; auth_methods?: string[]; description?: string | null; links?: ServerLink[]; verified_domain?: string | null }
 export type ServerApiType = "hub_api" | "cm_api"
 export type ServerData = { round_id: number; mode: string; map_name: string; round_duration: number; gamestate: number; players: number; admins?: number | null; popcap?: number | null; security_level?: string | null }

@@ -6,6 +6,7 @@ import { unwrap } from "../lib/unwrap";
 interface ByondStore {
   username: string | null;
   pagerRunning: boolean | null;
+  loginVisible: boolean;
   setUsername: (username: string | null) => void;
   setPagerRunning: (running: boolean | null) => void;
   checkStatus: () => Promise<void>;
@@ -16,6 +17,7 @@ interface ByondStore {
 export const useByondStore = create<ByondStore>()((set) => ({
   username: null,
   pagerRunning: null,
+  loginVisible: false,
 
   setUsername: (username) => set({ username }),
   setPagerRunning: (pagerRunning) => set({ pagerRunning }),
@@ -48,13 +50,23 @@ export const useByondStore = create<ByondStore>()((set) => ({
       // Ignore errors
     }
 
-    const unlisten = await listen<string | null>(
+    const unlistenSession = await listen<string | null>(
       "byond-session-changed",
       (event) => {
         set({ username: event.payload });
       },
     );
 
-    return unlisten;
+    const unlistenLogin = await listen<boolean>(
+      "byond-login-visible",
+      (event) => {
+        set({ loginVisible: event.payload });
+      },
+    );
+
+    return () => {
+      unlistenSession();
+      unlistenLogin();
+    };
   },
 }));

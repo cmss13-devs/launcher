@@ -28,6 +28,15 @@ pub enum Theme {
     Crt,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum RenderingPipeline {
+    #[default]
+    Dxvk,
+    #[serde(rename = "wined3d")]
+    Wined3d,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct AppSettings {
     pub auth_mode: AuthMode,
@@ -39,6 +48,8 @@ pub struct AppSettings {
     pub age_verified: bool,
     #[serde(default)]
     pub locale: Option<String>,
+    #[serde(default)]
+    pub rendering_pipeline: RenderingPipeline,
 }
 
 impl Default for AppSettings {
@@ -72,6 +83,7 @@ impl Default for AppSettings {
             notification_servers: HashSet::new(),
             age_verified: false,
             locale: None,
+            rendering_pipeline: RenderingPipeline::default(),
         }
     }
 }
@@ -185,5 +197,17 @@ pub async fn toggle_server_notifications(
     }
     save_settings(&app, &settings)?;
 
+    Ok(settings)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_rendering_pipeline(
+    app: AppHandle,
+    pipeline: RenderingPipeline,
+) -> CommandResult<AppSettings> {
+    let mut settings = load_settings(&app)?;
+    settings.rendering_pipeline = pipeline;
+    save_settings(&app, &settings)?;
     Ok(settings)
 }

@@ -3,6 +3,7 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],
+  "webviews": ["main", "byond_login_content"],
   "permissions": [
     "core:default",
     "opener:default",

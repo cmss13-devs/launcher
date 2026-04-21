@@ -287,7 +287,8 @@
   }
 
   .auth-modal-overlay,
-  .settings-modal-overlay {
+  .settings-modal-overlay,
+  .byond-login-overlay {
     background: rgba(0, 0, 0, 0.6);
   }
 
@@ -296,7 +297,8 @@
   }
 
   .auth-modal,
-  .settings-modal {
+  .settings-modal,
+  .byond-login-modal {
     background: #2a2a2a;
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -313,7 +315,7 @@
     }
   }
 
-  .settings-modal-header {
+  .modal-header {
     border-bottom-color: var(--border);
 
     h2 {

@@ -2,7 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { commands } from "../bindings";
 import { unwrap } from "../lib/unwrap";
-import type { WineStatus } from "../bindings";
+import type { RenderingPipeline, WineStatus } from "../bindings";
 import type { Platform, WineSetupProgress } from "../types";
 
 const initialWineStatus: WineStatus = {
@@ -75,7 +75,7 @@ export const useWine = () => {
     };
   }, []);
 
-  const initializePrefix = useCallback(async (): Promise<boolean> => {
+  const initializePrefix = useCallback(async (pipeline: RenderingPipeline): Promise<boolean> => {
     setIsSettingUp(true);
     setSetupError(null);
     setSetupProgress({
@@ -85,7 +85,7 @@ export const useWine = () => {
     });
 
     try {
-      unwrap(await commands.initializeWinePrefix());
+      unwrap(await commands.initializeWinePrefix(pipeline));
       await checkStatus();
       return true;
     } catch (err) {
