@@ -1027,6 +1027,8 @@ body {
   text-align: center;
   max-width: 450px;
   min-width: 350px;
+  max-height: calc(100vh - var(--titlebar-height) - 40px);
+  overflow-y: auto;
 
   h2 {
     color: var(--primary);
@@ -1722,6 +1724,34 @@ body {
   font-size: 11px;
   color: var(--primary-dim);
   margin-top: 8px;
+}
+
+.auth-modal .wine-rendering-pipeline {
+  text-align: left;
+  margin-bottom: 16px;
+
+  h4 {
+    font-size: 14px;
+    margin: 0 0 4px;
+    color: var(--primary);
+  }
+
+  .settings-description {
+    font-size: 12px;
+    margin: 0 0 8px;
+  }
+
+  .theme-options {
+    gap: 6px;
+  }
+
+  .theme-option {
+    padding: 8px 12px;
+  }
+
+  .theme-desc {
+    font-size: 11px;
+  }
 }
 
 .locale-select {

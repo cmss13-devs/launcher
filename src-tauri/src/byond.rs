@@ -50,6 +50,7 @@ const ALLOWED_BIN_FILES: &[&str] = &[
     "dreamseeker.exe",
     "byond.exe",
     "byondcore.dll",
+    "byondext.dll",
     "byondwin.dll",
     "WebView2Loader.dll",
     "fmodex.dll",
