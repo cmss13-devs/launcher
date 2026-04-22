@@ -1139,10 +1139,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                 .map_err(|e| CommandError::Io(format!("Failed to launch BYOND via Wine: {e}")))?
             };
 
-            // Exclude the pager's PID so we don't confuse it with dreamseeker
-            let pager_pid = pager_child.id();
-            tracing::info!("Pager spawned with PID {}", pager_pid);
-            existing_pids.insert(pager_pid);
+            existing_pids.insert(pager_child.id());
 
             let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
 
@@ -1163,6 +1160,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                     server_name: server_name.clone(),
                     map_name: map_name.clone(),
                     server_id: server_id.clone(),
+                    launcher_key: launcher_key.clone(),
                 });
 
                 if let Some(pid) = dreamseeker_pid {
@@ -1212,6 +1210,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                     server_name: server_name.clone(),
                     map_name: map_name.clone(),
                     server_id: server_id.clone(),
+                    launcher_key: launcher_key.clone(),
                 });
 
                 manager.start_game_session(server_name.clone(), map_name.clone(), child);
@@ -1391,18 +1390,10 @@ fn get_dreamseeker_pids() -> std::collections::HashSet<u32> {
         s.processes()
             .iter()
             .filter(|(_, p)| {
-                let name_match = p
-                    .name()
+                p.name()
                     .to_str()
                     .map(|n| n.eq_ignore_ascii_case("dreamseeker.exe"))
-                    .unwrap_or(false);
-                if name_match {
-                    return true;
-                }
-                p.cmd().first().and_then(|arg| arg.to_str()).map_or(
-                    false,
-                    |a| a.to_lowercase().ends_with("dreamseeker.exe"),
-                )
+                    .unwrap_or(false)
             })
             .map(|(pid, _)| pid.as_u32())
             .collect()
@@ -1441,6 +1432,48 @@ async fn wait_for_new_dreamseeker(
 
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
+}
+
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+pub fn find_dreamseeker_pid_by_key(launcher_key: &str) -> Option<u32> {
+    use sysinfo::System;
+
+    let s = System::new_all();
+    s.processes()
+        .iter()
+        .find(|(_, p)| {
+            p.cmd().iter().any(|arg| {
+                arg.to_str()
+                    .map(|a| a.contains(launcher_key))
+                    .unwrap_or(false)
+            }) && p.cmd().iter().any(|arg| {
+                arg.to_str()
+                    .map(|a| a.to_lowercase().contains("dreamseeker.exe"))
+                    .unwrap_or(false)
+            })
+        })
+        .map(|(pid, _)| pid.as_u32())
+}
+
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+pub fn kill_dreamseeker_by_key(launcher_key: &str) -> bool {
+    use sysinfo::System;
+
+    let s = System::new_all();
+    let mut killed = false;
+    for (pid, proc) in s.processes() {
+        let cmd_matches = proc.cmd().iter().any(|arg| {
+            arg.to_str()
+                .map(|a| a.contains(launcher_key))
+                .unwrap_or(false)
+        });
+        if cmd_matches {
+            tracing::info!("Killing process {} (name={:?})", pid.as_u32(), proc.name());
+            proc.kill();
+            killed = true;
+        }
+    }
+    killed
 }
 
 #[tauri::command]

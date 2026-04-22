@@ -14,6 +14,8 @@ pub struct ConnectionParams {
     pub server_name: String,
     pub map_name: Option<String>,
     pub server_id: Option<String>,
+    #[cfg_attr(not(any(target_os = "windows", target_os = "linux")), allow(dead_code))]
+    pub launcher_key: Option<String>,
 }
 
 #[derive(Debug, Clone)]
