@@ -285,9 +285,16 @@ fn dismiss_login(app: &AppHandle) {
 #[specta::specta]
 pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult> {
     if app.get_webview("byond_login_content").is_some() {
-        return Err(CommandError::Busy {
-            operation: "byond_login".into(),
-        });
+        dismiss_login(&app);
+        if let Some(state) = app.try_state::<ByondLoginState>() {
+            state.complete(None);
+        }
+        for _ in 0..20 {
+            if app.get_webview("byond_login_content").is_none() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
     }
 
     tracing::info!("Starting BYOND web login flow");
@@ -314,7 +321,7 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
     create_login_webview(&app, data_dir)?;
 
     // Wait for result with 5 minute timeout
-    let result = match tokio::time::timeout(std::time::Duration::from_secs(300), rx).await {
+    match tokio::time::timeout(std::time::Duration::from_secs(300), rx).await {
         Ok(Ok(Some(username))) => {
             tracing::info!("BYOND login completed with username: {}", username);
             Ok(ByondLoginResult {
@@ -348,14 +355,12 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
         }
         Err(_) => {
             tracing::warn!("BYOND login timed out after 5 minutes");
+            dismiss_login(&app);
             Err(CommandError::Timeout {
                 operation: "byond_login".into(),
             })
         }
-    };
-
-    dismiss_login(&app);
-    result
+    }
 }
 
 /// Windows/macOS: overlay the login webview as a child of the main window
@@ -384,6 +389,9 @@ fn create_login_webview(app: &AppHandle, data_dir: std::path::PathBuf) -> Comman
         }
     })
     .on_navigation(move |url| {
+        if url.scheme() != "https" && url.scheme() != "http" {
+            return true;
+        }
         let path = url.path().to_lowercase();
         if !path.contains("login") {
             tracing::debug!("BYOND login: navigating away to {}", url);
@@ -440,6 +448,9 @@ fn create_login_webview(app: &AppHandle, data_dir: std::path::PathBuf) -> Comman
         }
     })
     .on_navigation(move |url| {
+        if url.scheme() != "https" && url.scheme() != "http" {
+            return true;
+        }
         let path = url.path().to_lowercase();
         if !path.contains("login") {
             tracing::debug!("BYOND login: navigating away to {}", url);

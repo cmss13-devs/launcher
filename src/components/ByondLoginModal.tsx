@@ -10,7 +10,7 @@ export const ByondLoginModal = ({ visible, onClose }: ByondLoginModalProps) => {
   const { t } = useTranslation();
 
   return (
-    <Modal visible={visible} onClose={onClose} closeOnOverlayClick>
+    <Modal visible={visible} onClose={onClose} className="auth-modal byond-login-modal" closeOnOverlayClick>
       <ModalCloseButton onClick={onClose} />
       <h2>{t("settings.loginToByond")}</h2>
     </Modal>
