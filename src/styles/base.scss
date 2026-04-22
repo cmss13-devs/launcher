@@ -1759,7 +1759,14 @@ body {
   }
 }
 
-.locale-select {
+.locale-dropdown {
+  position: relative;
+}
+
+.locale-dropdown-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   border: 1px solid var(--primary-dim);
   background: transparent;
@@ -1767,15 +1774,57 @@ body {
   font-family: inherit;
   font-size: 14px;
   cursor: pointer;
+  transition: var(--transition);
 
-  &:focus {
-    outline: none;
+  &:hover {
     border-color: var(--primary);
   }
+}
 
-  option {
-    background: var(--bg-darker);
-    color: var(--text);
+.locale-dropdown-value {
+  flex: 1;
+  text-align: left;
+}
+
+.locale-dropdown-arrow {
+  font-size: 10px;
+  color: var(--primary-dim);
+}
+
+.locale-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 2px;
+  background: var(--bg-darker);
+  border: 1px solid var(--primary);
+  z-index: 10;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.locale-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--primary-dim);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover {
+    background: var(--bg-highlight);
+    color: var(--primary);
+  }
+
+  &.selected {
+    color: var(--primary);
+    background: var(--bg-highlight-faint);
   }
 }
 

@@ -86,13 +86,13 @@
     }
   }
 
-  .relay-dropdown-menu {
+  .relay-dropdown-menu,
+  .locale-dropdown-menu {
     box-shadow: 0 0 15px var(--primary);
   }
 
   .auth-modal,
-  .settings-modal,
-  .byond-login-modal {
+  .settings-modal {
     box-shadow: 0 0 10px var(--primary);
   }
 

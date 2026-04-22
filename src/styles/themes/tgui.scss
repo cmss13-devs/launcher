@@ -286,9 +286,7 @@
     color: var(--text-dim);
   }
 
-  .auth-modal-overlay,
-  .settings-modal-overlay,
-  .byond-login-overlay {
+  .auth-modal-overlay {
     background: rgba(0, 0, 0, 0.6);
   }
 
@@ -297,8 +295,7 @@
   }
 
   .auth-modal,
-  .settings-modal,
-  .byond-login-modal {
+  .settings-modal {
     background: #2a2a2a;
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -504,18 +501,42 @@
     }
   }
 
-  .locale-select {
+  .locale-dropdown-button {
     border: 1px solid var(--border);
     border-radius: 2px;
     background: rgba(0, 0, 0, 0.2);
     color: var(--text);
+    font-weight: normal;
+    text-transform: none;
+    letter-spacing: 0;
 
-    &:focus {
+    &:hover {
       border-color: var(--primary);
     }
+  }
 
-    option {
-      background: #2a2a2a;
+  .locale-dropdown-arrow {
+    color: var(--text-dim);
+  }
+
+  .locale-dropdown-menu {
+    background: #2a2a2a;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .locale-dropdown-item {
+    color: var(--text-dim);
+
+    &:hover {
+      background: var(--bg-highlight);
+      color: var(--text);
+    }
+
+    &.selected {
+      color: var(--text);
+      background: var(--bg-highlight-dim);
     }
   }
 
