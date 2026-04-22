@@ -42,6 +42,7 @@ impl PresenceManager {
         &self,
         server_name: String,
         map_name: Option<String>,
+        player_count: u32,
         process: Child,
     ) {
         tracing::info!("Starting game session on {}", server_name);
@@ -59,7 +60,7 @@ impl PresenceManager {
 
         self.update_all_presence(&PresenceState::Playing {
             server_name,
-            player_count: 0,
+            player_count,
             map_name,
         });
     }
@@ -69,6 +70,7 @@ impl PresenceManager {
         &self,
         server_name: String,
         map_name: Option<String>,
+        player_count: u32,
         pid: u32,
     ) {
         tracing::info!(
@@ -90,7 +92,7 @@ impl PresenceManager {
 
         self.update_all_presence(&PresenceState::Playing {
             server_name,
-            player_count: 0,
+            player_count,
             map_name,
         });
     }

@@ -433,6 +433,7 @@ impl ControlServer {
                     map_name: fresh_params.map_name,
                     source: Some("control_server_restart".to_string()),
                     server_id: fresh_params.server_id,
+                    players: None,
                 },
             )
             .await;

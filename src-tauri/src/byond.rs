@@ -42,6 +42,7 @@ pub struct ConnectionRequest {
     pub map_name: Option<String>,
     pub source: Option<String>,
     pub server_id: Option<String>,
+    pub players: Option<i32>,
 }
 
 const VERSIONS_FILE: &str = "byond_versions.json";
@@ -979,6 +980,7 @@ pub async fn connect_to_server(
             map_name,
             source,
             server_id: server.id,
+            players: Some(server.players),
         },
     )
     .await
@@ -995,6 +997,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
         map_name,
         source,
         server_id,
+        players,
     } = req;
 
     let version_info = install_byond_version(app.clone(), version.clone()).await?;
@@ -1164,7 +1167,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                 });
 
                 if let Some(pid) = dreamseeker_pid {
-                    manager.start_game_session_by_pid(server_name.clone(), map_name.clone(), pid);
+                    manager.start_game_session_by_pid(server_name.clone(), map_name.clone(), players.unwrap_or(0) as u32, pid);
                 } else {
                     tracing::warn!(
                         "Could not find dreamseeker.exe, presence tracking may not work"
@@ -1213,7 +1216,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                     launcher_key: launcher_key.clone(),
                 });
 
-                manager.start_game_session(server_name.clone(), map_name.clone(), child);
+                manager.start_game_session(server_name.clone(), map_name.clone(), players.unwrap_or(0) as u32, child);
             }
         }
 
@@ -1581,6 +1584,7 @@ pub async fn connect_to_url(
                 map_name: None,
                 source,
                 server_id: None,
+                players: None,
             },
         )
         .await
