@@ -1,7 +1,7 @@
 :root {
-  --primary: #4a7bb5;
-  --primary-dim: rgba(74, 123, 181, 0.7);
-  --primary-faint: rgba(74, 123, 181, 0.3);
+  --primary: #466086;
+  --primary-dim: color-mix(in srgb, var(--primary) 70%, transparent);
+  --primary-faint: color-mix(in srgb, var(--primary) 30%, transparent);
   --bg: #282828;
   --bg-dark: #141414;
   --bg-darker: #0d0d0d;

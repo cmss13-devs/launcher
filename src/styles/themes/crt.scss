@@ -12,9 +12,13 @@
   --text-dim: #00eb4e99;
   --border: #00eb4e;
 
+  font-family: monospace;
+
   #root {
     background: radial-gradient(var(--bg-highlight), var(--bg-highlight-faint));
   }
+
+  // CRT scanline / bezel effects
 
   .crt-bezel {
     display: block;
@@ -69,16 +73,119 @@
     }
   }
 
+  // Titlebar
+
+  .titlebar {
+    background-color: var(--bg-darker);
+    border-bottom: 1px solid var(--primary);
+    box-shadow: none;
+  }
+
+  .titlebar-title {
+    color: var(--primary);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .titlebar-button {
+    border: 1px solid var(--primary);
+    border-radius: 0;
+    color: var(--primary);
+
+    &:hover {
+      color: var(--primary);
+      background-color: var(--bg-highlight);
+    }
+  }
+
+  .titlebar-close:hover {
+    background-color: var(--error);
+    border-color: var(--error);
+    color: white;
+  }
+
+  // Layout
+
   .section {
     box-shadow: 0 0 15px var(--primary);
     border: 2px solid var(--primary);
+    background-color: var(--bg-dark);
+    border-radius: 0;
   }
 
   .launcher {
     padding-bottom: 12px;
   }
 
+  .footer {
+    border: 2px solid var(--primary);
+    box-shadow: 0 0 15px var(--primary);
+    background-color: var(--bg-dark);
+  }
+
+  // Category tabs
+
+  .category-tab {
+    border: 1px solid var(--primary-faint);
+    border-radius: 0;
+    color: var(--primary-dim);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+
+    & + .category-tab {
+      border-left: none;
+    }
+
+    &:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background-color: var(--bg-highlight-faint);
+    }
+
+    &.active {
+      border-color: var(--primary);
+      color: var(--bg);
+      background-color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+  }
+
+  // Server list
+
+  .server-list {
+    gap: 8px;
+  }
+
+  .server-item {
+    border: 1px solid var(--primary-faint);
+    border-radius: 0;
+    background-color: var(--bg-highlight-faint);
+
+    &:hover {
+      background-color: var(--bg-highlight-dim);
+      border-color: var(--primary);
+    }
+  }
+
+  .server-item-row {
+    padding: 12px;
+  }
+
+  .server-name {
+    color: var(--primary);
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  .server-details {
+    color: var(--primary-dim);
+  }
+
   .status-indicator {
+    width: 10px;
+    height: 10px;
     box-shadow: 0 0 8px var(--primary);
 
     &.offline {
@@ -86,59 +193,467 @@
     }
   }
 
-  .relay-dropdown-menu,
-  .locale-dropdown-menu {
+  .player-count {
+    color: var(--primary);
+  }
+
+  .stat-label {
+    color: var(--primary-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .stat-value {
+    color: var(--primary);
+    font-weight: bold;
+  }
+
+  // Buttons
+
+  .button,
+  .button-secondary,
+  .relay-dropdown-button {
+    border: 2px solid var(--primary);
+    border-radius: 0;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .button {
+    background-color: var(--primary);
+    color: var(--bg);
+
+    &:hover {
+      background-color: transparent;
+      color: var(--primary);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      background-color: var(--primary);
+    }
+  }
+
+  .button-secondary,
+  .relay-dropdown-button {
+    background-color: transparent;
+    color: var(--primary);
+
+    &:hover {
+      background-color: var(--bg-highlight);
+      filter: none;
+    }
+  }
+
+  .button-cancel {
+    border: 2px solid var(--primary-dim);
+    border-radius: 0;
+    color: var(--primary-dim);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+
+    &:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background-color: transparent;
+    }
+  }
+
+  .connect-group {
+    border-radius: 0;
+  }
+
+  .connect-button {
+    border-radius: 0;
+  }
+
+  .notify-toggle {
+    border: 2px solid var(--primary);
+    border-radius: 0;
+    color: var(--primary-dim);
+
+    &:hover {
+      background-color: var(--bg-highlight);
+      color: var(--primary);
+    }
+
+    &.enabled {
+      color: var(--primary);
+      background-color: var(--bg-highlight-dim);
+    }
+  }
+
+  .filters-button {
+    border: 1px solid var(--primary-dim);
+    border-radius: 0;
+    background: transparent;
+    color: var(--primary-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 900;
+
+    &:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      filter: none;
+      background: transparent;
+    }
+  }
+
+  .filters-menu {
+    background-color: var(--bg-darker);
+    border: 1px solid var(--primary);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .filter-checkbox {
+    color: var(--primary-dim);
+
+    input[type="checkbox"] {
+      border-color: var(--primary-dim);
+      border-radius: 0;
+
+      &:checked {
+        background-color: var(--primary);
+        border-color: var(--primary);
+      }
+    }
+
+    &:hover {
+      color: var(--primary);
+    }
+  }
+
+  // Account
+
+  .account-avatar {
+    border: 2px solid var(--primary);
+    border-radius: 0;
+    color: var(--primary);
+  }
+
+  .account-name {
+    color: var(--primary);
+    font-weight: bold;
+  }
+
+  // Relay dropdown
+
+  .relay-dropdown-menu {
+    background-color: var(--bg-darker);
+    border: 2px solid var(--primary);
+    border-radius: 0;
     box-shadow: 0 0 15px var(--primary);
+  }
+
+  .relay-option {
+    input[type="radio"] {
+      border-color: var(--primary);
+
+      &:checked {
+        box-shadow: 0 0 8px var(--primary);
+      }
+    }
+  }
+
+  .relay-name {
+    color: var(--primary);
+  }
+
+  .relay-ping {
+    color: var(--primary-dim);
+  }
+
+  // Locale dropdown
+
+  .locale-dropdown-button {
+    border-color: var(--primary-dim);
+    border-radius: 0;
+    color: var(--primary);
+    background: transparent;
+  }
+
+  .locale-dropdown-arrow {
+    color: var(--primary-dim);
+  }
+
+  .locale-dropdown-menu {
+    background: var(--bg-darker);
+    border: 1px solid var(--primary);
+    border-radius: 0;
+    box-shadow: 0 0 15px var(--primary);
+  }
+
+  .locale-dropdown-item {
+    color: var(--primary-dim);
+
+    &:hover {
+      color: var(--primary);
+    }
+
+    &.selected {
+      color: var(--primary);
+    }
+  }
+
+  // Modals
+
+  .auth-modal-overlay {
+    background: rgba(0, 0, 0, 0.75);
+  }
+
+  .game-connection-overlay {
+    background: rgba(0, 0, 0, 0.9);
   }
 
   .auth-modal,
   .settings-modal {
+    background: var(--bg-darker);
+    border: 2px solid var(--primary);
+    border-radius: 0;
     box-shadow: 0 0 10px var(--primary);
+
+    h2 {
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    p {
+      color: var(--primary-dim);
+    }
   }
 
-  .relay-option input[type="radio"]:checked,
-  .auth-mode-option input[type="radio"]:checked,
-  .theme-option input[type="radio"]:checked {
-    box-shadow: 0 0 8px var(--primary);
+  .modal-header {
+    border-bottom-color: var(--primary-faint);
+
+    h2 {
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .help-link {
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
   }
 
-  .toggle-setting input[type="checkbox"]:checked {
-    box-shadow: 0 0 8px var(--primary);
+  .modal-close-button {
+    border: 1px solid var(--primary);
+    border-radius: 0;
+    color: var(--primary);
+
+    &:hover {
+      background-color: var(--primary);
+      color: var(--bg);
+    }
   }
 
-  .titlebar-title {
-    text-transform: uppercase;
-    letter-spacing: 2px;
-  }
-
-  .category-tab {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .button,
-  .button-secondary {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 900;
-  }
-
-  .button-cancel {
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 900;
+  .settings-modal-footer {
+    border-top-color: var(--primary-faint);
   }
 
   .settings-section h3 {
+    color: var(--primary);
     text-transform: uppercase;
     letter-spacing: 1px;
   }
 
-  .auth-modal h2,
-  .modal-header h2 {
+  .settings-description {
+    color: var(--primary-dim);
+  }
+
+  .game-connection-status h2 {
+    color: var(--primary);
     text-transform: uppercase;
     letter-spacing: 2px;
   }
+
+  // Radio / checkbox options
+
+  .auth-mode-option,
+  .theme-option {
+    border: 1px solid var(--primary-faint);
+    border-radius: 0;
+    background-color: var(--bg-highlight-faint);
+
+    &:hover {
+      background-color: var(--bg-highlight-dim);
+      border-color: var(--primary);
+    }
+
+    &.selected {
+      border-color: var(--primary);
+      background-color: var(--bg-highlight);
+    }
+
+    input[type="radio"]:checked {
+      box-shadow: 0 0 8px var(--primary);
+    }
+  }
+
+  .auth-mode-name,
+  .theme-name {
+    color: var(--primary);
+    font-weight: bold;
+  }
+
+  .auth-mode-desc,
+  .theme-desc {
+    color: var(--primary-dim);
+  }
+
+  .toggle-setting {
+    border: 1px solid var(--primary-faint);
+    border-radius: 0;
+
+    input[type="checkbox"]:checked {
+      box-shadow: 0 0 8px var(--primary);
+    }
+  }
+
+  .toggle-name {
+    color: var(--primary);
+    font-weight: bold;
+  }
+
+  .toggle-desc {
+    color: var(--primary-dim);
+  }
+
+  // Inputs
+
+  .search-input {
+    border: 1px solid var(--primary-dim);
+    border-radius: 0;
+    background: transparent;
+    color: var(--primary);
+
+    &::placeholder {
+      color: var(--primary-dim);
+    }
+  }
+
+  .hub-login-form input[type="text"],
+  .hub-login-form input[type="password"] {
+    border-color: var(--primary-dim);
+    border-radius: 0;
+    background: transparent;
+    color: var(--primary);
+
+    &::placeholder {
+      color: var(--primary-dim);
+    }
+  }
+
+  .dev-input-group {
+    label {
+      color: var(--primary-dim);
+    }
+
+    input {
+      border-color: var(--primary-dim);
+      border-radius: 0;
+      background: transparent;
+      color: var(--primary);
+    }
+  }
+
+  .dev-section {
+    border-top-color: var(--primary-dim);
+  }
+
+  // Misc elements with border-radius reset
+
+  .dev-error {
+    border-radius: 0;
+  }
+
+  .wine-status-info {
+    border-color: var(--primary-faint);
+    border-radius: 0;
+  }
+
+  .auth-mode-warning {
+    border-radius: 0;
+  }
+
+  .singleplayer-error {
+    border-radius: 0;
+  }
+
+  .error-popup {
+    background-color: rgba(40, 0, 0, 0.95);
+    border: 2px solid var(--error);
+    border-radius: 0;
+    box-shadow: 0 0 15px var(--error);
+  }
+
+  .error-popup-dismiss {
+    border-radius: 0;
+  }
+
+  // Spinners / progress
+
+  .auth-spinner,
+  .game-connection-spinner,
+  .singleplayer-spinner {
+    border-color: var(--primary-faint);
+    border-top-color: var(--primary);
+  }
+
+  .game-connection-progress,
+  .wine-progress-bar {
+    border-radius: 0;
+  }
+
+  // Refresh bar
+
+  .refresh-bar {
+    background: var(--bg-highlight-faint);
+  }
+
+  .refresh-bar-fill {
+    background: var(--primary);
+    opacity: 0.5;
+  }
+
+  // Singleplayer
+
+  .singleplayer-header h3 {
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .singleplayer-description {
+    color: var(--primary-dim);
+  }
+
+  .singleplayer-size-hint {
+    color: var(--primary-dim);
+  }
+
+  // Update notification
+
+  .update-notification {
+    background: var(--bg-darker);
+    border-bottom: 2px solid var(--primary);
+  }
+
+  .update-button {
+    border-radius: 0;
+  }
+
+  .update-dismiss {
+    border-radius: 0;
+  }
+
+  // Scrollbars
 
   * {
     scrollbar-color: var(--primary) var(--bg-highlight-faint);
