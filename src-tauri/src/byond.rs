@@ -1388,39 +1388,24 @@ fn get_dreamseeker_pids() -> std::collections::HashSet<u32> {
 
     #[cfg(target_os = "linux")]
     {
-        let pids: HashSet<u32> = s
-            .processes()
+        s.processes()
             .iter()
             .filter(|(_, p)| {
-                p.cmd().iter().any(|arg| {
-                    arg.to_str()
-                        .map(|a| a.to_lowercase().contains("dreamseeker.exe"))
-                        .unwrap_or(false)
-                })
+                let name_match = p
+                    .name()
+                    .to_str()
+                    .map(|n| n.eq_ignore_ascii_case("dreamseeker.exe"))
+                    .unwrap_or(false);
+                if name_match {
+                    return true;
+                }
+                p.cmd().first().and_then(|arg| arg.to_str()).map_or(
+                    false,
+                    |a| a.to_lowercase().ends_with("dreamseeker.exe"),
+                )
             })
             .map(|(pid, _)| pid.as_u32())
-            .collect();
-
-        for (pid_val, proc) in s.processes() {
-            let cmd: Vec<String> = proc
-                .cmd()
-                .iter()
-                .filter_map(|a| a.to_str().map(String::from))
-                .collect();
-            if cmd.iter().any(|a| {
-                let l = a.to_lowercase();
-                l.contains("dreamseeker.exe") || l.contains("byond.exe")
-            }) {
-                tracing::info!(
-                    "BYOND process: pid={} name={:?} cmd={:?}",
-                    pid_val.as_u32(),
-                    proc.name(),
-                    cmd
-                );
-            }
-        }
-
-        pids
+            .collect()
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
