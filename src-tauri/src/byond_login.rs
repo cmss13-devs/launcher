@@ -102,7 +102,6 @@ pub fn byond_login_complete(app: AppHandle, username: Option<String>) {
     if let Some(state) = app.try_state::<ByondLoginState>() {
         state.complete(username);
     }
-
 }
 
 /// Get current BYOND session status
@@ -144,12 +143,31 @@ pub async fn logout_byond_web(app: AppHandle) -> CommandResult<()> {
         state.clear_session();
     }
 
-    // Delete the webview data folder to clear cookies
     let data_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| CommandError::Io(e.to_string()))?
         .join("byond_webview");
+
+    let _logout_window = WebviewWindowBuilder::new(
+        &app,
+        "byond_logout",
+        WebviewUrl::External(
+            "https://secure.byond.com/login.cgi?login=0"
+                .parse()
+                .map_err(|e: url::ParseError| CommandError::Webview(e.to_string()))?,
+        ),
+    )
+    .visible(false)
+    .data_directory(data_dir.clone())
+    .build()
+    .map_err(|e| CommandError::Webview(format!("Failed to create logout webview: {e}")))?;
+
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    if let Some(w) = app.get_webview_window("byond_logout") {
+        let _ = w.close();
+    }
 
     if data_dir.exists() {
         std::fs::remove_dir_all(&data_dir)?;
@@ -343,9 +361,9 @@ pub async fn start_byond_login(app: AppHandle) -> CommandResult<ByondLoginResult
 /// Windows/macOS: overlay the login webview as a child of the main window
 #[cfg(not(target_os = "linux"))]
 fn create_login_webview(app: &AppHandle, data_dir: std::path::PathBuf) -> CommandResult<()> {
-    let main_window = app.get_window("main").ok_or_else(|| {
-        CommandError::Internal("main window not found".into())
-    })?;
+    let main_window = app
+        .get_window("main")
+        .ok_or_else(|| CommandError::Internal("main window not found".into()))?;
 
     let app_for_nav = app.clone();
 
