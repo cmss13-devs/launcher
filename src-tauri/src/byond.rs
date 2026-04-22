@@ -1140,9 +1140,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
             };
 
             // Exclude the pager's PID so we don't confuse it with dreamseeker
-            if let Some(pager_pid) = pager_child.id() {
-                existing_pids.insert(pager_pid);
-            }
+            existing_pids.insert(pager_child.id());
 
             let dreamseeker_pid = wait_for_new_dreamseeker(existing_pids, 30).await;
 
