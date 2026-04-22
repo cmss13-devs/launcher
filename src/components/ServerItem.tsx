@@ -6,7 +6,7 @@ import type { MouseEvent } from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { commands } from "../bindings";
-import { useAuthFlow, useConnect, useError } from "../hooks";
+import { useConnect, useError } from "../hooks";
 import { useConfigStore, useServerStore, useSettingsStore } from "../stores";
 import type { Server } from "../bindings";
 import { formatDuration } from "../utils";
@@ -38,7 +38,6 @@ export const ServerItem = ({
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const { showError } = useError();
   const { connect } = useConnect();
-  const { onLoginRequired, onSteamAuthRequired, handleByondLogin } = useAuthFlow();
 
   const hasInfo = !!(server.description || (server.links && server.links.length > 0));
 
@@ -68,26 +67,10 @@ export const ServerItem = ({
 
   const handleConnect = async () => {
     setConnecting(true);
-
     try {
-      const result = await connect(server.name, "ServerItem.handleConnect");
-
-      if (result.success && server.id) {
+      const success = await connect(server.name, "ServerItem.handleConnect");
+      if (success && server.id) {
         useSettingsStore.getState().saveLastPlayedServer(server.id);
-      }
-
-      if (!result.success && result.auth_error) {
-        if (result.auth_error.code === "auth_required") {
-          onLoginRequired();
-        } else if (result.auth_error.code === "byond_auth_required") {
-          handleByondLogin();
-        } else if (result.auth_error.code === "steam_linking_required") {
-          onSteamAuthRequired(server.name);
-        } else {
-          showError(result.auth_error.message);
-        }
-      } else if (!result.success) {
-        showError(result.message);
       }
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));

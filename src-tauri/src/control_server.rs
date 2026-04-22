@@ -427,8 +427,7 @@ impl ControlServer {
                     version: fresh_params.version,
                     host: fresh_params.host,
                     port: fresh_params.port,
-                    access_type: fresh_params.access_type,
-                    access_token: fresh_params.access_token,
+                    access_method: fresh_params.access_method,
                     server_name: fresh_params.server_name,
                     map_name: fresh_params.map_name,
                     source: Some("control_server_restart".to_string()),
@@ -480,8 +479,7 @@ impl ControlServer {
             let url = crate::byond::build_connect_url(
                 &fresh_params.host,
                 &fresh_params.port,
-                fresh_params.access_type.as_deref(),
-                fresh_params.access_token.as_deref(),
+                &fresh_params.access_method,
                 control_port.as_deref(),
                 launcher_key.as_deref(),
                 websocket_port.as_deref(),
@@ -611,13 +609,15 @@ pub fn generate_hwid() -> Option<String> {
     }
 }
 
-#[allow(clippy::unused_async)] // Uses await when steam feature is enabled
+#[allow(clippy::unused_async)]
 async fn refresh_auth_token(
     #[allow(unused_variables)] app_handle: &tauri::AppHandle,
     mut params: ConnectionParams,
 ) -> Result<ConnectionParams, String> {
-    match params.access_type.as_deref() {
-        Some("steam") => {
+    use crate::byond::AccessMethod;
+
+    match &params.access_method {
+        AccessMethod::Steam(_) => {
             #[cfg(feature = "steam")]
             {
                 tracing::info!("Refreshing Steam authentication token");
@@ -635,7 +635,9 @@ async fn refresh_auth_token(
                         .unwrap_or_else(|| "Steam authentication failed".to_string()));
                 }
 
-                params.access_token = auth_result.access_token;
+                if let Some(token) = auth_result.access_token {
+                    params.access_method = AccessMethod::Steam(token);
+                }
                 Ok(params)
             }
 
@@ -644,7 +646,7 @@ async fn refresh_auth_token(
                 Err("Steam feature not enabled".to_string())
             }
         }
-        Some(access_type) if access_type == crate::config::get_config().variant => {
+        AccessMethod::SessionToken { .. } | AccessMethod::HubTicket(_) => {
             let config = crate::config::get_config();
             tracing::info!(
                 "Fetching current {} access token",
@@ -652,7 +654,10 @@ async fn refresh_auth_token(
             );
             match crate::auth::TokenStorage::get_tokens().map_err(|e| e.to_string())? {
                 Some(tokens) if !crate::auth::TokenStorage::is_expired() => {
-                    params.access_token = Some(tokens.access_token);
+                    params.access_method = AccessMethod::SessionToken {
+                        variant: config.variant.to_string(),
+                        token: tokens.access_token,
+                    };
                     Ok(params)
                 }
                 _ => Err(format!(

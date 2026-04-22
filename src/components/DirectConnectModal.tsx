@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { commands } from "../bindings";
-import { useAuthFlow, useError } from "../hooks";
-import { formatCommandError } from "../lib/formatCommandError";
+import { useConnect, useError } from "../hooks";
 import { Modal, ModalCloseButton } from "./Modal";
 
 interface DirectConnectModalProps {
@@ -15,7 +13,7 @@ export const DirectConnectModal = ({ visible, onClose }: DirectConnectModalProps
   const [address, setAddress] = useState("");
   const [connecting, setConnecting] = useState(false);
   const { showError } = useError();
-  const { onLoginRequired } = useAuthFlow();
+  const { connectToAddress } = useConnect();
 
   const handleConnect = async () => {
     const trimmed = address.trim();
@@ -23,23 +21,8 @@ export const DirectConnectModal = ({ visible, onClose }: DirectConnectModalProps
 
     setConnecting(true);
     try {
-      const result = await commands.connectToAddress(trimmed, "DirectConnect");
-      if (result.status === "error") {
-        showError(formatCommandError(result.error));
-        return;
-      }
-      const data = result.data;
-      if (!data.success && data.auth_error) {
-        if (data.auth_error.code === "auth_required") {
-          onLoginRequired();
-        } else {
-          showError(data.auth_error.message);
-        }
-      } else if (!data.success) {
-        showError(data.message);
-      } else {
-        onClose();
-      }
+      const success = await connectToAddress(trimmed, "DirectConnect");
+      if (success) onClose();
     } catch (err) {
       showError(err instanceof Error ? err.message : String(err));
     } finally {

@@ -8,6 +8,8 @@ use super::server::CallbackServer;
 use super::storage::TokenStorage;
 use crate::error::{CommandError, CommandResult};
 
+use super::hub_client::HubClient;
+
 impl From<HubAuthError> for CommandError {
     fn from(e: HubAuthError) -> Self {
         match e {
@@ -61,6 +63,35 @@ impl AuthState {
     }
 }
 
+fn parse_hub_expiry(expire_time: &str) -> i64 {
+    chrono::DateTime::parse_from_rfc3339(expire_time)
+        .map(|dt| dt.timestamp())
+        .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30)
+}
+
+async fn fetch_user_info(token: &str) -> CommandResult<UserInfo> {
+    let config = crate::config::get_config();
+    if config.urls.hub_api.is_some() {
+        Ok(HubClient::get_profile(token).await?)
+    } else {
+        OidcClient::get_userinfo(token).await
+    }
+}
+
+async fn complete_login(
+    app: &AppHandle,
+    token: &str,
+    refresh_token: Option<&str>,
+    id_token: &str,
+    expires_at: i64,
+) -> CommandResult<AuthState> {
+    TokenStorage::store_tokens(token, refresh_token, id_token, expires_at)?;
+    let user_info = fetch_user_info(token).await?;
+    let auth_state = AuthState::logged_in(user_info);
+    app.emit("auth-state-changed", &auth_state).ok();
+    Ok(auth_state)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn start_login(app: AppHandle) -> CommandResult<AuthState> {
@@ -87,20 +118,14 @@ pub async fn start_login(app: AppHandle) -> CommandResult<AuthState> {
     )
     .await?;
 
-    TokenStorage::store_tokens(
+    complete_login(
+        &app,
         &token_result.access_token,
         token_result.refresh_token.as_deref(),
         token_result.id_token.as_deref().unwrap_or(""),
         token_result.expires_at,
-    )?;
-
-    let user_info = OidcClient::get_userinfo(&token_result.access_token).await?;
-
-    let auth_state = AuthState::logged_in(user_info);
-
-    app.emit("auth-state-changed", &auth_state).ok();
-
-    Ok(auth_state)
+    )
+    .await
 }
 
 #[tauri::command]
@@ -140,7 +165,6 @@ pub async fn get_auth_state() -> CommandResult<AuthState> {
         // Hub auth: refresh on launch to reset the 28-day expiry window.
         // If refresh fails (e.g. network issue), fall back to validating
         // the existing token so we don't log the user out unnecessarily.
-        use super::hub_client::HubClient;
         match refresh_tokens_internal(&tokens.access_token).await {
             Ok(state) => Ok(state),
             Err(_) => {
@@ -200,30 +224,18 @@ pub async fn hub_login(
     password: String,
     totp_code: Option<String>,
 ) -> CommandResult<AuthState> {
-    use super::hub_client::HubClient;
 
     tracing::info!("Starting hub login for {}", username);
 
     let result = HubClient::login(&username, &password, totp_code.as_deref()).await?;
+    let expires_at = parse_hub_expiry(&result.expire_time);
 
-    let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time)
-        .map(|dt| dt.timestamp())
-        .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30);
-
-    TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
-
-    let user_info = HubClient::get_profile(&result.token).await?;
-
-    let auth_state = AuthState::logged_in(user_info);
-    app.emit("auth-state-changed", &auth_state).ok();
-
-    Ok(auth_state)
+    complete_login(&app, &result.token, None, "", expires_at).await
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_hub_oauth_providers() -> CommandResult<Vec<String>> {
-    use super::hub_client::HubClient;
 
     let config = HubClient::get_hub_config().await?;
 
@@ -242,7 +254,6 @@ pub async fn get_hub_oauth_providers() -> CommandResult<Vec<String>> {
 #[tauri::command]
 #[specta::specta]
 pub async fn hub_oauth_login(app: AppHandle, provider: String) -> CommandResult<AuthState> {
-    use super::hub_client::HubClient;
 
     tracing::info!("Starting hub OAuth login for provider: {}", provider);
 
@@ -275,19 +286,9 @@ pub async fn hub_oauth_login(app: AppHandle, provider: String) -> CommandResult<
     tracing::info!("OAuth callback received, exchanging code");
 
     let result = HubClient::oauth_exchange(&callback_result.code).await?;
+    let expires_at = parse_hub_expiry(&result.expire_time);
 
-    let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time)
-        .map(|dt| dt.timestamp())
-        .unwrap_or_else(|_| chrono::Utc::now().timestamp() + 86400 * 30);
-
-    TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
-
-    let user_info = HubClient::get_profile(&result.token).await?;
-
-    let auth_state = AuthState::logged_in(user_info);
-    app.emit("auth-state-changed", &auth_state).ok();
-
-    Ok(auth_state)
+    complete_login(&app, &result.token, None, "", expires_at).await
 }
 
 #[cfg(feature = "steam")]
@@ -297,7 +298,6 @@ pub async fn hub_steam_login(
     app: AppHandle,
     steam_state: tauri::State<'_, std::sync::Arc<crate::steam::SteamState>>,
 ) -> CommandResult<AuthState> {
-    use super::hub_client::HubClient;
 
     tracing::info!("Starting hub Steam login");
 
@@ -356,33 +356,19 @@ pub async fn hub_steam_login(
         .ok_or_else(|| CommandError::InvalidResponse("missing access_token in response".into()))?;
 
     let expires_at = chrono::Utc::now().timestamp() + 86400 * 30;
-    TokenStorage::store_tokens(token, None, "", expires_at)?;
 
-    let user_info = HubClient::get_profile(token).await?;
-
-    let auth_state = AuthState::logged_in(user_info);
-    app.emit("auth-state-changed", &auth_state).ok();
-
-    Ok(auth_state)
+    complete_login(&app, token, None, "", expires_at).await
 }
 
 async fn refresh_tokens_internal(token: &str) -> CommandResult<AuthState> {
     let config = crate::config::get_config();
 
     if config.urls.hub_api.is_some() {
-        use super::hub_client::HubClient;
-
         let result = HubClient::refresh(token).await?;
-
-        let expires_at = chrono::DateTime::parse_from_rfc3339(&result.expire_time).map_or_else(
-            |_| chrono::Utc::now().timestamp() + 86400 * 30,
-            |dt| dt.timestamp(),
-        );
+        let expires_at = parse_hub_expiry(&result.expire_time);
 
         TokenStorage::store_tokens(&result.token, None, "", expires_at)?;
-
         let user_info = HubClient::get_profile(&result.token).await?;
-
         Ok(AuthState::logged_in(user_info))
     } else {
         let token_result = OidcClient::refresh_tokens(token).await?;
@@ -393,9 +379,7 @@ async fn refresh_tokens_internal(token: &str) -> CommandResult<AuthState> {
             token_result.id_token.as_deref().unwrap_or(""),
             token_result.expires_at,
         )?;
-
         let user_info = OidcClient::get_userinfo(&token_result.access_token).await?;
-
         Ok(AuthState::logged_in(user_info))
     }
 }
