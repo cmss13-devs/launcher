@@ -440,7 +440,7 @@ pub async fn launch_singleplayer(app: AppHandle) -> CommandResult<()> {
 
         app.emit("game-connected", "Sandbox").ok();
         if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
-            manager.start_game_session("Sandbox".to_string(), None, child);
+            manager.start_game_session("Sandbox".to_string(), None, 1, child);
         }
     }
 
@@ -474,7 +474,7 @@ pub async fn launch_singleplayer(app: AppHandle) -> CommandResult<()> {
 
         app.emit("game-connected", "Sandbox").ok();
         if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
-            manager.start_game_session("Sandbox".to_string(), None, child);
+            manager.start_game_session("Sandbox".to_string(), None, 1, child);
         }
     }
 
