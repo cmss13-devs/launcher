@@ -537,6 +537,15 @@ pub fn byond_session_check_complete(
 #[tauri::command]
 #[specta::specta]
 pub async fn check_byond_web_session(app: AppHandle) -> CommandResult<ByondSessionCheck> {
+    // Wait for any in-progress session check to finish
+    for _ in 0..20 {
+        if app.get_webview_window("byond_session_check").is_none() {
+            break;
+        }
+        tracing::debug!("Waiting for existing session check to complete...");
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
+
     if app.get_webview_window("byond_session_check").is_some() {
         return Err(CommandError::Busy {
             operation: "byond_session_check".into(),

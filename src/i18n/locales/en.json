@@ -2,6 +2,7 @@
   "common": {
     "login": "Login",
     "logout": "Logout",
+    "loggingOut": "Logging out...",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "retry": "Retry",

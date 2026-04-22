@@ -55,6 +55,7 @@ export const AccountInfo = () => {
   const steamAccessToken = useSteamStore((s) => s.accessToken);
   const byondWebUsername = useByondStore((s) => s.username);
   const byondPagerRunning = useByondStore((s) => s.pagerRunning);
+  const byondLoggingOut = useByondStore((s) => s.loggingOut);
   const checkByondStatus = useByondStore((s) => s.checkStatus);
 
   const [byondPagerUsername, setByondPagerUsername] = useState<string | null>(null);
@@ -89,7 +90,7 @@ export const AccountInfo = () => {
           avatar={byondWebUsername.charAt(0).toUpperCase()}
           name={byondWebUsername}
           status={t("account.loggedInViaByondWeb")}
-          actions={[{ label: t("common.logout"), onClick: onByondLogout }]}
+          actions={[{ label: byondLoggingOut ? t("common.loggingOut") : t("common.logout"), onClick: onByondLogout }]}
         />
       );
     }
