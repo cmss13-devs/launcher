@@ -152,6 +152,29 @@
     }
   }
 
+  // View tabs
+
+  .view-tab {
+    border: 1px solid var(--primary-faint);
+    border-radius: 0;
+    color: var(--primary-dim);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+
+    &:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background-color: var(--bg-highlight-faint);
+    }
+
+    &.active {
+      border-color: var(--primary);
+      color: var(--bg);
+      background-color: var(--primary);
+    }
+  }
+
   // Server list
 
   .server-list {

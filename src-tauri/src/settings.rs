@@ -50,6 +50,10 @@ pub struct AppSettings {
     pub locale: Option<String>,
     #[serde(default)]
     pub rendering_pipeline: RenderingPipeline,
+    #[serde(default)]
+    pub last_played_server: Option<String>,
+    #[serde(default)]
+    pub favorite_servers: HashSet<String>,
 }
 
 impl Default for AppSettings {
@@ -84,6 +88,8 @@ impl Default for AppSettings {
             age_verified: false,
             locale: None,
             rendering_pipeline: RenderingPipeline::default(),
+            last_played_server: None,
+            favorite_servers: HashSet::new(),
         }
     }
 }
@@ -208,6 +214,35 @@ pub async fn set_rendering_pipeline(
 ) -> CommandResult<AppSettings> {
     let mut settings = load_settings(&app)?;
     settings.rendering_pipeline = pipeline;
+    save_settings(&app, &settings)?;
+    Ok(settings)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_last_played_server(
+    app: AppHandle,
+    server_id: String,
+) -> CommandResult<AppSettings> {
+    let mut settings = load_settings(&app)?;
+    settings.last_played_server = Some(server_id);
+    save_settings(&app, &settings)?;
+    Ok(settings)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn toggle_favorite_server(
+    app: AppHandle,
+    server_id: String,
+    favorited: bool,
+) -> CommandResult<AppSettings> {
+    let mut settings = load_settings(&app)?;
+    if favorited {
+        settings.favorite_servers.insert(server_id);
+    } else {
+        settings.favorite_servers.remove(&server_id);
+    }
     save_settings(&app, &settings)?;
     Ok(settings)
 }

@@ -132,7 +132,18 @@
     "serversStat": "Servers",
     "playersStat": "Players",
     "enableNotifications": "Enable restart notifications",
-    "disableNotifications": "Disable restart notifications"
+    "disableNotifications": "Disable restart notifications",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites"
+  },
+  "nav": {
+    "home": "Home",
+    "browse": "Browse"
+  },
+  "home": {
+    "continuePlaying": "Continue Playing",
+    "favorites": "Favorites",
+    "noFavorites": "Star servers from the Browse tab to see them here."
   },
   "relay": {
     "label": "Relay:",

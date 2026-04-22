@@ -7,6 +7,7 @@ import {
   ByondLoginModal,
   ErrorNotifications,
   GameConnectionModal,
+  HomePage,
   RelayDropdown,
   ServerFilterPanel,
   ServerItem,
@@ -17,6 +18,7 @@ import {
   UpdateNotification,
   WineSetupModal,
 } from "./components";
+import type { ViewMode } from "./components/ServerFilterPanel";
 import {
   AuthFlowProvider,
   ErrorProvider,
@@ -101,9 +103,10 @@ const AppContent = () => {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [relayDropdownOpen, setRelayDropdownOpen] = useState(false);
   const [wineModalVisible, setWineModalVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("home");
 
   const filters = useServerFilters(servers, config);
-  const { showHubStatus, showSingleplayer, filteredServers } = filters;
+  const { showHubStatus, filteredServers } = filters;
 
   const autoConnecting = useAutoConnect();
 
@@ -243,10 +246,14 @@ const AppContent = () => {
                 playerCount={filteredServers
                   .filter((s) => s.status === "available")
                   .reduce((sum, s) => sum + (s.players ?? 0), 0)}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
               />
             )}
-            {showSingleplayer && config?.features.singleplayer ? (
+            {viewMode === "singleplayer" && config?.features.singleplayer ? (
               <SinglePlayerPanel />
+            ) : viewMode === "home" ? (
+              <HomePage servers={servers} />
             ) : (
               <div className="server-list">
                 {serversLoading && servers.length === 0 && (

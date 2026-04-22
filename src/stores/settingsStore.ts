@@ -11,6 +11,8 @@ interface SettingsStore {
   ageVerified: boolean;
   locale: string | null;
   renderingPipeline: RenderingPipeline;
+  lastPlayedServer: string | null;
+  favoriteServers: Set<string>;
 
   setAuthMode: (mode: AuthMode) => void;
   setTheme: (theme: Theme) => void;
@@ -22,6 +24,9 @@ interface SettingsStore {
   saveRenderingPipeline: (pipeline: RenderingPipeline) => Promise<void>;
   toggleServerNotifications: (serverName: string, enabled: boolean) => Promise<void>;
   isServerNotificationsEnabled: (serverName: string) => boolean;
+  saveLastPlayedServer: (serverId: string) => Promise<void>;
+  toggleFavoriteServer: (serverId: string, favorited: boolean) => Promise<void>;
+  isServerFavorited: (serverId: string) => boolean;
 }
 
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
@@ -32,6 +37,8 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   ageVerified: false,
   locale: null,
   renderingPipeline: "dxvk",
+  lastPlayedServer: null,
+  favoriteServers: new Set<string>(),
 
   setAuthMode: (authMode) => set({ authMode }),
   setTheme: (theme) => set({ theme }),
@@ -50,6 +57,8 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
         ageVerified: settings.age_verified ?? false,
         locale: settings.locale ?? null,
         renderingPipeline: settings.rendering_pipeline ?? "dxvk",
+        lastPlayedServer: settings.last_played_server ?? null,
+        favoriteServers: new Set(settings.favorite_servers ?? []),
       });
       if (settings.locale) {
         setLocale(settings.locale);
@@ -94,5 +103,19 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
 
   isServerNotificationsEnabled: (serverName: string) => {
     return get().notificationServers.has(serverName);
+  },
+
+  saveLastPlayedServer: async (serverId: string) => {
+    const settings = unwrap(await commands.setLastPlayedServer(serverId));
+    set({ lastPlayedServer: settings.last_played_server ?? null });
+  },
+
+  toggleFavoriteServer: async (serverId: string, favorited: boolean) => {
+    const settings = unwrap(await commands.toggleFavoriteServer(serverId, favorited));
+    set({ favoriteServers: new Set(settings.favorite_servers ?? []) });
+  },
+
+  isServerFavorited: (serverId: string) => {
+    return get().favoriteServers.has(serverId);
   },
 }));

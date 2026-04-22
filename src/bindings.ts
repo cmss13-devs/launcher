@@ -207,6 +207,22 @@ async setRenderingPipeline(pipeline: RenderingPipeline) : Promise<Result<AppSett
     else return { status: "error", error: e  as any };
 }
 },
+async setLastPlayedServer(serverId: string) : Promise<Result<AppSettings, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_last_played_server", { serverId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async toggleFavoriteServer(serverId: string, favorited: boolean) : Promise<Result<AppSettings, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("toggle_favorite_server", { serverId, favorited }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getControlServerPort() : Promise<number> {
     return await TAURI_INVOKE("get_control_server_port");
 },
@@ -450,7 +466,7 @@ async byondSessionCheckComplete(webId: string | null, username: string | null) :
 
 /** user-defined types **/
 
-export type AppSettings = { auth_mode: AuthMode; theme?: Theme; notification_servers?: string[]; age_verified?: boolean; locale?: string | null; rendering_pipeline?: RenderingPipeline }
+export type AppSettings = { auth_mode: AuthMode; theme?: Theme; notification_servers?: string[]; age_verified?: boolean; locale?: string | null; rendering_pipeline?: RenderingPipeline; last_played_server?: string | null; favorite_servers?: string[] }
 export type AuthError = { code: string; message: string; linking_url: string | null }
 export type AuthMode = "oidc" | "hub" | "byond" | "steam"
 export type AuthState = { logged_in: boolean; user: UserInfo | null; loading: boolean; error: string | null }

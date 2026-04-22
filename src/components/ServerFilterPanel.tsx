@@ -7,11 +7,15 @@ import { AgeVerificationModal } from "./AgeVerificationModal";
 
 type FilterState = ReturnType<typeof useServerFilters>;
 
+export type ViewMode = "home" | "browse" | "singleplayer";
+
 interface ServerFilterPanelProps {
   features: LauncherFeatures;
   filters: FilterState;
   serverCount: number;
   playerCount: number;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
 }
 
 export const ServerFilterPanel = ({
@@ -19,6 +23,8 @@ export const ServerFilterPanel = ({
   filters,
   serverCount,
   playerCount,
+  viewMode,
+  onViewModeChange,
 }: ServerFilterPanelProps) => {
   const {
     searchQuery,
@@ -31,8 +37,6 @@ export const ServerFilterPanel = ({
     setShowOffline,
     showHubStatus,
     setShowHubStatus,
-    showSingleplayer,
-    setShowSingleplayer,
     filtersOpen,
     setFiltersOpen,
     filtersRef,
@@ -61,13 +65,7 @@ export const ServerFilterPanel = ({
   };
 
   const tagCategories = categories.filter((c) => c !== "sandbox");
-  const showHeader =
-    features.server_stats ||
-    features.server_search ||
-    features.server_filters ||
-    features.singleplayer;
-
-  if (!showHeader) return null;
+  const isBrowse = viewMode === "browse";
 
   return (
     <>
@@ -77,16 +75,41 @@ export const ServerFilterPanel = ({
         onClose={() => setAgeModalVisible(false)}
       />
       <div className="server-header">
-        {features.server_stats && (
-          <div className="server-stats">
-            <span className="stat-label">{t("servers.serversStat")}</span>
-            <span className="stat-value">{serverCount}</span>
-            <span className="stat-label">{t("servers.playersStat")}</span>
-            <span className="stat-value">{playerCount}</span>
-          </div>
-        )}
-        {(features.server_search || features.server_filters || features.singleplayer) && (
+        <div className="view-tabs">
+          <button
+            type="button"
+            className={`view-tab${viewMode === "home" ? " active" : ""}`}
+            onClick={() => onViewModeChange("home")}
+          >
+            {t("nav.home")}
+          </button>
+          <button
+            type="button"
+            className={`view-tab${viewMode === "browse" ? " active" : ""}`}
+            onClick={() => onViewModeChange("browse")}
+          >
+            {t("nav.browse")}
+          </button>
+          {features.singleplayer && (
+            <button
+              type="button"
+              className={`view-tab${viewMode === "singleplayer" ? " active" : ""}`}
+              onClick={() => onViewModeChange("singleplayer")}
+            >
+              {t("servers.singleplayer")}
+            </button>
+          )}
+        </div>
+        {isBrowse && (
           <div className="server-controls">
+            {features.server_stats && (
+              <div className="server-stats">
+                <span className="stat-label">{t("servers.serversStat")}</span>
+                <span className="stat-value">{serverCount}</span>
+                <span className="stat-label">{t("servers.playersStat")}</span>
+                <span className="stat-value">{playerCount}</span>
+              </div>
+            )}
             {features.server_search && (
               <input
                 type="text"
@@ -155,15 +178,6 @@ export const ServerFilterPanel = ({
                   </div>
                 )}
               </div>
-            )}
-            {features.singleplayer && (
-              <button
-                type="button"
-                className={`filters-button${showSingleplayer ? " active" : ""}`}
-                onClick={() => setShowSingleplayer(!showSingleplayer)}
-              >
-                {t("servers.singleplayer")}
-              </button>
             )}
           </div>
         )}

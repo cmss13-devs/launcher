@@ -45,8 +45,8 @@ use byond_login::{
 use relays::{get_relays, get_selected_relay, set_selected_relay};
 use servers::get_servers;
 use settings::{
-    get_settings, set_age_verified, set_auth_mode, set_locale, set_rendering_pipeline, set_theme,
-    toggle_server_notifications,
+    get_settings, set_age_verified, set_auth_mode, set_last_played_server, set_locale,
+    set_rendering_pipeline, set_theme, toggle_favorite_server, toggle_server_notifications,
 };
 
 use singleplayer::{
@@ -188,6 +188,8 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         set_locale,
         toggle_server_notifications,
         set_rendering_pipeline,
+        set_last_played_server,
+        toggle_favorite_server,
         get_control_server_port,
         kill_game,
         get_servers,
@@ -245,6 +247,8 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         set_locale,
         toggle_server_notifications,
         set_rendering_pipeline,
+        set_last_played_server,
+        toggle_favorite_server,
         get_control_server_port,
         kill_game,
         get_servers,

@@ -1,5 +1,5 @@
 import { faDiscord, faGithub, faSignalMessenger } from "@fortawesome/free-brands-svg-icons";
-import { faBell, faBellSlash, faBook, faChevronDown, faCircleCheck, faComments, faGlobe, faShield, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faBell, faBellSlash, faBook, faChevronDown, faCircleCheck, faComments, faGlobe, faShield, faStar, faUsers } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import type { MouseEvent } from "react";
@@ -50,6 +50,8 @@ export const ServerItem = ({
   const toggleServerNotifications = useSettingsStore(
     (s) => s.toggleServerNotifications,
   );
+  const isFavorited = useSettingsStore((s) => server.id ? s.favoriteServers.has(server.id) : false);
+  const toggleFavorite = useSettingsStore((s) => s.toggleFavoriteServer);
 
   const handleHubStatusClick = (e: MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -69,6 +71,10 @@ export const ServerItem = ({
 
     try {
       const result = await connect(server.name, "ServerItem.handleConnect");
+
+      if (result.success && server.id) {
+        useSettingsStore.getState().saveLastPlayedServer(server.id);
+      }
 
       if (!result.success && result.auth_error) {
         if (result.auth_error.code === "auth_required") {
@@ -296,6 +302,16 @@ export const ServerItem = ({
                   }
                 >
                   <FontAwesomeIcon icon={notificationsEnabled ? faBell : faBellSlash} />
+                </button>
+              )}
+              {server.id && (
+                <button
+                  type="button"
+                  className={`notify-toggle favorite-toggle ${isFavorited ? "favorited" : ""}`}
+                  onClick={() => toggleFavorite(server.id!, !isFavorited)}
+                  title={isFavorited ? t("servers.unfavorite") : t("servers.favorite")}
+                >
+                  <FontAwesomeIcon icon={faStar} />
                 </button>
               )}
             </div>
