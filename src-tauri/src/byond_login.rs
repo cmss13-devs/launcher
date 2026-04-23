@@ -253,6 +253,10 @@ fn login_init_script() -> &'static str {
                 const onLoginPage = path.includes('login');
 
                 if (!onLoginPage && username) {
+                    console.log('[BYOND LOGIN] detected username:', username, 'at:', window.location.href);
+                }
+
+                if (false && !onLoginPage && username) {
                     window.__TAURI_INTERNALS__.invoke('byond_login_complete', { username });
                     return;
                 }
@@ -370,8 +374,6 @@ fn create_login_webview(app: &AppHandle, data_dir: std::path::PathBuf) -> Comman
         .get_window("main")
         .ok_or_else(|| CommandError::Internal("main window not found".into()))?;
 
-    let app_for_nav = app.clone();
-
     let login_webview = WebviewBuilder::new(
         "byond_login_content",
         WebviewUrl::External(
@@ -389,18 +391,7 @@ fn create_login_webview(app: &AppHandle, data_dir: std::path::PathBuf) -> Comman
         }
     })
     .on_navigation(move |url| {
-        if url.scheme() != "https" && url.scheme() != "http" {
-            return true;
-        }
-        let path = url.path().to_lowercase();
-        if !path.contains("login") {
-            tracing::debug!("BYOND login: navigating away to {}", url);
-            dismiss_login(&app_for_nav);
-            if let Some(state) = app_for_nav.try_state::<ByondLoginState>() {
-                state.complete(None);
-            }
-            return false;
-        }
+        tracing::info!("BYOND login: navigation to {}", url);
         true
     });
 
