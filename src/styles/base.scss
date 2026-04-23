@@ -1,3 +1,17 @@
+@font-face {
+  font-family: 'DejaVu Sans Mono';
+  src: url('../assets/fonts/DejaVuSansMono.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'DejaVu Sans Mono';
+  src: url('../assets/fonts/DejaVuSansMono-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
 * {
   box-sizing: border-box;
   user-select: none;
@@ -15,7 +29,7 @@ body,
 }
 
 body {
-  font-family: monospace;
+  font-family: 'DejaVu Sans Mono', monospace;
   color: white;
 }
 
