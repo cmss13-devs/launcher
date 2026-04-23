@@ -185,10 +185,10 @@ pub fn get_config() -> LauncherConfig {
             direct_connect: true,
         },
         urls: LauncherUrls {
-            server_api: "https://ss13.cm-ss13.com/api/servers",
-            hub_api: Some("https://ss13.cm-ss13.com"),
+            server_api: "https://api.zewaka.webcam/api/servers",
+            hub_api: Some("https://api.zewaka.webcam"),
             auth_base: None,
-            steam_auth: Some("https://ss13.cm-ss13.com/api/auth/steam"),
+            steam_auth: Some("https://api.zewaka.webcam/api/auth/steam"),
             byond_hash_api: None,
             register_url: Some("https://ss13.cm-ss13.com/register"),
             help_url: "https://github.com/hry-gh/ss13-launcher/issues",

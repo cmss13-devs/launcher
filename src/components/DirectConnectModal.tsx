@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleCheck } from "@fortawesome/free-solid-svg-icons";
 import { commands, DirectConnectInfo } from "../bindings";
 import { formatCommandError } from "../lib/formatCommandError";
 import { useConnect, useError } from "../hooks";
@@ -43,10 +45,8 @@ export const DirectConnectModal = ({ visible, onClose }: DirectConnectModalProps
   };
 
   const doConnect = async (addr: string) => {
-    const success = await connectToAddress(addr, "DirectConnect");
-    if (success) {
-      handleClose();
-    }
+    handleClose();
+    await connectToAddress(addr, "DirectConnect");
   };
 
   const handleConfirm = async () => {
@@ -75,12 +75,24 @@ export const DirectConnectModal = ({ visible, onClose }: DirectConnectModalProps
       >
         <div className="modal-body">
           <div className="settings-section">
-            {connectInfo.trust === "SelfReported" ? (
+            {connectInfo.trust === "DomainAttested" && connectInfo.verified_domain ? (
+              <>
+                <p className="settings-description">
+                  {t("directConnect.domainAttestedInfo")}{" "}
+                  <span className="badge badge-verified">
+                    <FontAwesomeIcon icon={faCircleCheck} /> {connectInfo.verified_domain}
+                  </span>
+                </p>
+                <p className="settings-description settings-description-hint">
+                  {t("directConnect.domainAttestedDetail")}
+                </p>
+              </>
+            ) : connectInfo.trust === "SelfReported" ? (
               <>
                 <p className="settings-description">
                   {t("directConnect.selfReportedWarning")}
                 </p>
-                <p className="settings-description" style={{ opacity: 0.7 }}>
+                <p className="settings-description settings-description-hint">
                   {t("directConnect.selfReportedDetail")}
                 </p>
               </>

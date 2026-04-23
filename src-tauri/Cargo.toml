@@ -65,6 +65,8 @@ futures-util = "0.3"
 zstd = "0.13"
 tar = "0.4"
 http2byond = "0.2"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+hickory-resolver = "0.26"
 specta = "=2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }

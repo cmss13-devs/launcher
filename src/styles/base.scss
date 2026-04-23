@@ -767,7 +767,7 @@ body {
 .button {
   background-color: var(--primary);
   color: #fff;
-  padding: 8px 18px;
+  padding: 8px 16px;
   text-decoration: none;
   display: inline-block;
   text-align: center;
@@ -788,6 +788,8 @@ body {
   background-color: var(--primary);
   color: var(--text);
   padding: 8px 16px;
+  display: inline-block;
+  text-align: center;
   white-space: nowrap;
 
   &:hover {
@@ -1149,6 +1151,12 @@ body {
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+
+    .button {
+      margin-top: 0;
+    }
 
     .version-info {
       color: var(--primary-dim);
@@ -1506,6 +1514,11 @@ body {
   font-size: 13px;
   margin: 0 0 16px;
   line-height: 1.4;
+}
+
+p.settings-description-hint {
+  font-size: 11px;
+  opacity: 0.7;
 }
 
 .auth-mode-options,

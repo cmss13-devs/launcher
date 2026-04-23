@@ -1023,6 +1023,7 @@ pub async fn connect_to_server(
 pub enum DirectConnectTrust {
     HubVerified,
     HubKnown,
+    DomainAttested,
     SelfReported,
     ByondOnly,
 }
@@ -1039,11 +1040,18 @@ pub struct DirectConnectInfo {
     pub server_name: Option<String>,
 }
 
-async fn topic_preflight(ip: &str, port: u16) -> Option<String> {
+struct PreflightResult {
+    server_id: String,
+    domain: Option<String>,
+    signature: Option<String>,
+}
+
+async fn topic_preflight(ip: &str, port: u16, challenge: &str) -> Option<PreflightResult> {
     let addr: std::net::SocketAddr = format!("{ip}:{port}").parse().ok()?;
+    let query = format!("?ss13hub_preflight=1&challenge={challenge}");
     tracing::debug!("[topic_preflight] querying {addr}");
     let result = tokio::task::spawn_blocking(move || {
-        http2byond::send_byond(&addr, "?ss13hub_preflight=1")
+        http2byond::send_byond(&addr, &query)
     })
     .await
     .ok()?;
@@ -1058,9 +1066,17 @@ async fn topic_preflight(ip: &str, port: u16) -> Option<String> {
                     return None;
                 }
             };
-            let server_id = v["server_id"].as_str().map(String::from);
-            tracing::info!("[topic_preflight] {ip}:{port} returned server_id={server_id:?}");
-            server_id
+            let server_id = v["server_id"].as_str()?.to_string();
+            let domain = v["domain"].as_str().map(String::from);
+            let signature = v["signature"].as_str().map(String::from);
+            tracing::info!(
+                "[topic_preflight] {ip}:{port} server_id={server_id} domain={domain:?}"
+            );
+            Some(PreflightResult {
+                server_id,
+                domain,
+                signature,
+            })
         }
         Ok(_) => {
             tracing::debug!("[topic_preflight] {ip}:{port} returned non-string response");
@@ -1071,6 +1087,89 @@ async fn topic_preflight(ip: &str, port: u16) -> Option<String> {
             None
         }
     }
+}
+
+async fn verify_domain_attestation(domain: &str, challenge: &str, signature: &str) -> bool {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    use hickory_resolver::proto::rr::RData;
+
+    let lookup_name = format!("_ss13hub.{domain}");
+    tracing::debug!("[verify_attestation] looking up TXT {lookup_name}");
+
+    let resolver = match hickory_resolver::TokioResolver::builder_tokio() {
+        Ok(builder) => match builder.build() {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!("[verify_attestation] DNS resolver build failed: {e}");
+                return false;
+            }
+        },
+        Err(e) => {
+            tracing::warn!("[verify_attestation] DNS resolver init failed: {e}");
+            return false;
+        }
+    };
+
+    let txt_lookup = match resolver.txt_lookup(&lookup_name).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::debug!("[verify_attestation] TXT lookup failed for {lookup_name}: {e}");
+            return false;
+        }
+    };
+
+    let pubkey_b64 = txt_lookup
+        .answers()
+        .iter()
+        .filter_map(|record| match &record.data {
+            RData::TXT(txt) => {
+                let s = txt.to_string();
+                s.strip_prefix("ss13hub-ed25519=").map(|k| k.trim().to_string())
+            }
+            _ => None,
+        })
+        .next();
+
+    let Some(pubkey_b64) = pubkey_b64 else {
+        tracing::debug!("[verify_attestation] no ss13hub-ed25519 TXT record for {domain}");
+        return false;
+    };
+
+    let Ok(key_bytes) = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        &pubkey_b64,
+    ) else {
+        tracing::warn!("[verify_attestation] malformed base64 pubkey for {domain}");
+        return false;
+    };
+
+    let Ok(key_array): Result<[u8; 32], _> = key_bytes.try_into() else {
+        tracing::warn!("[verify_attestation] pubkey not 32 bytes for {domain}");
+        return false;
+    };
+
+    let Ok(pubkey) = VerifyingKey::from_bytes(&key_array) else {
+        tracing::warn!("[verify_attestation] invalid ed25519 pubkey for {domain}");
+        return false;
+    };
+
+    let Ok(sig_bytes) = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        signature,
+    ) else {
+        tracing::warn!("[verify_attestation] malformed base64 signature");
+        return false;
+    };
+
+    let Ok(sig) = Signature::from_slice(&sig_bytes) else {
+        tracing::warn!("[verify_attestation] invalid signature format");
+        return false;
+    };
+
+    let message = format!("{challenge}:{domain}");
+    let valid = pubkey.verify(message.as_bytes(), &sig).is_ok();
+    tracing::info!("[verify_attestation] domain={domain} valid={valid}");
+    valid
 }
 
 #[tauri::command]
@@ -1134,14 +1233,39 @@ pub async fn resolve_direct_connect(address: String) -> CommandResult<DirectConn
         }
     }
 
-    if let Some(server_id) = topic_preflight(&resolved_ip, port).await {
+    let challenge: String = {
+        use rand::RngCore;
+        let mut bytes = [0u8; 16];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        hex::encode(bytes)
+    };
+
+    if let Some(preflight) = topic_preflight(&resolved_ip, port, &challenge).await {
         tracing::info!(
-            "[resolve_direct_connect] topic preflight returned server_id={server_id}"
+            "[resolve_direct_connect] topic preflight returned server_id={}",
+            preflight.server_id
         );
+
+        if let (Some(domain), Some(signature)) = (&preflight.domain, &preflight.signature) {
+            if verify_domain_attestation(domain, &challenge, signature).await {
+                return Ok(DirectConnectInfo {
+                    hostname: hostname.to_string(),
+                    port,
+                    server_id: Some(preflight.server_id),
+                    trust: DirectConnectTrust::DomainAttested,
+                    verified_domain: Some(domain.clone()),
+                    server_name: None,
+                });
+            }
+            tracing::warn!(
+                "[resolve_direct_connect] domain attestation failed for {domain}"
+            );
+        }
+
         return Ok(DirectConnectInfo {
             hostname: hostname.to_string(),
             port,
-            server_id: Some(server_id),
+            server_id: Some(preflight.server_id),
             trust: DirectConnectTrust::SelfReported,
             verified_domain: None,
             server_name: None,
