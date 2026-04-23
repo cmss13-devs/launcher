@@ -64,7 +64,9 @@
     "steamHaveAccount": "Do you have an existing {{provider}} account?",
     "steamYesLink": "Yes, link my account",
     "steamNoStart": "No, start now",
-    "loginPromptDefault": "Please log in to continue."
+    "loginPromptDefault": "Please log in to continue.",
+    "hubLoginToggle": "Create account or sign in",
+    "backToSteam": "Back to Steam login"
   },
   "connection": {
     "connecting": "Connecting to {{server}}...",

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, ModalCloseButton, ModalContent } from "./Modal";
+import { Modal, ModalContent } from "./Modal";
 
 interface AgeVerificationModalProps {
   visible: boolean;
@@ -91,9 +91,8 @@ export const AgeVerificationModal = ({
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} closeOnOverlayClick>
-      <ModalCloseButton onClick={onClose} />
-      <ModalContent title={t("age.title")}>
+    <Modal visible={visible} onClose={onClose} closeOnOverlayClick title={t("age.title")}>
+      <ModalContent>
         <p>{t("age.prompt")}</p>
         <form onSubmit={handleSubmit} className="age-verification-form">
           <div className="dob-inputs">

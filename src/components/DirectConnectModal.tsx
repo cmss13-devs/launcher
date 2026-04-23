@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConnect, useError } from "../hooks";
-import { Modal, ModalCloseButton } from "./Modal";
+import { Modal } from "./Modal";
 
 interface DirectConnectModalProps {
   visible: boolean;
@@ -42,12 +42,9 @@ export const DirectConnectModal = ({ visible, onClose }: DirectConnectModalProps
       onClose={onClose}
       className="settings-modal"
       closeOnOverlayClick
+      title={t("directConnect.title")}
     >
-      <div className="modal-header">
-        <h2>{t("directConnect.title")}</h2>
-        <ModalCloseButton onClick={onClose} />
-      </div>
-      <div className="settings-modal-content">
+      <div className="modal-body">
         <div className="settings-section">
           <p className="settings-description">{t("directConnect.hint")}</p>
           <input
@@ -61,7 +58,7 @@ export const DirectConnectModal = ({ visible, onClose }: DirectConnectModalProps
           />
         </div>
       </div>
-      <div className="settings-modal-footer">
+      <div className="modal-footer">
         <button
           type="button"
           className="button"

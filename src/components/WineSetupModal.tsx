@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { RenderingPipeline, WineStatus } from "../bindings";
 import type { WineSetupProgress } from "../types";
-import { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
+import { Modal, ModalContent, ModalSpinner } from "./Modal";
 
 interface WineSetupModalProps {
   visible: boolean;
@@ -24,10 +24,8 @@ const WineErrorContent = ({
 }) => {
   const { t } = useTranslation();
   return (
-    <ModalContent title={t("wine.errorTitle")}>
-      <p>
-        {status.error || t("wine.errorDefault")}
-      </p>
+    <ModalContent>
+      <p>{status.error || t("wine.errorDefault")}</p>
       <div>
         <button type="button" className="button" onClick={onRetry}>
           {t("common.retry")}
@@ -44,11 +42,10 @@ const SetupProgressContent = ({
 }) => {
   const { t } = useTranslation();
   const displayProgress = progress?.progress ?? 0;
-  const displayMessage =
-    progress?.message ?? t("wine.setupStarting");
+  const displayMessage = progress?.message ?? t("wine.setupStarting");
 
   return (
-    <ModalContent title={t("wine.setupTitle")}>
+    <ModalContent>
       <p>{displayMessage}</p>
       <div className="wine-progress-bar">
         <div
@@ -74,7 +71,7 @@ const SetupRequiredContent = ({
 }) => {
   const { t } = useTranslation();
   return (
-    <ModalContent title={t("wine.setupRequired")}>
+    <ModalContent>
       <p>{t("wine.setupRequiredDesc")}</p>
       <div className="wine-rendering-pipeline">
         <h4>{t("wine.renderingPipeline")}</h4>
@@ -126,7 +123,7 @@ const SetupErrorContent = ({
 }) => {
   const { t } = useTranslation();
   return (
-    <ModalContent title={t("wine.setupFailed")}>
+    <ModalContent>
       <p>{error}</p>
       <p>{t("wine.youCanTry")}</p>
       <ul>
@@ -145,7 +142,7 @@ const SetupErrorContent = ({
 const SetupCompleteContent = ({ onClose }: { onClose: () => void }) => {
   const { t } = useTranslation();
   return (
-    <ModalContent title={t("wine.setupComplete")}>
+    <ModalContent>
       <div>
         <p>{t("wine.setupCompleteMsg")}</p>
       </div>
@@ -169,6 +166,7 @@ export const WineSetupModal = ({
   onClose,
   onRetry,
 }: WineSetupModalProps) => {
+  const { t } = useTranslation();
   const wineError = status.error || !status.installed;
   const setupComplete =
     status.prefix_initialized &&
@@ -176,13 +174,23 @@ export const WineSetupModal = ({
     !isSettingUp &&
     progress?.stage === "complete";
   const setupFailed = progress?.stage === "error";
-
   const canClose = !isSettingUp;
 
-  return (
-    <Modal visible={visible} onClose={canClose ? onClose : () => {}}>
-      {canClose && <ModalCloseButton onClick={onClose} />}
+  const getTitle = () => {
+    if (wineError) return t("wine.errorTitle");
+    if (isSettingUp) return t("wine.setupTitle");
+    if (setupFailed) return t("wine.setupFailed");
+    if (setupComplete) return t("wine.setupComplete");
+    return t("wine.setupRequired");
+  };
 
+  return (
+    <Modal
+      visible={visible}
+      onClose={canClose ? onClose : () => {}}
+      showClose={canClose}
+      title={getTitle()}
+    >
       {wineError ? (
         <WineErrorContent status={status} onRetry={onRetry} />
       ) : isSettingUp ? (

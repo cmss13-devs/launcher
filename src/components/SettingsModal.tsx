@@ -10,7 +10,7 @@ import type { AuthMode, RenderingPipeline, Theme, WineStatus } from "../bindings
 import type { Platform } from "../types";
 import { faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Modal, ModalCloseButton } from "./Modal";
+import { Modal } from "./Modal";
 
 interface LocaleDropdownProps {
   value: string | null;
@@ -388,9 +388,8 @@ export const SettingsModal = ({
       onClose={onClose}
       className="settings-modal"
       closeOnOverlayClick
-    >
-      <div className="modal-header">
-        <h2>{t("settings.title")}</h2>
+      title={t("settings.title")}
+      headerExtra={
         <button
           type="button"
           className="help-link"
@@ -401,9 +400,9 @@ export const SettingsModal = ({
         >
           {t("common.help")}
         </button>
-        <ModalCloseButton onClick={onClose} />
-      </div>
-      <div className="settings-modal-content">
+      }
+    >
+      <div className="modal-body">
         <div className="settings-section">
           <h3>{t("settings.appearance")}</h3>
           <p className="settings-description">
@@ -552,7 +551,7 @@ export const SettingsModal = ({
           </div>
         )}
       </div>
-      <div className="settings-modal-footer">
+      <div className="modal-footer">
         <span className="version-info">v{appVersion}</span>
       </div>
     </Modal>

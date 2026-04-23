@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSteam, faDiscord } from "@fortawesome/free-brands-svg-icons";
 import { faKey } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
+import { Modal, ModalContent, ModalSpinner } from "./Modal";
 
 export type AuthModalState = "idle" | "loading" | "error" | "2fa";
 
@@ -58,6 +58,7 @@ export const AuthModal = ({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
+  const [showHubLogin, setShowHubLogin] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,39 +69,119 @@ export const AuthModal = ({
     }
   };
 
+  const titleMap: Record<AuthModalState, string> = {
+    idle: useHubAuth ? t("auth.loginTitle") : t("auth.authRequired"),
+    "2fa": t("auth.twoFactorTitle"),
+    loading: t("auth.authenticating"),
+    error: t("auth.authFailed"),
+  };
+
   return (
-    <Modal visible={visible} onClose={onClose} closeOnOverlayClick>
-      <ModalCloseButton onClick={onClose} />
+    <Modal
+      visible={visible}
+      onClose={onClose}
+      closeOnOverlayClick
+      className={`auth-modal${steamAvailable && useHubAuth ? " auth-modal-steam" : ""}`}
+      title={titleMap[state]}
+    >
       {state === "idle" && !useHubAuth && (
-        <ModalContent title={t("auth.authRequired")}>
+        <ModalContent>
           <p>{loginPrompt}</p>
           <button type="button" className="button" onClick={onLogin}>
             {t("common.login")}
           </button>
         </ModalContent>
       )}
-      {state === "idle" && useHubAuth && (
-        <ModalContent title={t("auth.loginTitle")}>
-          {steamAvailable && (
-            <div className="steam-login-section">
+      {state === "idle" && useHubAuth && steamAvailable && (
+        <div className="auth-modal-steam-body">
+          {showHubLogin ? (
+            <>
+              <form onSubmit={handleSubmit} className="hub-login-form">
+                <input
+                  type="text"
+                  placeholder={t("auth.usernamePlaceholder")}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoFocus
+                />
+                <input
+                  type="password"
+                  placeholder={t("auth.passwordPlaceholder")}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button type="submit" className="button" disabled={!username || !password}>
+                  {t("common.login")}
+                </button>
+              </form>
+              <div className="hub-login-links">
+                {registerUrl && (
+                  <button
+                    type="button"
+                    className="hub-login-toggle"
+                    onClick={() => commands.openUrl(registerUrl)}
+                  >
+                    {t("common.createAccount")}
+                  </button>
+                )}
+                {registerUrl && <span className="hub-login-separator">·</span>}
+                <button
+                  type="button"
+                  className="hub-login-toggle"
+                  onClick={() => setShowHubLogin(false)}
+                >
+                  {t("auth.backToSteam")}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="steam-login-section">
+                <button
+                  type="button"
+                  className="button steam-login-button"
+                  onClick={onSteamLogin}
+                >
+                  <FontAwesomeIcon icon={faSteam} />
+                  {t("auth.signInWithSteam")}
+                </button>
+              </div>
+              {oauthProviders.length > 0 && (
+                <div className="oauth-providers">
+                  <div className="oauth-divider"><span>{t("common.or")}</span></div>
+                  {oauthProviders.map((provider) => (
+                    <button
+                      key={provider}
+                      type="button"
+                      className="button-secondary oauth-button"
+                      onClick={() => onOAuthLogin(provider)}
+                    >
+                      <FontAwesomeIcon icon={OAUTH_ICONS[provider] ?? faKey} />
+                      {" "}{OAUTH_DISPLAY_NAMES[provider] ?? provider}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
-                className="button steam-login-button"
-                onClick={onSteamLogin}
+                className="hub-login-toggle"
+                onClick={() => setShowHubLogin(true)}
               >
-                <FontAwesomeIcon icon={faSteam} />
-                {t("auth.signInWithSteam")}
+                {t("auth.hubLoginToggle")}
               </button>
-              <div className="oauth-divider"><span>{t("common.or")}</span></div>
-            </div>
+            </>
           )}
+        </div>
+      )}
+      {state === "idle" && useHubAuth && !steamAvailable && (
+        <ModalContent>
           <form onSubmit={handleSubmit} className="hub-login-form">
             <input
               type="text"
               placeholder={t("auth.usernamePlaceholder")}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              autoFocus={!steamAvailable}
+              autoFocus
             />
             <input
               type="password"
@@ -140,7 +221,7 @@ export const AuthModal = ({
         </ModalContent>
       )}
       {state === "2fa" && (
-        <ModalContent title={t("auth.twoFactorTitle")}>
+        <ModalContent>
           <form onSubmit={handleSubmit} className="hub-login-form">
             <p>{t("auth.twoFactorPrompt")}</p>
             <input
@@ -160,13 +241,13 @@ export const AuthModal = ({
         </ModalContent>
       )}
       {state === "loading" && (
-        <ModalContent title={t("auth.authenticating")}>
+        <ModalContent>
           {useHubAuth ? <p>{t("auth.loggingIn")}</p> : <p>{t("auth.completeBrowserLogin")}</p>}
           <ModalSpinner />
         </ModalContent>
       )}
       {state === "error" && (
-        <ModalContent title={t("auth.authFailed")}>
+        <ModalContent>
           <p className="auth-error-message">{error}</p>
           {useHubAuth ? (
             <button

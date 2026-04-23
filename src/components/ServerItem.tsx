@@ -10,7 +10,7 @@ import { useConnect, useError } from "../hooks";
 import { useConfigStore, useServerStore, useSettingsStore } from "../stores";
 import type { Server } from "../bindings";
 import { formatDuration } from "../utils";
-import { Modal, ModalContent } from "./Modal";
+import { Modal } from "./Modal";
 
 const linkIconMap: Record<string, IconDefinition> = {
   discord: faDiscord,
@@ -116,8 +116,8 @@ export const ServerItem = ({
         visible={pendingUrl !== null}
         onClose={() => setPendingUrl(null)}
         closeOnOverlayClick
+        title={t("servers.openExternalLink")}
       >
-        <ModalContent title={t("servers.openExternalLink")}>
           <p className="external-link-prompt">{t("servers.externalLinkPrompt")}</p>
           <p className="external-link-url">{pendingUrl}</p>
           <div className="external-link-actions">
@@ -139,7 +139,6 @@ export const ServerItem = ({
               {t("common.cancel")}
             </button>
           </div>
-        </ModalContent>
       </Modal>
       <div className={`server-item ${!isOnline ? "offline" : ""} ${infoOpen ? "expanded" : ""}`}>
         <div className="server-item-row">

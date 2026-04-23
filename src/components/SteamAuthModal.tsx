@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { commands } from "../bindings";
-import { Modal, ModalCloseButton, ModalContent, ModalSpinner } from "./Modal";
+import { Modal, ModalContent, ModalSpinner } from "./Modal";
 
 export type SteamAuthModalState = "idle" | "loading" | "linking" | "error";
 
@@ -31,23 +31,29 @@ export const SteamAuthModal = ({
     }
   };
 
+  const titleMap: Record<SteamAuthModalState, string> = {
+    idle: t("auth.steamAuth"),
+    loading: t("auth.authenticating"),
+    linking: t("auth.steamLinkingTitle"),
+    error: t("auth.authFailed"),
+  };
+
   return (
-    <Modal visible={visible} onClose={onClose}>
-      <ModalCloseButton onClick={onClose} />
+    <Modal visible={visible} onClose={onClose} title={titleMap[state]}>
       {state === "idle" && (
-        <ModalContent title={t("auth.steamAuth")}>
+        <ModalContent>
           <p>{t("auth.steamAuthenticating")}</p>
           <ModalSpinner />
         </ModalContent>
       )}
       {state === "loading" && (
-        <ModalContent title={t("auth.authenticating")}>
+        <ModalContent>
           <p>{t("auth.steamValidating")}</p>
           <ModalSpinner />
         </ModalContent>
       )}
       {state === "linking" && (
-        <ModalContent title={t("auth.steamLinkingTitle")}>
+        <ModalContent>
           <p>{t("auth.steamNoAccount", { provider: authProviderName })}</p>
           <p>{t("auth.steamHaveAccount", { provider: authProviderName })}</p>
           <div className="auth-modal-buttons">
@@ -65,7 +71,7 @@ export const SteamAuthModal = ({
         </ModalContent>
       )}
       {state === "error" && (
-        <ModalContent title={t("auth.authFailed")}>
+        <ModalContent>
           <p className="auth-error-message">{error}</p>
           <button
             type="button"

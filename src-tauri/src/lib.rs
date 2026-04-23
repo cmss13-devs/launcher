@@ -310,7 +310,9 @@ pub fn run() {
     #[allow(clippy::expect_used)]
     specta_builder
         .export(
-            specta_typescript::Typescript::default(),
+            specta_typescript::Typescript::default()
+                .bigint(specta_typescript::BigIntExportBehavior::Number)
+                .header("// @ts-nocheck\n"),
             "../src/bindings.ts",
         )
         .expect("Failed to export typescript bindings");

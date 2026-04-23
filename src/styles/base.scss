@@ -262,7 +262,7 @@ body {
 }
 
 .search-input {
-  padding: 6px 10px;
+  padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 2px;
   background: rgba(0, 0, 0, 0.2);
@@ -1129,24 +1129,51 @@ body {
   border: 1px solid var(--border);
   border-radius: 4px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  padding: 40px 60px;
-  text-align: center;
+  padding: 0;
   max-width: 450px;
   min-width: 350px;
   max-height: calc(100vh - var(--titlebar-height) - 40px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+
+  .modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .modal-footer {
+    padding: 12px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+
+    .version-info {
+      color: var(--primary-dim);
+      font-size: 12px;
+    }
+  }
+
+  &.auth-modal-steam {
+    height: 320px;
+    width: 450px;
+
+    .auth-modal-steam-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: center;
+      padding: 0 24px 24px;
+    }
+  }
 
   &.byond-login-modal {
     width: 520px;
     height: 440px;
     max-width: 520px;
     min-width: 520px;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    padding-top: 16px;
 
     .byond-login-spinner {
       flex: 1;
@@ -1157,17 +1184,9 @@ body {
     }
   }
 
-  h2 {
-    color: var(--text);
-    margin: 0 0 16px;
-    text-transform: none;
-    letter-spacing: 0;
-    font-size: 18px;
-  }
-
   p {
     color: var(--text-dim);
-    margin: 0 0 24px;
+    margin: 0 0 16px;
     font-size: 14px;
     line-height: 1.5;
   }
@@ -1303,10 +1322,39 @@ body {
   }
 }
 
+.hub-login-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hub-login-separator {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.hub-login-toggle {
+  background: none;
+  border: none;
+  color: #5b9bd5;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 12px;
+
+  &:hover {
+    color: #7bb3e0;
+    text-decoration: underline;
+  }
+}
+
 .register-link {
   background: none;
   border: none;
-  color: var(--primary-dim);
+  color: #5b9bd5;
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
@@ -1318,7 +1366,7 @@ body {
   }
 
   &:hover {
-    color: var(--primary);
+    color: #7bb3e0;
   }
 }
 
@@ -1388,17 +1436,9 @@ body {
 }
 
 .settings-modal {
-  background: #2a2a2a;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  padding: 0;
+  @extend .auth-modal;
   max-width: 500px;
   min-width: 400px;
-  max-height: min(400px, calc(100vh - var(--titlebar-height) - 48px));
-  display: flex;
-  flex-direction: column;
-  position: relative;
 }
 
 .modal-header {
@@ -1438,25 +1478,6 @@ body {
 
   .modal-close-button {
     position: static;
-  }
-}
-
-.settings-modal-content {
-  padding: 24px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.settings-modal-footer {
-  padding: 12px 24px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: flex-end;
-
-  .version-info {
-    color: var(--primary-dim);
-    font-size: 12px;
   }
 }
 
@@ -1581,7 +1602,13 @@ body {
   margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+
+  .button,
+  .button-secondary {
+    margin-top: 0;
+  }
 
   .byond-login-status {
     color: var(--primary-dim);

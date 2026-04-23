@@ -6,18 +6,24 @@ interface ModalProps {
   visible: boolean;
   onClose: () => void;
   children: ReactNode;
+  title?: string;
+  headerExtra?: ReactNode;
   className?: string;
   overlayClassName?: string;
   closeOnOverlayClick?: boolean;
+  showClose?: boolean;
 }
 
 export const Modal = ({
   visible,
   onClose,
   children,
+  title,
+  headerExtra,
   className = "auth-modal",
   overlayClassName = "auth-modal-overlay",
   closeOnOverlayClick = false,
+  showClose = true,
 }: ModalProps) => {
   useEffect(() => {
     if (!visible) return;
@@ -45,7 +51,18 @@ export const Modal = ({
       role="dialog"
       aria-modal="true"
     >
-      <div className={className}>{children}</div>
+      <div className={className}>
+        {title ? (
+          <div className="modal-header">
+            <h2>{title}</h2>
+            {headerExtra}
+            {showClose && <ModalCloseButton onClick={onClose} />}
+          </div>
+        ) : (
+          showClose && <ModalCloseButton onClick={onClose} />
+        )}
+        {children}
+      </div>
     </div>
   );
 };
@@ -63,16 +80,12 @@ export const ModalCloseButton = ({ onClick }: ModalCloseButtonProps) => {
 };
 
 interface ModalContentProps {
-  title: string;
   children: ReactNode;
 }
 
-export const ModalContent = ({ title, children }: ModalContentProps) => {
+export const ModalContent = ({ children }: ModalContentProps) => {
   return (
-    <>
-      <h2>{title}</h2>
-      {children}
-    </>
+    <div className="modal-body">{children}</div>
   );
 };
 
