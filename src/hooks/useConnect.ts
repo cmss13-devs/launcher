@@ -42,6 +42,16 @@ function dispatchAuthError(
   }
 }
 
+export function useRawConnect() {
+  const connect = useCallback(
+    async (serverName: string, source: string): Promise<ConnectionResult> => {
+      return unwrap(await commands.connectToServer(serverName, source));
+    },
+    [],
+  );
+  return { connect };
+}
+
 export const useConnect = () => {
   const { onLoginRequired, onSteamAuthRequired, handleByondLogin } = useAuthFlow();
   const { showError } = useError();

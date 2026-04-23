@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { SteamAuthModalState } from "../components/SteamAuthModal";
 import { useSteamStore } from "../stores";
-import { useConnect } from "./useConnect";
+import { useRawConnect } from "./useConnect";
 import { useError } from "./useError";
 
 export interface SteamModalView {
@@ -21,7 +21,7 @@ const CLOSED: SteamModalView = {
 
 export function useSteamLinking() {
   const { showError } = useError();
-  const { connect } = useConnect();
+  const { connect } = useRawConnect();
   const { authenticateSteam, steamLogout, cancelSteamAuthTicket } = useSteamStore(
     useShallow((s) => ({
       authenticateSteam: s.authenticate,
