@@ -151,7 +151,10 @@
   "directConnect": {
     "title": "Direct Connect",
     "hint": "Enter a server address to connect directly.",
-    "placeholder": "host:port"
+    "placeholder": "host:port",
+    "selfReportedWarning": "This server claims to support hub authentication, but its identity has not been verified.",
+    "selfReportedDetail": "Your auth credentials will be sent to this server. Only continue if you trust this address.",
+    "byondOnlyInfo": "This server does not support hub authentication. You will connect with BYOND login only."
   },
   "relay": {
     "label": "Relay:",

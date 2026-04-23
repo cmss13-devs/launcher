@@ -49,6 +49,14 @@ async connectToAddress(address: string, source: string | null) : Promise<Result<
     else return { status: "error", error: e  as any };
 }
 },
+async resolveDirectConnect(address: string) : Promise<Result<DirectConnectInfo, CommandError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("resolve_direct_connect", { address }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async isDevMode() : Promise<boolean> {
     return await TAURI_INVOKE("is_dev_mode");
 },
@@ -502,6 +510,8 @@ export type ByondSessionCheck = { logged_in: boolean; username: string | null; w
 export type ByondVersionInfo = { version: string; installed: boolean; path: string | null; last_used: string | null }
 export type CommandError = { type: "network"; data: string } | { type: "not_authenticated" } | { type: "token_expired" } | { type: "requires_2fa" } | { type: "invalid_credentials" } | { type: "account_locked" } | { type: "requires_linking"; data: { url: string } } | { type: "not_found"; data: string } | { type: "io"; data: string } | { type: "not_configured"; data: { feature: string } } | { type: "unsupported_platform"; data: { feature: string; platform: string } } | { type: "busy"; data: { operation: string } } | { type: "cancelled"; data: { operation: string } } | { type: "timeout"; data: { operation: string } } | { type: "internal"; data: string } | { type: "webview"; data: string } | { type: "invalid_response"; data: string } | { type: "invalid_input"; data: string }
 export type ConnectionResult = { success: boolean; message: string; auth_error: AuthError | null }
+export type DirectConnectInfo = { hostname: string; port: number; server_id: string | null; trust: DirectConnectTrust; verified_domain?: string | null; server_name?: string | null }
+export type DirectConnectTrust = "HubVerified" | "HubKnown" | "SelfReported" | "ByondOnly"
 export type EngineRequirements = { min_version?: string | null; max_version?: string | null; blacklisted_versions?: string[] }
 export type FilterSettings = { tags: string[]; show_18_plus: boolean; show_offline: boolean | null; show_hub_status: boolean; regions: string[]; search_query: string | null }
 export type LauncherConfig = { variant: string; product_name: string; logo: string; default_theme: string; app_identifier: string; default_byond_version: string | null; server_api: ServerApiType; features: LauncherFeatures; urls: LauncherUrls; strings: LauncherStrings; singleplayer: SingleplayerConfig; oidc: OidcConfig | null; social_links: SocialLink[] }

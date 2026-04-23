@@ -2,6 +2,12 @@ use serde::{Deserialize, Serialize};
 
 use super::client::UserInfo;
 
+pub struct ResolveResult {
+    pub server_id: String,
+    pub address: String,
+    pub verified_domain: Option<String>,
+}
+
 /// Client for ss13hub session token authentication.
 pub struct HubClient {
     base_url: String,
@@ -163,8 +169,8 @@ impl HubClient {
             .ok_or_else(|| HubAuthError::Server("missing auth_ticket in response".into()))
     }
 
-    /// Resolve a host:port to a server UUID.
-    pub async fn resolve_server(host: &str, port: u16) -> Result<String, HubAuthError> {
+    /// Resolve a host:port to a server UUID and trust metadata.
+    pub async fn resolve_server(host: &str, port: u16) -> Result<ResolveResult, HubAuthError> {
         let client = Self::from_config()?;
 
         let response = client
@@ -176,6 +182,10 @@ impl HubClient {
             .send()
             .await
             .map_err(|e| HubAuthError::Network(format!("Failed to connect: {e}")))?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(HubAuthError::NotFound);
+        }
 
         if !response.status().is_success() {
             let status = response.status();
@@ -190,10 +200,23 @@ impl HubClient {
             .await
             .map_err(|e| HubAuthError::Network(format!("Invalid response: {e}")))?;
 
-        body["server_id"]
+        let server_id = body["server_id"]
             .as_str()
             .map(String::from)
-            .ok_or_else(|| HubAuthError::Server("missing server_id in response".into()))
+            .ok_or_else(|| HubAuthError::Server("missing server_id in response".into()))?;
+
+        let address = body["address"]
+            .as_str()
+            .map(String::from)
+            .unwrap_or_default();
+
+        let verified_domain = body["verified_domain"].as_str().map(String::from);
+
+        Ok(ResolveResult {
+            server_id,
+            address,
+            verified_domain,
+        })
     }
 
     /// Exchange an OAuth login code for a session token.
@@ -277,6 +300,7 @@ pub enum HubAuthError {
     Requires2FA,
     AccountLocked,
     TokenExpired,
+    NotFound,
     Network(String),
     Server(String),
     Config(String),
@@ -289,6 +313,7 @@ impl std::fmt::Display for HubAuthError {
             Self::Requires2FA => write!(f, "2FA code required"),
             Self::AccountLocked => write!(f, "Account is locked"),
             Self::TokenExpired => write!(f, "Session expired, please log in again"),
+            Self::NotFound => write!(f, "Not found"),
             Self::Network(msg) => write!(f, "{msg}"),
             Self::Server(msg) => write!(f, "{msg}"),
             Self::Config(msg) => write!(f, "{msg}"),

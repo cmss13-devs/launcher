@@ -33,7 +33,7 @@ use auth::{
     hub_oauth_login, logout, refresh_auth, start_login,
 };
 use byond::{
-    check_byond_version, connect_to_address, connect_to_server, connect_to_url,
+    check_byond_version, connect_to_address, connect_to_server, connect_to_url, resolve_direct_connect,
     delete_byond_version, get_byond_username, install_byond_version, is_byond_pager_running,
     is_dev_mode, list_installed_byond_versions,
 };
@@ -170,6 +170,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         connect_to_server,
         connect_to_url,
         connect_to_address,
+        resolve_direct_connect,
         is_dev_mode,
         list_installed_byond_versions,
         delete_byond_version,
@@ -231,6 +232,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         connect_to_server,
         connect_to_url,
         connect_to_address,
+        resolve_direct_connect,
         is_dev_mode,
         list_installed_byond_versions,
         delete_byond_version,

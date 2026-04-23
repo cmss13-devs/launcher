@@ -20,6 +20,7 @@ dependencies = [
  "discord-sdk",
  "futures-util",
  "hex",
+ "http2byond",
  "libc",
  "oauth2",
  "open",
@@ -1933,6 +1934,15 @@ dependencies = [
  "http",
  "http-body",
  "pin-project-lite",
+]
+
+[[package]]
+name = "http2byond"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5cedb9b9baa93dc2588ebab24c861028f439ca63c87106571443a69ef5225f3"
+dependencies = [
+ "bytes",
 ]
 
 [[package]]

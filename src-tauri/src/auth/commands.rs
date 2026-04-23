@@ -19,6 +19,7 @@ impl From<HubAuthError> for CommandError {
             HubAuthError::TokenExpired => Self::TokenExpired,
             HubAuthError::Network(msg) => Self::Network(msg),
             HubAuthError::Server(msg) => Self::Network(msg),
+            HubAuthError::NotFound => Self::Network("Not found".into()),
             HubAuthError::Config(msg) => Self::NotConfigured { feature: msg },
         }
     }

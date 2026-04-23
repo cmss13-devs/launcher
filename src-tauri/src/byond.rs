@@ -1019,18 +1019,64 @@ pub async fn connect_to_server(
     .await
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub enum DirectConnectTrust {
+    HubVerified,
+    HubKnown,
+    SelfReported,
+    ByondOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct DirectConnectInfo {
+    pub hostname: String,
+    pub port: u16,
+    pub server_id: Option<String>,
+    pub trust: DirectConnectTrust,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified_domain: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_name: Option<String>,
+}
+
+async fn topic_preflight(ip: &str, port: u16) -> Option<String> {
+    let addr: std::net::SocketAddr = format!("{ip}:{port}").parse().ok()?;
+    tracing::debug!("[topic_preflight] querying {addr}");
+    let result = tokio::task::spawn_blocking(move || {
+        http2byond::send_byond(&addr, "?ss13hub_preflight=1")
+    })
+    .await
+    .ok()?;
+
+    match result {
+        Ok(http2byond::ByondTopicValue::String(s)) => {
+            let s = s.trim_end_matches('\0');
+            let v: serde_json::Value = match serde_json::from_str(s) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::warn!("[topic_preflight] invalid JSON from {ip}:{port}: {e}");
+                    return None;
+                }
+            };
+            let server_id = v["server_id"].as_str().map(String::from);
+            tracing::info!("[topic_preflight] {ip}:{port} returned server_id={server_id:?}");
+            server_id
+        }
+        Ok(_) => {
+            tracing::debug!("[topic_preflight] {ip}:{port} returned non-string response");
+            None
+        }
+        Err(e) => {
+            tracing::debug!("[topic_preflight] {ip}:{port} connection failed: {e}");
+            None
+        }
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
-pub async fn connect_to_address(
-    app: AppHandle,
-    address: String,
-    source: Option<String>,
-) -> CommandResult<ConnectionResult> {
-    let source_str = source.as_deref().unwrap_or("unknown");
-
-    let address_clean = address
-        .strip_prefix("byond://")
-        .unwrap_or(&address);
+pub async fn resolve_direct_connect(address: String) -> CommandResult<DirectConnectInfo> {
+    let address_clean = address.strip_prefix("byond://").unwrap_or(&address);
 
     let parts: Vec<&str> = address_clean.split(':').collect();
     if parts.len() != 2 {
@@ -1046,7 +1092,6 @@ pub async fn connect_to_address(
         .parse()
         .map_err(|_| CommandError::InvalidInput(format!("Invalid port: {port_str}")))?;
 
-    // Resolve hostname to IP
     use std::net::ToSocketAddrs;
     let resolved_ip = format!("{hostname}:{port}")
         .to_socket_addrs()
@@ -1056,10 +1101,104 @@ pub async fn connect_to_address(
         .ip()
         .to_string();
 
-    // Resolve server UUID via hub API
+    tracing::info!(
+        "[resolve_direct_connect] resolving {hostname}:{port} (ip={resolved_ip})"
+    );
+
+    match crate::auth::hub_client::HubClient::resolve_server(&resolved_ip, port).await {
+        Ok(result) => {
+            tracing::info!(
+                "[resolve_direct_connect] hub resolved: server_id={} verified_domain={:?}",
+                result.server_id,
+                result.verified_domain
+            );
+            let trust = if result.verified_domain.is_some() {
+                DirectConnectTrust::HubVerified
+            } else {
+                DirectConnectTrust::HubKnown
+            };
+            return Ok(DirectConnectInfo {
+                hostname: hostname.to_string(),
+                port,
+                server_id: Some(result.server_id),
+                trust,
+                verified_domain: result.verified_domain,
+                server_name: None,
+            });
+        }
+        Err(crate::auth::hub_client::HubAuthError::NotFound) => {
+            tracing::info!("[resolve_direct_connect] server not in hub, trying topic preflight");
+        }
+        Err(e) => {
+            tracing::warn!("[resolve_direct_connect] hub resolve failed: {e}");
+        }
+    }
+
+    if let Some(server_id) = topic_preflight(&resolved_ip, port).await {
+        tracing::info!(
+            "[resolve_direct_connect] topic preflight returned server_id={server_id}"
+        );
+        return Ok(DirectConnectInfo {
+            hostname: hostname.to_string(),
+            port,
+            server_id: Some(server_id),
+            trust: DirectConnectTrust::SelfReported,
+            verified_domain: None,
+            server_name: None,
+        });
+    }
+
+    tracing::info!("[resolve_direct_connect] no hub auth available, byond-only");
+
+    Ok(DirectConnectInfo {
+        hostname: hostname.to_string(),
+        port,
+        server_id: None,
+        trust: DirectConnectTrust::ByondOnly,
+        verified_domain: None,
+        server_name: None,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn connect_to_address(
+    app: AppHandle,
+    address: String,
+    source: Option<String>,
+) -> CommandResult<ConnectionResult> {
+    let source_str = source.as_deref().unwrap_or("unknown");
+
+    let address_clean = address.strip_prefix("byond://").unwrap_or(&address);
+
+    let parts: Vec<&str> = address_clean.split(':').collect();
+    if parts.len() != 2 {
+        return Err(CommandError::InvalidInput(format!(
+            "Invalid address format, expected host:port: {address}"
+        )));
+    }
+
+    #[allow(clippy::indexing_slicing)]
+    let (hostname, port_str) = (parts[0], parts[1]);
+
+    let port: u16 = port_str
+        .parse()
+        .map_err(|_| CommandError::InvalidInput(format!("Invalid port: {port_str}")))?;
+
+    // Resolve hostname to IP and look up server UUID via hub API
+    use std::net::ToSocketAddrs;
+    let resolved_ip = format!("{hostname}:{port}")
+        .to_socket_addrs()
+        .map_err(|e| CommandError::InvalidInput(format!("Failed to resolve hostname: {e}")))?
+        .next()
+        .ok_or_else(|| CommandError::InvalidInput(format!("Could not resolve: {hostname}")))?
+        .ip()
+        .to_string();
+
     let server_id =
         match crate::auth::hub_client::HubClient::resolve_server(&resolved_ip, port).await {
-            Ok(id) => id,
+            Ok(result) => Some(result.server_id),
+            Err(crate::auth::hub_client::HubAuthError::NotFound) => None,
             Err(e) => {
                 return Ok(ConnectionResult {
                     success: false,
@@ -1069,30 +1208,33 @@ pub async fn connect_to_address(
             }
         };
 
-    let all_methods = vec!["hub".to_string(), "byond".to_string()];
-    let auth = match get_auth_for_connection(&app, &all_methods).await {
-        Ok(auth) => auth,
-        Err(auth_error) => {
-            return Ok(ConnectionResult {
-                success: false,
-                message: auth_error.message.clone(),
-                auth_error: Some(auth_error),
-            });
-        }
-    };
-
-    let access_method = match maybe_exchange_hub_ticket(auth, &server_id).await {
-        Ok(method) => method,
-        Err(result) => return Ok(result),
+    let (access_method, server_id) = if let Some(server_id) = server_id {
+        let all_methods = vec!["hub".to_string(), "byond".to_string()];
+        let auth = match get_auth_for_connection(&app, &all_methods).await {
+            Ok(auth) => auth,
+            Err(auth_error) => {
+                return Ok(ConnectionResult {
+                    success: false,
+                    message: auth_error.message.clone(),
+                    auth_error: Some(auth_error),
+                });
+            }
+        };
+        let method = match maybe_exchange_hub_ticket(auth, &server_id).await {
+            Ok(method) => method,
+            Err(result) => return Ok(result),
+        };
+        (method, Some(server_id))
+    } else {
+        (AccessMethod::None, None)
     };
 
     let version = select_byond_version(None, &app)?;
 
     tracing::info!(
-        "[connect_to_address] source={} address={} resolved_ip={} server_id={} version={}",
+        "[connect_to_address] source={} address={} server_id={:?} version={}",
         source_str,
         address,
-        resolved_ip,
         server_id,
         version
     );
@@ -1107,7 +1249,7 @@ pub async fn connect_to_address(
             server_name: address_clean.to_string(),
             map_name: None,
             source,
-            server_id: Some(server_id),
+            server_id,
             players: None,
         },
     )
