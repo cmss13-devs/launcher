@@ -5,7 +5,7 @@ mod implementation {
     use tauri::{AppHandle, Emitter, Manager};
 
     use crate::auth::TokenStorage;
-    use crate::byond::{connect, ConnectionRequest};
+    use crate::byond::{connect, AccessMethod, ConnectionRequest};
     use crate::error::{CommandError, CommandResult};
     use crate::relays::RelayState;
     use crate::servers::{Server, ServerState};
@@ -83,35 +83,44 @@ mod implementation {
         }
     }
 
-    async fn get_access_token_for_mode(
+    async fn get_access_method_for_mode(
         handle: &AppHandle,
         auth_mode: AuthMode,
-    ) -> CommandResult<(Option<String>, Option<String>)> {
+    ) -> CommandResult<AccessMethod> {
         match auth_mode {
             AuthMode::Oidc => {
                 let tokens = TokenStorage::get_tokens()?;
                 match tokens {
                     Some(t) if !TokenStorage::is_expired() => {
                         let config = crate::config::get_config();
-                        Ok((Some(config.variant.to_string()), Some(t.access_token)))
+                        Ok(AccessMethod::SessionToken {
+                            variant: config.variant.to_string(),
+                            token: t.access_token,
+                        })
                     }
                     _ => Err(CommandError::NotAuthenticated),
                 }
             }
             AuthMode::Steam => {
                 let token = get_steam_access_token(handle).await?;
-                Ok((Some("steam".to_string()), token))
+                match token {
+                    Some(t) => Ok(AccessMethod::Steam(t)),
+                    None => Ok(AccessMethod::None),
+                }
             }
             AuthMode::Hub => {
                 let tokens = TokenStorage::get_tokens()?;
                 match tokens {
                     Some(t) if !TokenStorage::is_expired() => {
-                        Ok((Some("hub".to_string()), Some(t.access_token)))
+                        Ok(AccessMethod::SessionToken {
+                            variant: "hub".to_string(),
+                            token: t.access_token,
+                        })
                     }
                     _ => Err(CommandError::NotAuthenticated),
                 }
             }
-            AuthMode::Byond => Ok((Some("byond".to_string()), None)),
+            AuthMode::Byond => Ok(AccessMethod::Byond),
         }
     }
 
@@ -228,9 +237,9 @@ mod implementation {
             }
         };
 
-        let (access_type, access_token) =
-            match get_access_token_for_mode(&handle, settings.auth_mode).await {
-                Ok((t, tok)) => (t, tok),
+        let access_method =
+            match get_access_method_for_mode(&handle, settings.auth_mode).await {
+                Ok(m) => m,
                 Err(CommandError::NotAuthenticated) => {
                     let config = crate::config::get_config();
                     tracing::info!("{} auth required", config.strings.auth_provider_name);
@@ -334,8 +343,7 @@ mod implementation {
                 version,
                 host: relay_host,
                 port,
-                access_type,
-                access_token,
+                access_method,
                 server_name: server_name.clone(),
                 map_name,
                 source: Some("autoconnect".to_string()),
