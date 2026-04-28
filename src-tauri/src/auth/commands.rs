@@ -225,7 +225,6 @@ pub async fn hub_login(
     password: String,
     totp_code: Option<String>,
 ) -> CommandResult<AuthState> {
-
     tracing::info!("Starting hub login for {}", username);
 
     let result = HubClient::login(&username, &password, totp_code.as_deref()).await?;
@@ -237,7 +236,6 @@ pub async fn hub_login(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_hub_oauth_providers() -> CommandResult<Vec<String>> {
-
     let config = HubClient::get_hub_config().await?;
 
     let providers = config["oauth_providers"]
@@ -255,7 +253,6 @@ pub async fn get_hub_oauth_providers() -> CommandResult<Vec<String>> {
 #[tauri::command]
 #[specta::specta]
 pub async fn hub_oauth_login(app: AppHandle, provider: String) -> CommandResult<AuthState> {
-
     tracing::info!("Starting hub OAuth login for provider: {}", provider);
 
     let config = crate::config::get_config();
@@ -299,7 +296,6 @@ pub async fn hub_steam_login(
     app: AppHandle,
     steam_state: tauri::State<'_, std::sync::Arc<crate::steam::SteamState>>,
 ) -> CommandResult<AuthState> {
-
     tracing::info!("Starting hub Steam login");
 
     let config = crate::config::get_config();

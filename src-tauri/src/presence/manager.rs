@@ -310,7 +310,10 @@ pub fn start_presence_background_task(
                         (None, session.map_name.clone())
                     };
 
-                    if force_update || player_count != last_player_count || map_name != last_map_name {
+                    if force_update
+                        || player_count != last_player_count
+                        || map_name != last_map_name
+                    {
                         last_player_count = player_count;
                         last_map_name.clone_from(&map_name);
 

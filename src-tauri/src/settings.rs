@@ -294,10 +294,7 @@ pub async fn trust_direct_connect_address(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn set_last_view_mode(
-    app: AppHandle,
-    mode: String,
-) -> CommandResult<AppSettings> {
+pub async fn set_last_view_mode(app: AppHandle, mode: String) -> CommandResult<AppSettings> {
     let mut settings = load_settings(&app)?;
     settings.last_view_mode = Some(mode);
     save_settings(&app, &settings)?;
@@ -306,10 +303,7 @@ pub async fn set_last_view_mode(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn set_rich_presence(
-    app: AppHandle,
-    enabled: bool,
-) -> CommandResult<AppSettings> {
+pub async fn set_rich_presence(app: AppHandle, enabled: bool) -> CommandResult<AppSettings> {
     let mut settings = load_settings(&app)?;
     settings.rich_presence_enabled = enabled;
     save_settings(&app, &settings)?;

@@ -1,16 +1,8 @@
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
-};
-use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
 
 use crate::error::{CommandError, CommandResult};
 
-const AUTH_FILE: &str = "auth.dat";
-const NONCE_SIZE: usize = 12;
+const KEYRING_USER: &str = "auth_tokens";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredTokens {
@@ -23,65 +15,10 @@ pub struct StoredTokens {
 pub struct TokenStorage;
 
 impl TokenStorage {
-    #[allow(clippy::indexing_slicing)] // i is bounded by take(32) and key is [u8; 32]
-    fn get_encryption_key() -> [u8; 32] {
-        let mut key = [0u8; 32];
-        let seed = b"cm-launcher-rs-token-encryption-key-v1";
-        for (i, byte) in seed.iter().cycle().take(32).enumerate() {
-            key[i] = *byte;
-        }
-        key
-    }
-
-    fn get_auth_file_path() -> CommandResult<PathBuf> {
+    fn entry() -> CommandResult<keyring::Entry> {
         let config = crate::config::get_config();
-        let data_dir = dirs::data_local_dir()
-            .ok_or_else(|| CommandError::Io("local data directory unavailable".to_string()))?
-            .join(config.app_identifier);
-
-        fs::create_dir_all(&data_dir)?;
-
-        Ok(data_dir.join(AUTH_FILE))
-    }
-
-    fn encrypt(data: &[u8]) -> CommandResult<Vec<u8>> {
-        let key = Self::get_encryption_key();
-        let cipher = Aes256Gcm::new_from_slice(&key)
-            .map_err(|e| CommandError::Internal(format!("Failed to create cipher: {e}")))?;
-
-        let mut nonce_bytes = [0u8; NONCE_SIZE];
-        rand::thread_rng().fill_bytes(&mut nonce_bytes);
-        let nonce = Nonce::from_slice(&nonce_bytes);
-
-        let ciphertext = cipher
-            .encrypt(nonce, data)
-            .map_err(|e| CommandError::Internal(format!("Failed to encrypt data: {e}")))?;
-
-        let mut result = Vec::with_capacity(NONCE_SIZE.saturating_add(ciphertext.len()));
-        result.extend_from_slice(&nonce_bytes);
-        result.extend(ciphertext);
-
-        Ok(result)
-    }
-
-    #[allow(clippy::indexing_slicing)] // length checked above
-    fn decrypt(data: &[u8]) -> CommandResult<Vec<u8>> {
-        if data.len() < NONCE_SIZE {
-            return Err(CommandError::InvalidResponse(
-                "stored auth file is too short to be valid".to_string(),
-            ));
-        }
-
-        let key = Self::get_encryption_key();
-        let cipher = Aes256Gcm::new_from_slice(&key)
-            .map_err(|e| CommandError::Internal(format!("Failed to create cipher: {e}")))?;
-
-        let nonce = Nonce::from_slice(&data[..NONCE_SIZE]);
-        let ciphertext = &data[NONCE_SIZE..];
-
-        cipher
-            .decrypt(nonce, ciphertext)
-            .map_err(|e| CommandError::InvalidResponse(format!("Failed to decrypt data: {e}")))
+        keyring::Entry::new(config.app_identifier, KEYRING_USER)
+            .map_err(|e| CommandError::Io(format!("failed to create keyring entry: {e}")))
     }
 
     pub fn store_tokens(
@@ -97,34 +34,32 @@ impl TokenStorage {
             expires_at,
         };
 
-        let json = serde_json::to_vec(&tokens)
-            .map_err(|e| CommandError::Internal(format!("Failed to serialize tokens: {e}")))?;
+        let json = serde_json::to_string(&tokens)
+            .map_err(|e| CommandError::Io(format!("failed to serialize tokens: {e}")))?;
 
-        let encrypted = Self::encrypt(&json)?;
+        let entry = Self::entry()?;
+        entry
+            .set_password(&json)
+            .map_err(|e| CommandError::Io(format!("failed to store tokens in keychain: {e}")))?;
 
-        let path = Self::get_auth_file_path()?;
-        fs::write(&path, &encrypted)?;
-
-        tracing::debug!("Tokens stored securely");
+        tracing::debug!("Tokens stored in OS keychain");
 
         Ok(())
     }
 
     pub fn get_tokens() -> CommandResult<Option<StoredTokens>> {
-        let path = Self::get_auth_file_path()?;
+        let entry = Self::entry()?;
 
-        if !path.exists() {
-            return Ok(None);
-        }
-
-        let encrypted = fs::read(&path)?;
-
-        let Ok(decrypted) = Self::decrypt(&encrypted) else {
-            fs::remove_file(&path).ok();
-            return Ok(None);
+        let json = match entry.get_password() {
+            Ok(json) => json,
+            Err(keyring::Error::NoEntry) => return Ok(None),
+            Err(e) => {
+                tracing::warn!("Failed to read tokens from keychain: {e}");
+                return Ok(None);
+            }
         };
 
-        let tokens: StoredTokens = serde_json::from_slice(&decrypted).map_err(|e| {
+        let tokens: StoredTokens = serde_json::from_str(&json).map_err(|e| {
             CommandError::InvalidResponse(format!("Failed to parse stored tokens: {e}"))
         })?;
 
@@ -132,11 +67,16 @@ impl TokenStorage {
     }
 
     pub fn clear_tokens() -> CommandResult<()> {
-        let path = Self::get_auth_file_path()?;
+        let entry = Self::entry()?;
 
-        if path.exists() {
-            fs::remove_file(&path)?;
-            tracing::debug!("Tokens cleared");
+        match entry.delete_credential() {
+            Ok(()) => tracing::debug!("Tokens cleared from keychain"),
+            Err(keyring::Error::NoEntry) => {}
+            Err(e) => {
+                return Err(CommandError::Io(format!(
+                    "failed to clear tokens from keychain: {e}"
+                )));
+            }
         }
 
         Ok(())

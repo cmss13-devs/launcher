@@ -154,61 +154,71 @@ impl ServerApi for HubApi {
 
 impl HubApi {
     fn convert(hub: HubServer) -> Server {
-        let (name, players, data, engine, tags, is_18_plus, description, links, connection_address, region) =
-            if let Some(ref s) = hub.status {
-                let round = s.round.as_ref();
+        let (
+            name,
+            players,
+            data,
+            engine,
+            tags,
+            is_18_plus,
+            description,
+            links,
+            connection_address,
+            region,
+        ) = if let Some(ref s) = hub.status {
+            let round = s.round.as_ref();
 
-                let data = round.and_then(|r| {
-                    r.id.as_deref()
-                        .and_then(|id| id.parse::<i64>().ok())
-                        .map(|round_id| ServerData {
-                            round_id,
-                            mode: r.gamemode.clone().unwrap_or_default(),
-                            map_name: r.map_name.clone().unwrap_or_default(),
-                            round_duration: r.duration.unwrap_or(0.0),
-                            gamestate: 0,
-                            players: s.pop,
-                            admins: None,
-                            popcap: s.pop_cap,
-                            security_level: r.security_level.clone(),
-                        })
-                });
+            let data = round.and_then(|r| {
+                r.id.as_deref()
+                    .and_then(|id| id.parse::<i64>().ok())
+                    .map(|round_id| ServerData {
+                        round_id,
+                        mode: r.gamemode.clone().unwrap_or_default(),
+                        map_name: r.map_name.clone().unwrap_or_default(),
+                        round_duration: r.duration.unwrap_or(0.0),
+                        gamestate: 0,
+                        players: s.pop,
+                        admins: None,
+                        popcap: s.pop_cap,
+                        security_level: r.security_level.clone(),
+                    })
+            });
 
-                let engine = s.engine.as_ref().map(|e| EngineRequirements {
-                    min_version: e.min_version.clone(),
-                    max_version: e.max_version.clone(),
-                    blacklisted_versions: e.blacklisted_versions.clone().unwrap_or_default(),
-                });
+            let engine = s.engine.as_ref().map(|e| EngineRequirements {
+                min_version: e.min_version.clone(),
+                max_version: e.max_version.clone(),
+                blacklisted_versions: e.blacklisted_versions.clone().unwrap_or_default(),
+            });
 
-                let tags = s.server_tags.clone().unwrap_or_default();
-                let is_18_plus = tags.iter().any(|t| t == "18+");
+            let tags = s.server_tags.clone().unwrap_or_default();
+            let is_18_plus = tags.iter().any(|t| t == "18+");
 
-                (
-                    s.display_name.clone(),
-                    s.pop,
-                    data,
-                    engine,
-                    tags,
-                    is_18_plus,
-                    s.description.clone(),
-                    s.links.clone().unwrap_or_default(),
-                    s.connection_address.clone(),
-                    s.region.clone(),
-                )
-            } else {
-                (
-                    hub.address.clone(),
-                    0,
-                    None,
-                    None,
-                    Vec::new(),
-                    false,
-                    None,
-                    Vec::new(),
-                    None,
-                    None,
-                )
-            };
+            (
+                s.display_name.clone(),
+                s.pop,
+                data,
+                engine,
+                tags,
+                is_18_plus,
+                s.description.clone(),
+                s.links.clone().unwrap_or_default(),
+                s.connection_address.clone(),
+                s.region.clone(),
+            )
+        } else {
+            (
+                hub.address.clone(),
+                0,
+                None,
+                None,
+                Vec::new(),
+                false,
+                None,
+                Vec::new(),
+                None,
+                None,
+            )
+        };
 
         let address = connection_address.unwrap_or(hub.address);
 

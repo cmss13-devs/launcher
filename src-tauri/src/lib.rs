@@ -33,9 +33,9 @@ use auth::{
     hub_oauth_login, logout, refresh_auth, start_login,
 };
 use byond::{
-    check_byond_version, connect_to_address, connect_to_server, connect_to_url, resolve_direct_connect,
+    check_byond_version, connect_to_address, connect_to_server, connect_to_url,
     delete_byond_version, get_byond_username, install_byond_version, is_byond_pager_running,
-    is_dev_mode, list_installed_byond_versions,
+    is_dev_mode, list_installed_byond_versions, resolve_direct_connect,
 };
 use byond_login::{
     byond_login_complete, byond_session_check_complete, cancel_byond_login,
@@ -47,7 +47,7 @@ use servers::get_servers;
 use settings::{
     get_settings, save_filter_settings, set_age_verified, set_auth_mode, set_last_played_server,
     set_last_view_mode, set_locale, set_rendering_pipeline, set_rich_presence, set_theme,
-    toggle_favorite_server, trust_direct_connect_address, toggle_server_notifications,
+    toggle_favorite_server, toggle_server_notifications, trust_direct_connect_address,
 };
 
 use singleplayer::{

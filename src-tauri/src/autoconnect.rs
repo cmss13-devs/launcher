@@ -111,12 +111,10 @@ mod implementation {
             AuthMode::Hub => {
                 let tokens = TokenStorage::get_tokens()?;
                 match tokens {
-                    Some(t) if !TokenStorage::is_expired() => {
-                        Ok(AccessMethod::SessionToken {
-                            variant: "hub".to_string(),
-                            token: t.access_token,
-                        })
-                    }
+                    Some(t) if !TokenStorage::is_expired() => Ok(AccessMethod::SessionToken {
+                        variant: "hub".to_string(),
+                        token: t.access_token,
+                    }),
                     _ => Err(CommandError::NotAuthenticated),
                 }
             }
@@ -237,44 +235,43 @@ mod implementation {
             }
         };
 
-        let access_method =
-            match get_access_method_for_mode(&handle, settings.auth_mode).await {
-                Ok(m) => m,
-                Err(CommandError::NotAuthenticated) => {
-                    let config = crate::config::get_config();
-                    tracing::info!("{} auth required", config.strings.auth_provider_name);
-                    emit_status(
-                        &handle,
-                        &server_name,
-                        AutoConnectStatus::AuthRequired,
-                        Some("Please log in to continue".to_string()),
-                        None,
-                    );
-                    return;
-                }
-                Err(CommandError::RequiresLinking { url }) => {
-                    tracing::info!("Steam linking required");
-                    emit_status(
-                        &handle,
-                        &server_name,
-                        AutoConnectStatus::SteamLinkingRequired,
-                        Some("Steam account linking required".to_string()),
-                        Some(url),
-                    );
-                    return;
-                }
-                Err(e) => {
-                    tracing::error!("Auth error: {}", e);
-                    emit_status(
-                        &handle,
-                        &server_name,
-                        AutoConnectStatus::Error,
-                        Some(e.to_string()),
-                        None,
-                    );
-                    return;
-                }
-            };
+        let access_method = match get_access_method_for_mode(&handle, settings.auth_mode).await {
+            Ok(m) => m,
+            Err(CommandError::NotAuthenticated) => {
+                let config = crate::config::get_config();
+                tracing::info!("{} auth required", config.strings.auth_provider_name);
+                emit_status(
+                    &handle,
+                    &server_name,
+                    AutoConnectStatus::AuthRequired,
+                    Some("Please log in to continue".to_string()),
+                    None,
+                );
+                return;
+            }
+            Err(CommandError::RequiresLinking { url }) => {
+                tracing::info!("Steam linking required");
+                emit_status(
+                    &handle,
+                    &server_name,
+                    AutoConnectStatus::SteamLinkingRequired,
+                    Some("Steam account linking required".to_string()),
+                    Some(url),
+                );
+                return;
+            }
+            Err(e) => {
+                tracing::error!("Auth error: {}", e);
+                emit_status(
+                    &handle,
+                    &server_name,
+                    AutoConnectStatus::Error,
+                    Some(e.to_string()),
+                    None,
+                );
+                return;
+            }
+        };
 
         let Some(state) = handle.try_state::<Arc<RelayState>>() else {
             tracing::error!("RelayState not available");
