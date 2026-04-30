@@ -61,6 +61,8 @@ pub struct Server {
     #[serde(default)]
     pub auth_methods: Vec<String>,
     #[serde(default)]
+    pub engine_type: Option<String>,
+    #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
     pub links: Vec<ServerLink>,
@@ -90,6 +92,8 @@ struct HubServer {
     status: Option<HubServerStatus>,
     #[serde(default)]
     auth_methods: Vec<String>,
+    #[serde(default)]
+    engine: Option<String>,
     #[serde(default)]
     verified_domain: Option<String>,
 }
@@ -235,6 +239,7 @@ impl HubApi {
             engine,
             tags,
             auth_methods: hub.auth_methods,
+            engine_type: hub.engine,
             description,
             links,
             verified_domain: hub.verified_domain,
@@ -331,6 +336,7 @@ impl CmApi {
             engine,
             tags: cm.tags.unwrap_or_default(),
             auth_methods: Vec::new(),
+            engine_type: None,
             description: None,
             links: Vec::new(),
             verified_domain: None,
