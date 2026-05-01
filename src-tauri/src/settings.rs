@@ -65,6 +65,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub filter_regions: HashSet<String>,
     #[serde(default)]
+    pub filter_languages: HashSet<String>,
+    #[serde(default)]
     pub last_view_mode: Option<String>,
     #[serde(default)]
     pub search_query: Option<String>,
@@ -117,6 +119,7 @@ impl Default for AppSettings {
             filter_show_offline: None,
             filter_show_hub_status: false,
             filter_regions: HashSet::new(),
+            filter_languages: HashSet::new(),
             last_view_mode: None,
             search_query: None,
             trusted_direct_connect_addresses: HashSet::new(),
@@ -322,6 +325,7 @@ pub struct FilterSettings {
     pub show_offline: Option<bool>,
     pub show_hub_status: bool,
     pub regions: Vec<String>,
+    pub languages: Vec<String>,
     pub search_query: Option<String>,
 }
 
@@ -337,6 +341,7 @@ pub async fn save_filter_settings(
     settings.filter_show_offline = filters.show_offline;
     settings.filter_show_hub_status = filters.show_hub_status;
     settings.filter_regions = filters.regions.into_iter().collect();
+    settings.filter_languages = filters.languages.into_iter().collect();
     settings.search_query = filters.search_query;
     save_settings(&app, &settings)?;
     Ok(settings)

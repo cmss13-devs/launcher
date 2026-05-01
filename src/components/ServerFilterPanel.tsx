@@ -1,9 +1,19 @@
 import { faArrowUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LauncherFeatures } from "../bindings";
 import type { useServerFilters } from "../hooks/useServerFilters";
+
+function getLanguageDisplayName(code: string): string {
+  try {
+    const name = new Intl.DisplayNames([navigator.language, "en"], {
+      type: "language",
+    }).of(code);
+    if (name) return name.toLowerCase();
+  } catch {}
+  return code;
+}
 import { useSettingsStore } from "../stores";
 import { AgeVerificationModal } from "./AgeVerificationModal";
 
@@ -46,6 +56,9 @@ export const ServerFilterPanel = ({
     selectedRegions,
     toggleRegion,
     regions,
+    selectedLanguages,
+    toggleLanguage,
+    languages,
     filtersOpen,
     setFiltersOpen,
     filtersRef,
@@ -58,6 +71,11 @@ export const ServerFilterPanel = ({
   const ageVerified = useSettingsStore((s) => s.ageVerified);
   const saveAgeVerified = useSettingsStore((s) => s.saveAgeVerified);
   const [ageModalVisible, setAgeModalVisible] = useState(false);
+
+  const languageLabels = useMemo(
+    () => new Map(languages.map((code) => [code, getLanguageDisplayName(code)])),
+    [languages],
+  );
 
   const handle18PlusChange = (checked: boolean) => {
     if (checked && !ageVerified) {
@@ -116,7 +134,8 @@ export const ServerFilterPanel = ({
               className="view-tab"
               onClick={onDirectConnect}
             >
-              {t("common.connect")} <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
+              {t("common.connect")}{" "}
+              <FontAwesomeIcon icon={faArrowUpRightFromSquare} />
             </button>
           )}
         </div>
@@ -139,84 +158,121 @@ export const ServerFilterPanel = ({
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             )}
-            {(features.server_filters || tagCategories.length > 0) && (() => {
-              const activeCount = selectedTags.size + selectedRegions.size;
-              return (
-                <div className="filters-dropdown" ref={filtersRef}>
-                  <button
-                    type="button"
-                    className={`filters-button${activeCount > 0 ? " active" : ""}`}
-                    onClick={() => setFiltersOpen(!filtersOpen)}
-                  >
-                    {activeCount > 0 ? t("servers.filtersCount", { count: activeCount }) : t("servers.filters")}
-                  </button>
-                  {filtersOpen && (
-                    <div className="filters-menu">
-                      {features.server_filters && (
-                        <>
-                          {hasHubStatus && (
+            {(features.server_filters || tagCategories.length > 0) &&
+              (() => {
+                const activeCount = selectedTags.size + selectedRegions.size + selectedLanguages.size;
+                return (
+                  <div className="filters-dropdown" ref={filtersRef}>
+                    <button
+                      type="button"
+                      className={`filters-button${activeCount > 0 ? " active" : ""}`}
+                      onClick={() => setFiltersOpen(!filtersOpen)}
+                    >
+                      {activeCount > 0
+                        ? t("servers.filtersCount", { count: activeCount })
+                        : t("servers.filters")}
+                    </button>
+                    {filtersOpen && (
+                      <div className="filters-menu">
+                        {features.server_filters && (
+                          <>
+                            {hasHubStatus && (
+                              <label className="styled-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={showHubStatus}
+                                  onChange={(e) =>
+                                    setShowHubStatus(e.target.checked)
+                                  }
+                                />
+                                <span>{t("servers.hubStatus")}</span>
+                              </label>
+                            )}
                             <label className="styled-checkbox">
                               <input
                                 type="checkbox"
-                                checked={showHubStatus}
-                                onChange={(e) => setShowHubStatus(e.target.checked)}
+                                checked={show18Plus}
+                                onChange={(e) =>
+                                  handle18PlusChange(e.target.checked)
+                                }
                               />
-                              <span>{t("servers.hubStatus")}</span>
+                              <span>{t("servers.eighteenPlus")}</span>
                             </label>
+                            {hasOffline && (
+                              <label className="styled-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={showOffline}
+                                  onChange={(e) =>
+                                    setShowOffline(e.target.checked)
+                                  }
+                                />
+                                <span>{t("servers.offlineServers")}</span>
+                              </label>
+                            )}
+                          </>
+                        )}
+                        {features.server_filters &&
+                          tagCategories.length > 0 && (
+                            <div className="filter-divider" />
                           )}
-                          <label className="styled-checkbox">
-                            <input
-                              type="checkbox"
-                              checked={show18Plus}
-                              onChange={(e) => handle18PlusChange(e.target.checked)}
-                            />
-                            <span>{t("servers.eighteenPlus")}</span>
-                          </label>
-                          {hasOffline && (
-                            <label className="styled-checkbox">
+                        <div className="filter-row">
+                          {tagCategories.map((tag) => (
+                            <label className="styled-checkbox" key={tag}>
                               <input
                                 type="checkbox"
-                                checked={showOffline}
-                                onChange={(e) => setShowOffline(e.target.checked)}
+                                checked={selectedTags.has(tag)}
+                                onChange={(e) =>
+                                  toggleTag(tag, e.target.checked)
+                                }
                               />
-                              <span>{t("servers.offlineServers")}</span>
-                            </label>
-                          )}
-                        </>
-                      )}
-                      {features.server_filters && tagCategories.length > 0 && (
-                        <div className="filter-divider" />
-                      )}
-                      {tagCategories.map((tag) => (
-                        <label className="styled-checkbox" key={tag}>
-                          <input
-                            type="checkbox"
-                            checked={selectedTags.has(tag)}
-                            onChange={(e) => toggleTag(tag, e.target.checked)}
-                          />
-                          <span>{tag}</span>
-                        </label>
-                      ))}
-                      {regions.length > 0 && (
-                        <>
-                          <div className="filter-divider" />
-                          {regions.map((region) => (
-                            <label className="styled-checkbox" key={region}>
-                              <input
-                                type="checkbox"
-                                checked={selectedRegions.has(region)}
-                                onChange={(e) => toggleRegion(region, e.target.checked)}
-                              />
-                              <span>{region}</span>
+                              <span>{tag}</span>
                             </label>
                           ))}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                        </div>
+                        {regions.length > 0 && (
+                          <>
+                            <div className="filter-divider" />
+                            <div className="filter-row">
+                              {regions.map((region) => (
+                                <label className="styled-checkbox" key={region}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedRegions.has(region)}
+                                    onChange={(e) =>
+                                      toggleRegion(region, e.target.checked)
+                                    }
+                                  />
+                                  <span>{region}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        {languages.length > 0 && (
+                          <>
+                            <div className="filter-divider" />
+                            <div className="filter-row">
+                              {languages.map((lang) => (
+                                <label className="styled-checkbox" key={lang}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedLanguages.has(lang)}
+                                    onChange={(e) =>
+                                      toggleLanguage(lang, e.target.checked)
+                                    }
+                                  />
+                                  <span>{languageLabels.get(lang) ?? lang}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
           </div>
         )}
       </div>

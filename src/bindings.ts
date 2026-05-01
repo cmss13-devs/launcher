@@ -514,7 +514,7 @@ async byondSessionCheckComplete(webId: string | null, username: string | null) :
 
 /** user-defined types **/
 
-export type AppSettings = { auth_mode: AuthMode; theme?: Theme; notification_servers?: string[]; age_verified?: boolean; locale?: string | null; rendering_pipeline?: RenderingPipeline; last_played_server?: string | null; favorite_servers?: string[]; filter_tags?: string[]; filter_show_18_plus?: boolean; filter_show_offline?: boolean | null; filter_show_hub_status?: boolean; filter_regions?: string[]; last_view_mode?: string | null; search_query?: string | null; trusted_direct_connect_addresses?: string[]; rich_presence_enabled?: boolean }
+export type AppSettings = { auth_mode: AuthMode; theme?: Theme; notification_servers?: string[]; age_verified?: boolean; locale?: string | null; rendering_pipeline?: RenderingPipeline; last_played_server?: string | null; favorite_servers?: string[]; filter_tags?: string[]; filter_show_18_plus?: boolean; filter_show_offline?: boolean | null; filter_show_hub_status?: boolean; filter_regions?: string[]; filter_languages?: string[]; last_view_mode?: string | null; search_query?: string | null; trusted_direct_connect_addresses?: string[]; rich_presence_enabled?: boolean }
 export type AuthError = { code: string; message: string; linking_url: string | null }
 export type AuthMode = "oidc" | "hub" | "byond" | "steam"
 export type AuthState = { logged_in: boolean; user: UserInfo | null; loading: boolean; error: string | null }
@@ -529,7 +529,7 @@ export type ConnectionResult = { success: boolean; message: string; auth_error: 
 export type DirectConnectInfo = { hostname: string; port: number; server_id: string | null; trust: DirectConnectTrust; verified_domain?: string | null; server_name?: string | null }
 export type DirectConnectTrust = "HubVerified" | "HubKnown" | "DomainAttested" | "SelfReported" | "ByondOnly" | "Unreachable"
 export type EngineRequirements = { min_version?: string | null; max_version?: string | null; blacklisted_versions?: string[] }
-export type FilterSettings = { tags: string[]; show_18_plus: boolean; show_offline: boolean | null; show_hub_status: boolean; regions: string[]; search_query: string | null }
+export type FilterSettings = { tags: string[]; show_18_plus: boolean; show_offline: boolean | null; show_hub_status: boolean; regions: string[]; languages: string[]; search_query: string | null }
 export type LauncherConfig = { variant: string; product_name: string; logo: string; default_theme: string; app_identifier: string; default_byond_version: string | null; server_api: ServerApiType; features: LauncherFeatures; urls: LauncherUrls; strings: LauncherStrings; singleplayer: SingleplayerConfig; oidc: OidcConfig | null; social_links: SocialLink[] }
 export type LauncherFeatures = { relay_selector: boolean; singleplayer: boolean; server_search: boolean; server_filters: boolean; show_offline_servers: boolean; server_stats: boolean; auto_launch_byond: boolean; connection_timeout_fallback: boolean; connect_logo: boolean; favorites: boolean; direct_connect: boolean }
 export type LauncherStrings = { auth_provider_name: string; login_prompt: string; discord_game_name: string }
@@ -538,7 +538,7 @@ export type OidcConfig = { client_id: string; auth_url: string; token_url: strin
 export type RelayWithPing = ({ id: string; name: string; host: string }) & { ping: number | null; checking: boolean }
 export type ReleaseInfo = { tag_name: string; name: string; published_at: string; download_url: string | null; size: number }
 export type RenderingPipeline = "dxvk" | "wined3d"
-export type Server = { id: string | null; name: string; url: string; status: string; hub_status?: string; players?: number; data?: ServerData | null; is_18_plus?: boolean; version?: string | null; engine?: EngineRequirements | null; tags?: string[]; auth_methods?: string[]; description?: string | null; links?: ServerLink[]; verified_domain?: string | null; region?: string | null }
+export type Server = { id: string | null; name: string; url: string; status: string; hub_status?: string; players?: number; data?: ServerData | null; is_18_plus?: boolean; version?: string | null; engine?: EngineRequirements | null; tags?: string[]; auth_methods?: string[]; engine_type?: string | null; description?: string | null; links?: ServerLink[]; verified_domain?: string | null; region?: string | null; language?: string | null }
 export type ServerApiType = "hub_api" | "cm_api"
 export type ServerData = { round_id: number; mode: string; map_name: string; round_duration: number; gamestate: number; players: number; admins?: number | null; popcap?: number | null; security_level?: string | null }
 export type ServerLink = { link: string; type: string }

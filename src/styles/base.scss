@@ -316,10 +316,19 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   padding: 8px;
   min-width: 160px;
+  width: max-content;
+  max-width: 520px;
   z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 3px;
 }
 
 .filter-section-label {
@@ -610,6 +619,7 @@ body {
   gap: 6px;
   border: none;
   border-radius: 0;
+  min-height: 16px;
 }
 
 .connect-auth-icon {
@@ -723,9 +733,7 @@ body {
 }
 
 .external-link-prompt {
-  color: var(--text, #ccc);
-  font-size: 14px;
-  margin: 8px 0 4px;
+  color: var(--text, #ccc) !important;
 }
 
 .external-link-url {

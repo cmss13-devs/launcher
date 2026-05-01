@@ -9,6 +9,7 @@ export interface StoredFilters {
   showOffline: boolean | null;
   showHubStatus: boolean;
   regions: Set<string>;
+  languages: Set<string>;
   searchQuery: string;
 }
 
@@ -68,6 +69,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
     showOffline: null,
     showHubStatus: false,
     regions: new Set<string>(),
+    languages: new Set<string>(),
     searchQuery: "",
   },
 
@@ -100,6 +102,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
           showOffline: settings.filter_show_offline ?? null,
           showHubStatus: settings.filter_show_hub_status ?? false,
           regions: new Set(settings.filter_regions ?? []),
+          languages: new Set(settings.filter_languages ?? []),
           searchQuery: settings.search_query ?? "",
         },
       });
@@ -189,6 +192,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
       show_offline: filters.showOffline,
       show_hub_status: filters.showHubStatus,
       regions: Array.from(filters.regions),
+      languages: Array.from(filters.languages),
       search_query: filters.searchQuery || null,
     };
     unwrap(await commands.saveFilterSettings(payload));

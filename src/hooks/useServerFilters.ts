@@ -15,6 +15,7 @@ export function useServerFilters(servers: Server[], config: LauncherConfig | nul
   const showOffline = filters.showOffline ?? config?.features.show_offline_servers ?? false;
   const showHubStatus = filters.showHubStatus;
   const selectedRegions = filters.regions;
+  const selectedLanguages = filters.languages;
 
   const updateFilters = useCallback((patch: Partial<StoredFilters>) => {
     saveFilters({ ...filters, ...patch });
@@ -60,6 +61,13 @@ export function useServerFilters(servers: Server[], config: LauncherConfig | nul
     saveFilters({ ...filters, regions: next });
   }, [filters, saveFilters]);
 
+  const toggleLanguage = useCallback((language: string, on: boolean) => {
+    const next = new Set(filters.languages);
+    if (on) next.add(language);
+    else next.delete(language);
+    saveFilters({ ...filters, languages: next });
+  }, [filters, saveFilters]);
+
   const categories = useMemo(() => {
     const tagSet = new Set<string>();
     for (const server of servers) {
@@ -84,6 +92,14 @@ export function useServerFilters(servers: Server[], config: LauncherConfig | nul
       if (server.region) regionSet.add(server.region);
     }
     return Array.from(regionSet).sort();
+  }, [servers]);
+
+  const languages = useMemo(() => {
+    const langSet = new Set<string>();
+    for (const server of servers) {
+      if (server.language) langSet.add(server.language);
+    }
+    return Array.from(langSet).sort();
   }, [servers]);
 
   const hasOffline = useMemo(
@@ -116,6 +132,12 @@ export function useServerFilters(servers: Server[], config: LauncherConfig | nul
       );
     }
 
+    if (selectedLanguages.size > 0) {
+      filtered = filtered.filter((server) =>
+        server.language && selectedLanguages.has(server.language),
+      );
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((server) =>
@@ -141,6 +163,7 @@ export function useServerFilters(servers: Server[], config: LauncherConfig | nul
     servers,
     selectedTags,
     selectedRegions,
+    selectedLanguages,
     searchQuery,
     show18Plus,
     showOffline,
@@ -160,6 +183,9 @@ export function useServerFilters(servers: Server[], config: LauncherConfig | nul
     selectedRegions,
     toggleRegion,
     regions,
+    selectedLanguages,
+    toggleLanguage,
+    languages,
     filtersOpen,
     setFiltersOpen,
     filtersRef,
