@@ -20,8 +20,8 @@ use tauri::{AppHandle, Emitter, Manager};
 /// Minimum required Wine version (major.minor)
 const MIN_WINE_VERSION: (u32, u32) = (10, 5);
 
-/// WebView2 installer URL (standalone archive version that works with Wine)
-const WEBVIEW2_DOWNLOAD_URL: &str = "https://github.com/aedancullen/webview2-evergreen-standalone-installer-archive/releases/download/109.0.1518.78/MicrosoftEdgeWebView2RuntimeInstallerX64.exe";
+/// WebView2 installer URL (standalone latest webview, acquired from the official mirror)
+const WEBVIEW2_DOWNLOAD_URL: &str = "https://go.microsoft.com/fwlink/?linkid=2124701";
 
 /// Marker file to track initialization state
 const INIT_MARKER_FILE: &str = ".cm_launcher_initialized";
