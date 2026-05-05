@@ -30,6 +30,7 @@ interface ServerFilterPanelProps {
   onViewModeChange: (mode: ViewMode) => void;
   showHome: boolean;
   onDirectConnect?: () => void;
+  hasEighteenPlus: boolean;
 }
 
 export const ServerFilterPanel = ({
@@ -41,6 +42,7 @@ export const ServerFilterPanel = ({
   onViewModeChange,
   showHome,
   onDirectConnect,
+  hasEighteenPlus,
 }: ServerFilterPanelProps) => {
   const {
     searchQuery,
@@ -73,7 +75,8 @@ export const ServerFilterPanel = ({
   const [ageModalVisible, setAgeModalVisible] = useState(false);
 
   const languageLabels = useMemo(
-    () => new Map(languages.map((code) => [code, getLanguageDisplayName(code)])),
+    () =>
+      new Map(languages.map((code) => [code, getLanguageDisplayName(code)])),
     [languages],
   );
 
@@ -160,7 +163,10 @@ export const ServerFilterPanel = ({
             )}
             {(features.server_filters || tagCategories.length > 0) &&
               (() => {
-                const activeCount = selectedTags.size + selectedRegions.size + selectedLanguages.size;
+                const activeCount =
+                  selectedTags.size +
+                  selectedRegions.size +
+                  selectedLanguages.size;
                 return (
                   <div className="filters-dropdown" ref={filtersRef}>
                     <button
@@ -188,16 +194,18 @@ export const ServerFilterPanel = ({
                                 <span>{t("servers.hubStatus")}</span>
                               </label>
                             )}
-                            <label className="styled-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={show18Plus}
-                                onChange={(e) =>
-                                  handle18PlusChange(e.target.checked)
-                                }
-                              />
-                              <span>{t("servers.eighteenPlus")}</span>
-                            </label>
+                            {hasEighteenPlus && (
+                              <label className="styled-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={show18Plus}
+                                  onChange={(e) =>
+                                    handle18PlusChange(e.target.checked)
+                                  }
+                                />
+                                <span>{t("servers.eighteenPlus")}</span>
+                              </label>
+                            )}
                             {hasOffline && (
                               <label className="styled-checkbox">
                                 <input
@@ -262,7 +270,9 @@ export const ServerFilterPanel = ({
                                       toggleLanguage(lang, e.target.checked)
                                     }
                                   />
-                                  <span>{languageLabels.get(lang) ?? lang}</span>
+                                  <span>
+                                    {languageLabels.get(lang) ?? lang}
+                                  </span>
                                 </label>
                               ))}
                             </div>
