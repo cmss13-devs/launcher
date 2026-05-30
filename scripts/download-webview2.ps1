@@ -15,17 +15,30 @@ if (Test-Path $OutputDir) {
 }
 
 $CabPath = Join-Path $env:TEMP "webview2-fixed-$WebView2Version.cab"
+$ExtractDir = Join-Path $env:TEMP "webview2-extract-$WebView2Version"
 
-Write-Host "Downloading WebView2 fixed runtime from $CabUrl..."
+Write-Host "Downloading WebView2 fixed runtime..."
 Invoke-WebRequest -Uri $CabUrl -OutFile $CabPath -UseBasicParsing
 
-Write-Host "Extracting to $OutputDir..."
-New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-expand $CabPath -F:* $OutputDir | Out-Null
+Write-Host "Extracting..."
+if (Test-Path $ExtractDir) { Remove-Item -Recurse -Force $ExtractDir }
+New-Item -ItemType Directory -Force -Path $ExtractDir | Out-Null
+expand $CabPath -F:* $ExtractDir | Out-Null
 
-Remove-Item $CabPath -Force
+$SubDir = Get-ChildItem -Path $ExtractDir -Directory | Select-Object -First 1
+if ($SubDir) {
+    Move-Item -Path $SubDir.FullName -Destination $OutputDir
+}
+else {
+    Move-Item -Path $ExtractDir -Destination $OutputDir
+}
+
+Remove-Item $CabPath -Force -ErrorAction SilentlyContinue
+Remove-Item $ExtractDir -Recurse -Force -ErrorAction SilentlyContinue
 
 if (-not (Test-Path (Join-Path $OutputDir "msedgewebview2.exe"))) {
+    Write-Host "Contents of output dir:"
+    Get-ChildItem $OutputDir | Select-Object Name
     Write-Error "Extraction failed: msedgewebview2.exe not found in $OutputDir"
     exit 1
 }
