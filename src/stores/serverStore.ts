@@ -33,8 +33,10 @@ interface ServerStore {
   initRelays: () => Promise<UnlistenFn>;
 }
 
-const hasValidPing = (relays: RelayWithPing[]): boolean => {
-  return relays.some((r) => r.ping !== null && !r.checking);
+const relaysResolved = (relays: RelayWithPing[]): boolean => {
+  const hasValidPing = relays.some((r) => r.ping !== null && !r.checking);
+  const allDone = relays.length > 0 && relays.every((r) => !r.checking);
+  return hasValidPing || allDone;
 };
 
 export const useServerStore = create<ServerStore>()((set) => ({
@@ -100,7 +102,7 @@ export const useServerStore = create<ServerStore>()((set) => ({
   initRelays: async () => {
     try {
       const relays = unwrap(await commands.getRelays());
-      const ready = hasValidPing(relays);
+      const ready = relaysResolved(relays);
       set({ relays, relaysReady: ready });
 
       const selectedRelay = unwrap(await commands.getSelectedRelay());
@@ -113,7 +115,7 @@ export const useServerStore = create<ServerStore>()((set) => ({
       "relays-updated",
       (event) => {
         const relays = event.payload;
-        const isReady = hasValidPing(relays);
+        const isReady = relaysResolved(relays);
         set({ relays, relaysReady: isReady });
       }
     );

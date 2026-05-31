@@ -55,7 +55,7 @@ export const RelayDropdown = ({
               return a.ping - b.ping;
             })
             .map((relay) => {
-            const isDisabled = relay.ping === null && !relay.checking;
+            const isDisabled = relay.ping === null && !relay.checking && !relay.fallback;
             const isSelected = selectedRelay === relay.id;
 
             return (

@@ -15,6 +15,8 @@ pub struct Relay {
     pub id: String,
     pub name: String,
     pub host: String,
+    #[serde(default)]
+    pub fallback: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -90,46 +92,55 @@ fn get_default_relays() -> Vec<Relay> {
             id: "direct".to_string(),
             name: "Direct".to_string(),
             host: "direct.cm-ss13.com".to_string(),
+            fallback: true,
         },
         Relay {
             id: "nyc".to_string(),
             name: "NYC".to_string(),
             host: "nyc.cm-ss13.com".to_string(),
+            fallback: false,
         },
         Relay {
             id: "uk".to_string(),
             name: "UK".to_string(),
             host: "uk.cm-ss13.com".to_string(),
+            fallback: false,
         },
         Relay {
             id: "eu-e".to_string(),
             name: "EU East".to_string(),
             host: "eu-e.cm-ss13.com".to_string(),
+            fallback: false,
         },
         Relay {
             id: "eu-w".to_string(),
             name: "EU West".to_string(),
             host: "eu-w.cm-ss13.com".to_string(),
+            fallback: false,
         },
         Relay {
             id: "aus".to_string(),
             name: "Australia".to_string(),
             host: "aus.cm-ss13.com".to_string(),
+            fallback: false,
         },
         Relay {
             id: "us-e".to_string(),
             name: "US East".to_string(),
             host: "us-e.cm-ss13.com".to_string(),
+            fallback: false,
         },
         Relay {
             id: "us-w".to_string(),
             name: "US West".to_string(),
             host: "us-w.cm-ss13.com".to_string(),
+            fallback: false,
         },
         Relay {
             id: "asia-se".to_string(),
             name: "SE Asia".to_string(),
             host: "asia-se.cm-ss13.com".to_string(),
+            fallback: false,
         },
     ]
 }
@@ -235,6 +246,21 @@ pub async fn init_relays(state: &Arc<RelayState>, handle: &AppHandle) {
         .collect();
 
     futures_util::future::join_all(ping_futures).await;
+
+    let selected = state.get_selected().await;
+    if selected.is_empty() {
+        let relays = state.get_relays().await;
+        if let Some(fallback) = relays.iter().find(|r| r.relay.fallback) {
+            tracing::warn!(
+                "All relay pings failed, falling back to: {} ({})",
+                fallback.relay.id,
+                fallback.relay.host
+            );
+            let id = fallback.relay.id.clone();
+            state.set_selected(id.clone()).await;
+            let _ = handle.emit("relay-selected", &id);
+        }
+    }
 }
 
 #[tauri::command]
