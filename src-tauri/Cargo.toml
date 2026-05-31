@@ -1,6 +1,6 @@
 [package]
 name = "SS13_Launcher"
-version = "0.19.4"
+version = "0.19.5"
 description = "Space Station 13 server browser and launcher"
 authors = ["hry-gh"]
 edition = "2021"
