@@ -215,6 +215,7 @@ jobs:
 
           mkdir -p steam-build/linux
           cp -r AppDir/* steam-build/linux/
+          rm -rf steam-build/linux/share/terminfo
 
           cp src-tauri/resources/libsteam_api.so steam-build/linux/shared/lib/
 
