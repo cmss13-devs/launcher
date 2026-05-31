@@ -7,7 +7,6 @@ on:
 
 env:
   STEAMWORKS_SDK_COMMIT: "494c2d680b9e47bbc369496b57568f44ef2f6796"
-  WEBVIEW2_FIXED_VERSION: "148.0.3967.96"
 
 jobs:
   build-windows:
@@ -55,15 +54,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "src-tauri/resources"
           Copy-Item "steamworks_sdk/redistributable_bin/win64/steam_api64.dll" -Destination "src-tauri/resources/"
 
-      - name: Cache WebView2 Fixed Runtime
-        id: cache-webview2
-        uses: actions/cache@v4
-        with:
-          path: src-tauri/webview2-runtime
-          key: webview2-fixed-${{ env.WEBVIEW2_FIXED_VERSION }}
-
       - name: Download WebView2 Fixed Runtime
-        if: steps.cache-webview2.outputs.cache-hit != 'true'
         shell: pwsh
         run: ./scripts/download-webview2.ps1
 
