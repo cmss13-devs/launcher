@@ -1555,9 +1555,11 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                     webview2_data_dir.to_str().unwrap().to_string(),
                 )];
                 if let Some(path) = crate::webview2::get_fixed_runtime_path() {
+                    let wine_path = wine::unix_to_wine_path(&path);
+                    tracing::info!("Fixed WebView2 runtime: {:?} -> {}", path, wine_path);
                     env_vars.push((
                         "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
-                        path.to_string_lossy().to_string(),
+                        wine_path,
                     ));
                 }
                 let env_refs: Vec<(&str, &str)> =
@@ -1632,9 +1634,11 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                     webview2_data_dir.to_str().unwrap().to_string(),
                 )];
                 if let Some(path) = crate::webview2::get_fixed_runtime_path() {
+                    let wine_path = wine::unix_to_wine_path(&path);
+                    tracing::info!("Fixed WebView2 runtime: {:?} -> {}", path, wine_path);
                     env_vars.push((
                         "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
-                        path.to_string_lossy().to_string(),
+                        wine_path,
                     ));
                 }
                 let env_refs: Vec<(&str, &str)> =

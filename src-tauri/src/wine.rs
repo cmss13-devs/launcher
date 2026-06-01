@@ -225,7 +225,6 @@ impl WinePaths {
                 "WINESERVER".to_string(),
                 self.wineserver.to_string_lossy().to_string(),
             ),
-            ("WINEDEBUG".to_string(), "-all".to_string()),
             // Ensure system paths are available for xdg-open etc.
             ("PATH".to_string(), Self::build_path_with_system_dirs(&[])),
         ];
@@ -771,6 +770,12 @@ pub async fn reset_prefix(app: &AppHandle, pipeline: RenderingPipeline) -> Resul
     initialize_prefix(app, pipeline).await
 }
 
+/// Convert a Unix path to a Wine-compatible Windows path via the Z: drive mapping.
+pub fn unix_to_wine_path(path: &Path) -> String {
+    let unix_path = path.to_string_lossy();
+    format!("Z:{}", unix_path.replace('/', "\\"))
+}
+
 /// Launch an executable using Wine.
 pub fn launch_with_wine(
     app: &AppHandle,
@@ -794,6 +799,7 @@ pub fn launch_with_wine(
     }
 
     for (key, value) in env_vars {
+        tracing::info!("Wine env: {}={}", key, value);
         cmd.env(key, value);
     }
 
@@ -824,7 +830,7 @@ pub fn launch_with_wine(
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
             for line in reader.lines().map_while(Result::ok) {
-                tracing::debug!(target: "wine", "[{}] {}", name, line);
+                tracing::info!(target: "wine", "[{}:stdout] {}", name, line);
             }
         });
     }
@@ -835,7 +841,7 @@ pub fn launch_with_wine(
             let mut lines = Vec::new();
             let reader = BufReader::new(stderr);
             for line in reader.lines().map_while(Result::ok) {
-                tracing::warn!(target: "wine", "[{}] {}", exe_name, line);
+                tracing::info!(target: "wine", "[{}:stderr] {}", exe_name, line);
                 lines.push(line);
             }
             if !lines.is_empty() {
