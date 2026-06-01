@@ -11,7 +11,6 @@ const initialWineStatus: WineStatus = {
   meets_minimum_version: false,
   winetricks_installed: false,
   prefix_initialized: false,
-  webview2_installed: false,
   error: null,
 };
 
@@ -128,12 +127,10 @@ export const useWine = () => {
   }, [checkStatus]);
 
   const needsSetup =
-    platform === "linux" &&
-    (!status.prefix_initialized || !status.webview2_installed);
+    platform === "linux" && !status.prefix_initialized;
 
   const isReady =
-    platform !== "linux" ||
-    (status.prefix_initialized && status.webview2_installed);
+    platform !== "linux" || status.prefix_initialized;
 
   return {
     platform,

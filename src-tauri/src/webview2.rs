@@ -1,4 +1,4 @@
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 pub fn get_fixed_runtime_path() -> Option<std::path::PathBuf> {
     let exe_dir = std::env::current_exe()
         .ok()
@@ -22,36 +22,7 @@ pub fn setup_fixed_webview2() {
 
 #[cfg(target_os = "windows")]
 pub fn check_webview2_installed() -> bool {
-    if get_fixed_runtime_path().is_some() {
-        return true;
-    }
-
-    use winreg::enums::*;
-    use winreg::RegKey;
-
-    let paths = [
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-        ),
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-        ),
-        (
-            HKEY_CURRENT_USER,
-            r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-        ),
-    ];
-
-    for (hive, path) in paths {
-        if let Ok(key) = RegKey::predef(hive).open_subkey(path) {
-            if key.get_value::<String, _>("pv").is_ok() {
-                return true;
-            }
-        }
-    }
-    false
+    get_fixed_runtime_path().is_some()
 }
 
 #[cfg(target_os = "windows")]
@@ -65,7 +36,7 @@ pub fn show_webview2_error() {
     unsafe {
         MessageBoxW(
             None,
-            w!("WebView2 Runtime is required but not installed.\n\nPlease download it from:\nhttps://go.microsoft.com/fwlink/p/?LinkId=2124703"),
+            w!("WebView2 Runtime is required but not installed.\n\nPlease reinstall the application."),
             &title,
             MB_OK | MB_ICONERROR,
         );

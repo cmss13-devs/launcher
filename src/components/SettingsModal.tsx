@@ -185,14 +185,6 @@ const WineSettings = ({
             <span className="status-warning">{t("wine.notInitialized")}</span>
           )}
         </p>
-        <p>
-          <strong>{t("wine.webview2Label")}</strong>{" "}
-          {wineStatus.webview2_installed ? (
-            <span className="status-ok">{t("wine.installed")}</span>
-          ) : (
-            <span className="status-warning">{t("wine.notInstalled")}</span>
-          )}
-        </p>
       </div>
       <div className="wine-rendering-pipeline">
         <h4>{t("wine.renderingPipeline")}</h4>

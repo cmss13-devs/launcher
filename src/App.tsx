@@ -133,7 +133,7 @@ const AppContent = () => {
   useEffect(() => {
     if (platform === "linux") {
       checkWineStatus().then((status) => {
-        if (!status.prefix_initialized || !status.webview2_installed) {
+        if (!status.prefix_initialized) {
           setWineModalVisible(true);
         }
       });

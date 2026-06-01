@@ -125,7 +125,8 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            musl-tools
+            musl-tools \
+            cabextract
 
       - name: Cache Wine build
         id: cache-wine
@@ -141,6 +142,9 @@ jobs:
         if: steps.cache-wine.outputs.cache-hit != 'true'
         run: ./scripts/download-wine.sh
 
+      - name: Download WebView2 Fixed Runtime
+        run: ./scripts/download-webview2.sh
+
       - name: Prepare sidecar files for AppImage
         run: |
           mkdir -p "/tmp/lib/CM-SS13 Launcher"
@@ -148,7 +152,7 @@ jobs:
           cp src-tauri/winetricks "/tmp/lib/CM-SS13 Launcher/"
           cp src-tauri/cabextract "/tmp/lib/CM-SS13 Launcher/"
           chmod +x "/tmp/lib/CM-SS13 Launcher/winetricks" "/tmp/lib/CM-SS13 Launcher/cabextract"
-          mkdir -p src-tauri/webview2-runtime
+          cp -r src-tauri/webview2-runtime "/tmp/lib/CM-SS13 Launcher/webview2-runtime"
 
       - name: Cache Steamworks SDK
         id: cache-steamworks
@@ -209,6 +213,14 @@ jobs:
           rm -rf steam-build/linux/share/terminfo
 
           cp src-tauri/resources/libsteam_api.so steam-build/linux/shared/lib/
+          cp -r src-tauri/webview2-runtime steam-build/linux/webview2-runtime
+
+          # Patch WebKit helper binaries to use bundled ld-linux and libraries.
+          # sharun patches the main binary but not WebKit subprocesses, which fail
+          # on distros without system webkit2gtk (e.g. Steam Deck pressure-vessel).
+          _tmp_lib=$(grep '_tmp_lib=' steam-build/linux/bin/path-mapping-hardcoded.hook | cut -d'=' -f2 | tr -d '"')
+          find steam-build/linux/lib/webkit2gtk-4.1 -type f -executable -exec \
+            patchelf --force-rpath --set-rpath '$ORIGIN/..' --set-interpreter "/tmp/${_tmp_lib}/ld-linux-x86-64.so.2" {} \;
 
           cp scripts/steam-launch.sh steam-build/linux/launch.sh
           chmod +x steam-build/linux/launch.sh

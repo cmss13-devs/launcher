@@ -1432,7 +1432,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
     #[cfg(target_os = "linux")]
     {
         let status = wine::check_prefix_status(&app).await;
-        if !status.prefix_initialized || !status.webview2_installed {
+        if !status.prefix_initialized {
             return Err(CommandError::NotConfigured {
                 feature: "wine_prefix".into(),
             });
@@ -1550,16 +1550,22 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
             let mut pager_child = {
                 let version_dir = get_byond_version_dir(&app, &version)?;
                 let exe_path = version_dir.join("byond").join("bin").join("byond.exe");
-                wine::launch_with_wine(
-                    &app,
-                    &exe_path,
-                    &[&connect_url],
-                    &[(
-                        "WEBVIEW2_USER_DATA_FOLDER",
-                        webview2_data_dir.to_str().unwrap(),
-                    )],
-                )
-                .map_err(|e| CommandError::Io(format!("Failed to launch BYOND via Wine: {e}")))?
+                let mut env_vars: Vec<(&str, String)> = vec![(
+                    "WEBVIEW2_USER_DATA_FOLDER",
+                    webview2_data_dir.to_str().unwrap().to_string(),
+                )];
+                if let Some(path) = crate::webview2::get_fixed_runtime_path() {
+                    env_vars.push((
+                        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+                        path.to_string_lossy().to_string(),
+                    ));
+                }
+                let env_refs: Vec<(&str, &str)> =
+                    env_vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
+                wine::launch_with_wine(&app, &exe_path, &[&connect_url], &env_refs)
+                    .map_err(|e| {
+                        CommandError::Io(format!("Failed to launch BYOND via Wine: {e}"))
+                    })?
             };
 
             existing_pids.insert(pager_child.id());
@@ -1620,16 +1626,27 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
             };
 
             #[cfg(target_os = "linux")]
-            let child = wine::launch_with_wine(
-                &app,
-                Path::new(&dreamseeker_path),
-                &[&connect_url],
-                &[(
+            let child = {
+                let mut env_vars: Vec<(&str, String)> = vec![(
                     "WEBVIEW2_USER_DATA_FOLDER",
-                    webview2_data_dir.to_str().unwrap(),
-                )],
-            )
-            .map_err(|e| CommandError::Io(format!("Failed to launch BYOND via Wine: {e}")))?;
+                    webview2_data_dir.to_str().unwrap().to_string(),
+                )];
+                if let Some(path) = crate::webview2::get_fixed_runtime_path() {
+                    env_vars.push((
+                        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+                        path.to_string_lossy().to_string(),
+                    ));
+                }
+                let env_refs: Vec<(&str, &str)> =
+                    env_vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
+                wine::launch_with_wine(
+                    &app,
+                    Path::new(&dreamseeker_path),
+                    &[&connect_url],
+                    &env_refs,
+                )
+                .map_err(|e| CommandError::Io(format!("Failed to launch BYOND via Wine: {e}")))?
+            };
 
             if let Some(manager) = app.try_state::<Arc<PresenceManager>>() {
                 manager.set_last_connection_params(ConnectionParams {

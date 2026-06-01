@@ -170,7 +170,6 @@ export const WineSetupModal = ({
   const wineError = status.error || !status.installed;
   const setupComplete =
     status.prefix_initialized &&
-    status.webview2_installed &&
     !isSettingUp &&
     progress?.stage === "complete";
   const setupFailed = progress?.stage === "error";
