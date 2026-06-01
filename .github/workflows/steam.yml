@@ -218,9 +218,11 @@ jobs:
           # Patch WebKit helper binaries to use bundled ld-linux and libraries.
           # sharun patches the main binary but not WebKit subprocesses, which fail
           # on distros without system webkit2gtk (e.g. Steam Deck pressure-vessel).
-          _tmp_lib=$(grep '_tmp_lib=' steam-build/linux/bin/path-mapping-hardcoded.hook | cut -d'=' -f2 | tr -d '"')
-          find steam-build/linux/lib/webkit2gtk-4.1 -type f -executable -exec \
-            patchelf --force-rpath --set-rpath '$ORIGIN/..' --set-interpreter "/tmp/${_tmp_lib}/ld-linux-x86-64.so.2" {} \;
+          _tmp_lib=$(grep '_tmp_lib=' steam-build/linux/bin/01-path-mapping-hardcoded.hook | cut -d'=' -f2 | tr -d '"')
+          for f in steam-build/linux/lib/webkit2gtk-4.1/*; do
+            [ -f "$f" ] && file "$f" | grep -q ELF || continue
+            patchelf --force-rpath --set-rpath '$ORIGIN/..' --set-interpreter "/tmp/${_tmp_lib}/ld-linux-x86-64.so.2" "$f"
+          done
 
           cp scripts/steam-launch.sh steam-build/linux/launch.sh
           chmod +x steam-build/linux/launch.sh
