@@ -1561,6 +1561,10 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                         "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
                         wine_path,
                     ));
+                    env_vars.push((
+                        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                        "--no-sandbox --enable-logging --v=1".to_string(),
+                    ));
                 }
                 let env_refs: Vec<(&str, &str)> =
                     env_vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
@@ -1639,6 +1643,10 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                     env_vars.push((
                         "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
                         wine_path,
+                    ));
+                    env_vars.push((
+                        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                        "--no-sandbox --enable-logging --v=1".to_string(),
                     ));
                 }
                 let env_refs: Vec<(&str, &str)> =
