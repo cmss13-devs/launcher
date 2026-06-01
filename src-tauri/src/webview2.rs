@@ -1,13 +1,27 @@
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 pub fn get_fixed_runtime_path() -> Option<std::path::PathBuf> {
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))?;
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?;
 
+    // Check next to the exe (Windows/NSIS installs)
     let runtime_path = exe_dir.join("webview2-runtime");
     if runtime_path.exists() {
         return Some(runtime_path);
     }
+
+    // Check one level up (Linux AppImage/Steam: exe is in bin/, runtime is at root)
+    if let Some(parent) = exe_dir.parent() {
+        let runtime_path = parent.join("webview2-runtime");
+        if runtime_path.exists() {
+            return Some(runtime_path);
+        }
+    }
+
+    tracing::warn!(
+        "WebView2 fixed runtime not found (exe={:?}, checked {:?} and parent)",
+        exe,
+        exe_dir.join("webview2-runtime"),
+    );
 
     None
 }
