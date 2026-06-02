@@ -225,6 +225,7 @@ impl WinePaths {
                 "WINESERVER".to_string(),
                 self.wineserver.to_string_lossy().to_string(),
             ),
+            ("WINEDEBUG".to_string(), "-all".to_string()),
             // Ensure system paths are available for xdg-open etc.
             ("PATH".to_string(), Self::build_path_with_system_dirs(&[])),
         ];
@@ -834,7 +835,6 @@ pub fn launch_with_wine(
     }
 
     for (key, value) in env_vars {
-        tracing::info!("Wine env: {}={}", key, value);
         cmd.env(key, value);
     }
 
@@ -865,7 +865,7 @@ pub fn launch_with_wine(
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
             for line in reader.lines().map_while(Result::ok) {
-                tracing::info!(target: "wine", "[{}:stdout] {}", name, line);
+                tracing::debug!(target: "wine", "[{}] {}", name, line);
             }
         });
     }
@@ -876,7 +876,7 @@ pub fn launch_with_wine(
             let mut lines = Vec::new();
             let reader = BufReader::new(stderr);
             for line in reader.lines().map_while(Result::ok) {
-                tracing::info!(target: "wine", "[{}:stderr] {}", exe_name, line);
+                tracing::warn!(target: "wine", "[{}] {}", exe_name, line);
                 lines.push(line);
             }
             if !lines.is_empty() {
