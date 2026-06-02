@@ -88,7 +88,6 @@ struct WineStatus {
     meets_minimum_version: bool,
     winetricks_installed: bool,
     prefix_initialized: bool,
-    webview2_installed: bool,
     error: Option<String>,
 }
 
@@ -102,7 +101,6 @@ async fn check_wine_status() -> error::CommandResult<WineStatus> {
         meets_minimum_version: false,
         winetricks_installed: false,
         prefix_initialized: false,
-        webview2_installed: false,
         error: Some("Wine is only available on Linux".to_string()),
     })
 }
@@ -333,7 +331,6 @@ pub fn run() {
 
         if !webview2::check_webview2_installed() {
             webview2::show_webview2_error();
-            let _ = open::that("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
             std::process::exit(1);
         }
 

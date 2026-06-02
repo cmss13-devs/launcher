@@ -558,7 +558,7 @@ export type SteamLaunchOptions = { raw: string; server_name: string | null }
 export type SteamUserInfo = { steam_id: string; display_name: string }
 export type Theme = "tgui" | "crt"
 export type UserInfo = { sub: string; name: string | null; preferred_username: string | null; email: string | null; email_verified: boolean | null }
-export type WineStatus = { installed: boolean; version: string | null; meets_minimum_version: boolean; winetricks_installed: boolean; prefix_initialized: boolean; webview2_installed: boolean; error: string | null }
+export type WineStatus = { installed: boolean; version: string | null; meets_minimum_version: boolean; winetricks_installed: boolean; prefix_initialized: boolean; error: string | null }
 
 /** tauri-specta globals **/
 

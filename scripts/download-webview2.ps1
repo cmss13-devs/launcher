@@ -4,21 +4,48 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$WebView2Version = "148.0.3967.96"
-$CabUrl = "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/12306b32-d97b-470c-ab29-7c2f0a4f46c1/Microsoft.WebView2.FixedVersionRuntime.148.0.3967.96.x64.cab"
+Write-Host "Fetching latest WebView2 Fixed Version download URL..."
 
-Write-Host "WebView2 Fixed Version: $WebView2Version"
+$page = Invoke-WebRequest -Uri "https://developer.microsoft.com/en-us/microsoft-edge/webview2/" -UseBasicParsing
+$nuxtData = ($page.Content | Select-String -Pattern '(?s)<script[^>]*id="__NUXT_DATA__"[^>]*>(.*?)</script>').Matches[0].Groups[1].Value
+$json = $nuxtData | ConvertFrom-Json
+
+# Walk the Nuxt data array to find the first x64 cab URL
+$cabUrl = $null
+$version = $null
+for ($i = 0; $i -lt $json.Count; $i++) {
+    $val = $json[$i]
+    if ($val -is [string] -and $val -match 'FixedVersionRuntime.*\.x64\.cab$') {
+        $cabUrl = $val
+        break
+    }
+}
+
+for ($i = 0; $i -lt $json.Count; $i++) {
+    $val = $json[$i]
+    if ($val -is [string] -and $val -match '^\d+\.\d+\.\d+\.\d+$') {
+        $version = $val
+        break
+    }
+}
+
+if (-not $cabUrl) {
+    Write-Error "Could not find WebView2 Fixed Version x64 download URL"
+    exit 1
+}
+
+Write-Host "WebView2 Fixed Version: $version"
+Write-Host "Download URL: $cabUrl"
 
 if (Test-Path $OutputDir) {
-    Write-Host "Output directory already exists, removing: $OutputDir"
     Remove-Item -Recurse -Force $OutputDir
 }
 
-$CabPath = Join-Path $env:TEMP "webview2-fixed-$WebView2Version.cab"
-$ExtractDir = Join-Path $env:TEMP "webview2-extract-$WebView2Version"
+$CabPath = Join-Path $env:TEMP "webview2-fixed.cab"
+$ExtractDir = Join-Path $env:TEMP "webview2-extract"
 
-Write-Host "Downloading WebView2 fixed runtime..."
-Invoke-WebRequest -Uri $CabUrl -OutFile $CabPath -UseBasicParsing
+Write-Host "Downloading..."
+Invoke-WebRequest -Uri $cabUrl -OutFile $CabPath -UseBasicParsing
 
 Write-Host "Extracting..."
 if (Test-Path $ExtractDir) { Remove-Item -Recurse -Force $ExtractDir }
@@ -43,4 +70,4 @@ if (-not (Test-Path (Join-Path $OutputDir "msedgewebview2.exe"))) {
     exit 1
 }
 
-Write-Host "WebView2 fixed runtime v$WebView2Version ready at $OutputDir"
+Write-Host "WebView2 fixed runtime v$version ready at $OutputDir"

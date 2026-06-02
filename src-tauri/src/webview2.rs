@@ -1,13 +1,36 @@
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 pub fn get_fixed_runtime_path() -> Option<std::path::PathBuf> {
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))?;
+    let exe = std::env::current_exe().ok()?;
+    let exe_dir = exe.parent()?;
 
+    // Check next to the exe (Windows/NSIS installs)
     let runtime_path = exe_dir.join("webview2-runtime");
     if runtime_path.exists() {
         return Some(runtime_path);
     }
+
+    // Check one level up (Linux AppImage/Steam: exe is in bin/, runtime is at root)
+    if let Some(parent) = exe_dir.parent() {
+        let runtime_path = parent.join("webview2-runtime");
+        if runtime_path.exists() {
+            return Some(runtime_path);
+        }
+    }
+
+    // Dev builds: exe is at src-tauri/target/{debug,release}/, runtime is at src-tauri/
+    #[cfg(debug_assertions)]
+    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let runtime_path = std::path::PathBuf::from(manifest_dir).join("webview2-runtime");
+        if runtime_path.exists() {
+            return Some(runtime_path);
+        }
+    }
+
+    tracing::warn!(
+        "WebView2 fixed runtime not found (exe={:?}, checked {:?} and parent)",
+        exe,
+        exe_dir.join("webview2-runtime"),
+    );
 
     None
 }
@@ -22,36 +45,7 @@ pub fn setup_fixed_webview2() {
 
 #[cfg(target_os = "windows")]
 pub fn check_webview2_installed() -> bool {
-    if get_fixed_runtime_path().is_some() {
-        return true;
-    }
-
-    use winreg::enums::*;
-    use winreg::RegKey;
-
-    let paths = [
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-        ),
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-        ),
-        (
-            HKEY_CURRENT_USER,
-            r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
-        ),
-    ];
-
-    for (hive, path) in paths {
-        if let Ok(key) = RegKey::predef(hive).open_subkey(path) {
-            if key.get_value::<String, _>("pv").is_ok() {
-                return true;
-            }
-        }
-    }
-    false
+    get_fixed_runtime_path().is_some()
 }
 
 #[cfg(target_os = "windows")]
@@ -65,7 +59,7 @@ pub fn show_webview2_error() {
     unsafe {
         MessageBoxW(
             None,
-            w!("WebView2 Runtime is required but not installed.\n\nPlease download it from:\nhttps://go.microsoft.com/fwlink/p/?LinkId=2124703"),
+            w!("WebView2 Runtime is required but not installed.\n\nPlease reinstall the application."),
             &title,
             MB_OK | MB_ICONERROR,
         );

@@ -20,14 +20,11 @@ use tauri::{AppHandle, Emitter, Manager};
 /// Minimum required Wine version (major.minor)
 const MIN_WINE_VERSION: (u32, u32) = (10, 5);
 
-/// WebView2 installer URL (standalone latest webview, acquired from the official mirror)
-const WEBVIEW2_DOWNLOAD_URL: &str = "https://go.microsoft.com/fwlink/?linkid=2124701";
-
 /// Marker file to track initialization state
 const INIT_MARKER_FILE: &str = ".cm_launcher_initialized";
 
 /// Current initialization version - bump this to force re-initialization
-const INIT_VERSION: u32 = 2;
+const INIT_VERSION: u32 = 4;
 
 /// Resource names for bundled Wine
 const WINE_ARCHIVE_RESOURCE: &str = "wine.tar.zst";
@@ -68,7 +65,6 @@ pub struct WineStatus {
     pub meets_minimum_version: bool,
     pub winetricks_installed: bool,
     pub prefix_initialized: bool,
-    pub webview2_installed: bool,
     pub error: Option<String>,
 }
 
@@ -80,7 +76,6 @@ impl Default for WineStatus {
             meets_minimum_version: false,
             winetricks_installed: false,
             prefix_initialized: false,
-            webview2_installed: false,
             error: None,
         }
     }
@@ -120,15 +115,6 @@ pub enum WineError {
 
     #[error("Failed to run winetricks {0}: {1}")]
     WinetricksFailed(String, String),
-
-    #[error("Failed to download WebView2: {0}")]
-    WebView2DownloadFailed(String),
-
-    #[error("Failed to install WebView2: {0}")]
-    WebView2InstallFailed(String),
-
-    #[error("Failed to set registry key: {0}")]
-    RegistryFailed(String),
 
     #[error("Failed to launch application: {0}")]
     LaunchFailed(String),
@@ -568,17 +554,6 @@ fn check_prefix_initialized(prefix: &Path) -> bool {
     false
 }
 
-/// Check if WebView2 is installed in the prefix
-fn check_webview2_installed(prefix: &Path) -> bool {
-    let webview2_path = prefix
-        .join("drive_c")
-        .join("Program Files (x86)")
-        .join("Microsoft")
-        .join("EdgeWebView");
-
-    webview2_path.exists()
-}
-
 /// Get comprehensive Wine status
 pub async fn check_prefix_status(app: &AppHandle) -> WineStatus {
     let mut status = WineStatus::default();
@@ -608,7 +583,6 @@ pub async fn check_prefix_status(app: &AppHandle) -> WineStatus {
 
     if let Ok(prefix) = get_wine_prefix(app) {
         status.prefix_initialized = check_prefix_initialized(&prefix);
-        status.webview2_installed = check_webview2_installed(&prefix);
     }
 
     status
@@ -696,7 +670,7 @@ fn run_winetricks_with_paths(
 }
 
 /// Set a registry key in the Wine prefix
-fn set_registry_key_with_paths(
+fn set_registry_key(
     paths: &WinePaths,
     prefix: &Path,
     path: &str,
@@ -704,77 +678,20 @@ fn set_registry_key_with_paths(
     value: &str,
     reg_type: &str,
 ) -> Result<(), WineError> {
-    let full_path = format!("{}\\{}", path, key);
-
     let mut cmd = Command::new(&paths.wine);
-    cmd.args([
-        "reg", "add", path, "/v", key, "/t", reg_type, "/d", value, "/f",
-    ]);
+    cmd.args(["reg", "add", path, "/v", key, "/t", reg_type, "/d", value, "/f"]);
     cmd.env("WINEPREFIX", prefix);
-
     for (k, v) in paths.get_env_vars() {
         cmd.env(k, v);
     }
-
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
-
     let output = cmd.output()?;
-
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(WineError::RegistryFailed(format!(
-            "Failed to set {}: {}",
-            full_path, stderr
-        )));
+        return Err(WineError::Other(format!("Failed to set registry key {}\\{}: {}", path, key, stderr)));
     }
-
-    tracing::info!("Set registry key: {} = {}", full_path, value);
-    Ok(())
-}
-
-/// Check if a registry key/value exists in the Wine prefix
-fn check_registry_key_exists(
-    paths: &WinePaths,
-    prefix: &Path,
-    path: &str,
-    value_name: &str,
-) -> bool {
-    let mut cmd = Command::new(&paths.wine);
-    cmd.args(["reg", "query", path, "/v", value_name]);
-    cmd.env("WINEPREFIX", prefix);
-
-    for (key, value) in paths.get_env_vars() {
-        cmd.env(key, value);
-    }
-
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::null());
-
-    match cmd.output() {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
-    }
-}
-
-/// Kill a process running in the Wine prefix
-fn kill_wine_process_with_paths(
-    paths: &WinePaths,
-    prefix: &Path,
-    process_name: &str,
-) -> Result<(), WineError> {
-    let mut cmd = Command::new(&paths.wine);
-    cmd.args(["taskkill", "/f", "/im", process_name]);
-    cmd.env("WINEPREFIX", prefix);
-
-    for (key, value) in paths.get_env_vars() {
-        cmd.env(key, value);
-    }
-
-    cmd.stdout(Stdio::null());
-    cmd.stderr(Stdio::null());
-
-    let _ = cmd.output();
+    tracing::info!("Set registry key: {}\\{} = {}", path, key, value);
     Ok(())
 }
 
@@ -853,14 +770,7 @@ pub async fn initialize_prefix(
         run_winetricks_with_paths(&paths, &prefix, verb)?;
     }
 
-    emit_progress(
-        app,
-        WineSetupStage::InProgress,
-        55,
-        "Configuring WebView2 compatibility...",
-    );
-
-    set_registry_key_with_paths(
+    set_registry_key(
         &paths,
         &prefix,
         "HKEY_CURRENT_USER\\Software\\Wine\\AppDefaults\\msedgewebview2.exe",
@@ -868,95 +778,6 @@ pub async fn initialize_prefix(
         "win7",
         "REG_SZ",
     )?;
-
-    emit_progress(
-        app,
-        WineSetupStage::InProgress,
-        60,
-        "Downloading WebView2 installer...",
-    );
-
-    let webview2_installer = prefix.join("webview2_installer.exe");
-    download_webview2(&webview2_installer).await?;
-
-    emit_progress(
-        app,
-        WineSetupStage::InProgress,
-        80,
-        "Installing WebView2 (this may take a while)...",
-    );
-
-    let installer_path = webview2_installer.to_string_lossy().to_string();
-
-    let mut cmd = Command::new(&paths.wine);
-    cmd.args([installer_path.as_str(), "/silent", "/install"]);
-    cmd.env("WINEPREFIX", &prefix);
-    for (key, value) in paths.get_env_vars() {
-        cmd.env(key, value);
-    }
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-
-    let mut child = cmd.spawn()?;
-
-    let stderr_handle = child.stderr.take().map(|stderr| {
-        std::thread::spawn(move || {
-            use std::io::{BufRead, BufReader};
-            let mut lines = Vec::new();
-            let reader = BufReader::new(stderr);
-            for line in reader.lines().map_while(Result::ok) {
-                tracing::warn!(target: "wine", "[webview2-installer] {}", line);
-                lines.push(line);
-            }
-            lines
-        })
-    });
-    if let Some(stdout) = child.stdout.take() {
-        std::thread::spawn(move || {
-            use std::io::{BufRead, BufReader};
-            let reader = BufReader::new(stdout);
-            for line in reader.lines().map_while(Result::ok) {
-                tracing::debug!(target: "wine", "[webview2-installer] {}", line);
-            }
-        });
-    }
-
-    // Poll registry key to detect when WebView2 is installed
-    let webview2_reg_key = r"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
-    let timeout = tokio::time::Duration::from_secs(300); // 5 min max
-    let start = std::time::Instant::now();
-
-    loop {
-        if check_registry_key_exists(&paths, &prefix, webview2_reg_key, "pv") {
-            tracing::info!("WebView2 installation detected via registry");
-            break;
-        }
-
-        if let Ok(Some(_)) = child.try_wait() {
-            tracing::info!("WebView2 installer exited");
-
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-            break;
-        }
-
-        if start.elapsed() > timeout {
-            tracing::warn!("WebView2 installer timed out after 5 minutes");
-            let _ = child.kill();
-            break;
-        }
-
-        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-    }
-
-    for process in &[
-        "MicrosoftEdgeUpdate.exe",
-        "MicrosoftEdgeWebView2Setup.exe",
-        "setup.exe",
-    ] {
-        let _ = kill_wine_process_with_paths(&paths, &prefix, process);
-    }
-
-    let _ = fs::remove_file(&webview2_installer);
 
     let marker_path = prefix.join(INIT_MARKER_FILE);
     fs::write(&marker_path, INIT_VERSION.to_string())?;
@@ -972,32 +793,6 @@ pub async fn initialize_prefix(
     Ok(())
 }
 
-/// Download the WebView2 installer
-async fn download_webview2(dest: &Path) -> Result<(), WineError> {
-    tracing::info!("Downloading WebView2 from {}", WEBVIEW2_DOWNLOAD_URL);
-
-    let response = reqwest::get(WEBVIEW2_DOWNLOAD_URL)
-        .await
-        .map_err(|e| WineError::WebView2DownloadFailed(e.to_string()))?;
-
-    if !response.status().is_success() {
-        return Err(WineError::WebView2DownloadFailed(format!(
-            "HTTP {}",
-            response.status()
-        )));
-    }
-
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| WineError::WebView2DownloadFailed(e.to_string()))?;
-
-    fs::write(dest, &bytes).map_err(|e| WineError::WebView2DownloadFailed(e.to_string()))?;
-
-    tracing::info!("WebView2 installer downloaded to {:?}", dest);
-    Ok(())
-}
-
 /// Reset the Wine prefix by deleting and recreating it
 pub async fn reset_prefix(app: &AppHandle, pipeline: RenderingPipeline) -> Result<(), WineError> {
     let prefix = get_wine_prefix(app)?;
@@ -1009,6 +804,12 @@ pub async fn reset_prefix(app: &AppHandle, pipeline: RenderingPipeline) -> Resul
     }
 
     initialize_prefix(app, pipeline).await
+}
+
+/// Convert a Unix path to a Wine-compatible Windows path via the Z: drive mapping.
+pub fn unix_to_wine_path(path: &Path) -> String {
+    let unix_path = path.to_string_lossy();
+    format!("Z:{}", unix_path.replace('/', "\\"))
 }
 
 /// Launch an executable using Wine.

@@ -449,7 +449,7 @@ pub async fn launch_singleplayer(app: AppHandle) -> CommandResult<()> {
         use crate::wine;
 
         let status = wine::check_prefix_status(&app).await;
-        if !status.prefix_initialized || !status.webview2_installed {
+        if !status.prefix_initialized {
             return Err(CommandError::NotConfigured {
                 feature: "wine_prefix".into(),
             });
