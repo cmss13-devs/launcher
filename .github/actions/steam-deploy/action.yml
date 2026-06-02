@@ -17,6 +17,10 @@ inputs:
   steam_shared_secret:
     description: "Steam shared secret for TOTP generation"
     required: true
+  steam_branch:
+    description: "Steam branch to deploy to"
+    required: false
+    default: "latest"
 
 runs:
   using: "composite"
@@ -57,4 +61,4 @@ runs:
         rootPath: build
         depot1Path: windows
         depot2Path: linux
-        releaseBranch: latest
+        releaseBranch: ${{ inputs.steam_branch }}

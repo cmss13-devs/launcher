@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - dev
 
 jobs:
   build-cm:
@@ -111,9 +113,10 @@ jobs:
           TAURI_BUNDLER_NEW_APPIMAGE_FORMAT: "true"
           ADD_DIR: "/tmp/lib/SS13 Launcher"
         with:
-          tagName: v__VERSION__
-          releaseName: "v__VERSION__"
+          tagName: ${{ github.ref == 'refs/heads/dev' && 'v__VERSION__-dev' || 'v__VERSION__' }}
+          releaseName: ${{ github.ref == 'refs/heads/dev' && 'v__VERSION__-dev' || 'v__VERSION__' }}
           releaseBody: "See the assets to download this version and install."
+          prerelease: ${{ github.ref == 'refs/heads/dev' }}
           args: --features cm_ss13 --config src-tauri/tauri.cm.conf.json ${{ matrix.args }} ${{ matrix.platform == 'ubuntu-24.04' && '--config src-tauri/tauri.linux.conf.json' || '' }}
           tauriScript: ${{ matrix.platform == 'ubuntu-24.04' && 'cargo tauri' || 'npm tauri' }}
 
@@ -232,9 +235,10 @@ jobs:
           TAURI_BUNDLER_NEW_APPIMAGE_FORMAT: "true"
           ADD_DIR: "/tmp/lib/SS13 Launcher"
         with:
-          tagName: v__VERSION__
-          releaseName: "v__VERSION__"
+          tagName: ${{ github.ref == 'refs/heads/dev' && 'v__VERSION__-dev' || 'v__VERSION__' }}
+          releaseName: ${{ github.ref == 'refs/heads/dev' && 'v__VERSION__-dev' || 'v__VERSION__' }}
           releaseBody: "See the assets to download this version and install."
+          prerelease: ${{ github.ref == 'refs/heads/dev' }}
           args: ${{ matrix.args }} ${{ matrix.platform == 'ubuntu-24.04' && '--config src-tauri/tauri.linux.conf.json' || '' }}
           updaterJsonPreferNsis: true
           tauriScript: ${{ matrix.platform == 'ubuntu-24.04' && 'cargo tauri' || 'npm tauri' }}
