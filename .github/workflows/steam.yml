@@ -251,4 +251,4 @@ jobs:
           steam_username: ${{ secrets.STEAM_USERNAME }}
           steam_password: ${{ secrets.STEAM_PASSWORD }}
           steam_shared_secret: ${{ secrets.STEAM_SHARED_SECRET }}
-          steam_branch: ${{ github.ref == 'refs/heads/dev' && 'dev' || 'latest' }}
+          steam_branch: ${{ github.ref == 'refs/heads/dev' && 'development' || 'latest' }}
