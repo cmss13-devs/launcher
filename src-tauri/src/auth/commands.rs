@@ -269,7 +269,7 @@ pub async fn hub_oauth_login(app: AppHandle, provider: String) -> CommandResult<
     let encoded_redirect: String =
         url::form_urlencoded::byte_serialize(redirect_uri.as_bytes()).collect();
     let authorize_url = format!(
-        "{}/api/auth/oauth/{}/authorize?redirect_after={}",
+        "{}/auth/oauth/{}/authorize?redirect_after={}",
         hub_api.trim_end_matches('/'),
         provider,
         encoded_redirect,

@@ -275,7 +275,7 @@ const AppContent = () => {
                 onViewModeChange={handleViewModeChange}
                 showHome={showHome}
                 onDirectConnect={config.features.direct_connect ? () => setDirectConnectVisible(true) : undefined}
-                hasEighteenPlus={filteredServers.filter((s) => s.is_18_plus).length > 0}
+                hasEighteenPlus={servers.filter((s) => s.is_18_plus).length > 0}
               />
             )}
             {viewMode === "singleplayer" && config?.features.singleplayer ? (

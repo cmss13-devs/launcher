@@ -465,6 +465,14 @@ body {
   }
 }
 
+.badge-whitelisted {
+  background-color: #d0c710;
+  color: #1f1a1a;
+  white-space: nowrap;
+  border: none;
+  font-family: inherit;
+}
+
 .badge-tag {
   background-color: var(--bg-highlight);
   color: var(--text-dim);

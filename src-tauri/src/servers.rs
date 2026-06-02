@@ -72,6 +72,14 @@ pub struct Server {
     pub region: Option<String>,
     #[serde(default)]
     pub language: Option<String>,
+    #[serde(default)]
+    pub whitelisted: Option<Whitelisted>,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct Whitelisted {
+    description: Option<String>,
+    link: Option<ServerLink>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -98,6 +106,8 @@ struct HubServer {
     engine: Option<String>,
     #[serde(default)]
     verified_domain: Option<String>,
+    #[serde(default)]
+    whitelisted: Option<Whitelisted>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -252,6 +262,7 @@ impl HubApi {
             verified_domain: hub.verified_domain,
             region,
             language,
+            whitelisted: hub.whitelisted,
         }
     }
 }
@@ -350,6 +361,7 @@ impl CmApi {
             verified_domain: None,
             region: None,
             language: None,
+            whitelisted: None,
         }
     }
 }
@@ -398,7 +410,10 @@ async fn fetch_servers_internal() -> CommandResult<Vec<Server>> {
     let config = get_config();
     let adapter = get_api_adapter();
 
-    let response = reqwest::get(config.urls.server_api).await?;
+    let response = reqwest::get(
+        std::env::var("SS13LAUNCHER_SERVERAPI").unwrap_or(config.urls.server_api.to_string()),
+    )
+    .await?;
 
     if !response.status().is_success() {
         return Err(CommandError::InvalidResponse(format!(
@@ -464,7 +479,12 @@ pub async fn server_fetch_background_task(
                 check_and_send_notifications(&handle, &state, &servers).await;
 
                 *state.servers.write().await = servers.clone();
-                let _ = handle.emit("servers-updated", ServerUpdateEvent { servers: servers.clone() });
+                let _ = handle.emit(
+                    "servers-updated",
+                    ServerUpdateEvent {
+                        servers: servers.clone(),
+                    },
+                );
 
                 crate::server_ping::ping_servers(&handle, &ping_state, &servers).await;
             }

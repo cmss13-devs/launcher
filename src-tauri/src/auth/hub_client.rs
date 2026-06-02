@@ -49,6 +49,10 @@ impl HubClient {
     }
 
     fn from_config() -> Result<Self, HubAuthError> {
+        if let Ok(override_url) = std::env::var("SS13LAUNCHER_HUBAPI") {
+            return Ok(Self::new(&override_url));
+        }
+
         let config = crate::config::get_config();
         let base_url = config
             .urls
@@ -67,7 +71,7 @@ impl HubClient {
 
         let response = client
             .http
-            .post(format!("{}/api/auth/login", client.base_url))
+            .post(format!("{}/auth/login", client.base_url))
             .json(&LoginRequest {
                 username_or_email: username_or_email.to_string(),
                 password: password.to_string(),
@@ -114,7 +118,7 @@ impl HubClient {
 
         let response = client
             .http
-            .post(format!("{}/api/auth/refresh", client.base_url))
+            .post(format!("{}/auth/refresh", client.base_url))
             .header("Authorization", format!("SS13Auth {token}"))
             .send()
             .await
@@ -140,7 +144,7 @@ impl HubClient {
 
         let response = client
             .http
-            .post(format!("{}/api/session/join", client.base_url))
+            .post(format!("{}/session/join", client.base_url))
             .header("Authorization", format!("SS13Auth {token}"))
             .json(&serde_json::json!({
                 "server_id": server_id,
@@ -176,7 +180,7 @@ impl HubClient {
         let response = client
             .http
             .get(format!(
-                "{}/api/servers/resolve?host={}&port={}",
+                "{}/servers/resolve?host={}&port={}",
                 client.base_url, host, port
             ))
             .send()
@@ -225,7 +229,7 @@ impl HubClient {
 
         let response = client
             .http
-            .post(format!("{}/api/auth/oauth/exchange", client.base_url))
+            .post(format!("{}/auth/oauth/exchange", client.base_url))
             .json(&serde_json::json!({ "code": code }))
             .send()
             .await
@@ -251,7 +255,7 @@ impl HubClient {
 
         let response = client
             .http
-            .get(format!("{}/api/config", client.base_url))
+            .get(format!("{}/config", client.base_url))
             .send()
             .await
             .map_err(|e| HubAuthError::Network(format!("Failed to connect: {e}")))?;
@@ -268,7 +272,7 @@ impl HubClient {
 
         let response = client
             .http
-            .get(format!("{}/api/account", client.base_url))
+            .get(format!("{}/account", client.base_url))
             .header("Authorization", format!("SS13Auth {token}"))
             .send()
             .await

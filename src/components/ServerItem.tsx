@@ -11,6 +11,7 @@ import {
   faCircleCheck,
   faComments,
   faGlobe,
+  faLock,
   faShield,
   faSignal,
   faStar,
@@ -172,6 +173,7 @@ export const ServerItem = ({
         <div className="server-item-row">
           <div className="server-info">
             {showHubStatus ? (
+              // biome-ignore lint/a11y/noStaticElementInteractions: it's for pass through interactions
               <div
                 className="hub-status"
                 onClick={handleHubStatusClick}
@@ -194,6 +196,16 @@ export const ServerItem = ({
                     >
                       <FontAwesomeIcon icon={faCircleCheck} />{" "}
                       {server.verified_domain}
+                    </button>
+                  )}
+                  {!data && server.whitelisted && (
+                    <button
+                      type="button"
+                      className="badge badge-whitelisted"
+                      title="Whitelisted"
+                      onClick={() => {}}
+                    >
+                      <FontAwesomeIcon icon={faLock} /> Whitelisted
                     </button>
                   )}
                   {!data && server.is_18_plus && (
@@ -253,6 +265,16 @@ export const ServerItem = ({
                             {server.verified_domain}
                           </button>
                         )}
+                        {server.whitelisted && (
+                          <button
+                            type="button"
+                            className="badge badge-whitelisted"
+                            title="Whitelisted"
+                            onClick={() => {}}
+                          >
+                            <FontAwesomeIcon icon={faLock} /> Whitelisted
+                          </button>
+                        )}
                         {server.is_18_plus && (
                           <span className="badge badge-18plus">18+</span>
                         )}
@@ -264,7 +286,9 @@ export const ServerItem = ({
                             </span>
                           ))}
                         {server.language && (
-                          <span className="badge badge-tag">{server.language}</span>
+                          <span className="badge badge-tag">
+                            {server.language}
+                          </span>
                         )}
                       </div>
                     )}

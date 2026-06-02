@@ -188,12 +188,12 @@ pub fn get_config() -> LauncherConfig {
             control_server_key: true,
         },
         urls: LauncherUrls {
-            server_api: "https://api.zewaka.webcam/api/servers",
+            server_api: "https://api.zewaka.webcam/servers",
             hub_api: Some("https://api.zewaka.webcam"),
             auth_base: None,
-            steam_auth: Some("https://api.zewaka.webcam/api/auth/steam"),
+            steam_auth: Some("https://api.zewaka.webcam/auth/steam"),
             byond_hash_api: None,
-            register_url: Some("https://ss13.cm-ss13.com/register"),
+            register_url: Some("https://hub.zewaka.webcam/register"),
             help_url: "https://github.com/hry-gh/ss13-launcher/issues",
         },
         strings: LauncherStrings {
