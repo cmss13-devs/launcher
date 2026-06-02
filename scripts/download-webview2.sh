@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Downloads a pinned WebView2 Fixed Version Runtime (x64) from NuGet for Linux/Wine.
-# Pinned to v122, the newest version confirmed working under Wine 10.5.
-# To bump: test newer versions under Wine, then update WEBVIEW2_VERSION below.
+# Pinned to v109, the newest version confirmed working under Wine 10.5
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${1:-$SCRIPT_DIR/../src-tauri/webview2-runtime}"
 
-WEBVIEW2_VERSION="122.0.2365.92"
+WEBVIEW2_VERSION="109.0.1518.78"
 NUGET_URL="https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/${WEBVIEW2_VERSION}/webview2.runtime.x64.${WEBVIEW2_VERSION}.nupkg"
 
 echo "WebView2 Fixed Version: $WEBVIEW2_VERSION (pinned for Wine compatibility)"
