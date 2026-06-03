@@ -49,7 +49,8 @@ use servers::get_servers;
 use settings::{
     get_settings, save_filter_settings, set_age_verified, set_auth_mode, set_last_played_server,
     set_last_view_mode, set_locale, set_rendering_pipeline, set_rich_presence, set_theme,
-    toggle_favorite_server, toggle_server_notifications, trust_direct_connect_address,
+    set_whitelisted_server, toggle_favorite_server, toggle_server_notifications,
+    trust_direct_connect_address,
 };
 
 use singleplayer::{
@@ -196,6 +197,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         set_last_view_mode,
         toggle_favorite_server,
         trust_direct_connect_address,
+        set_whitelisted_server,
         save_filter_settings,
         get_control_server_port,
         kill_game,
@@ -261,6 +263,7 @@ pub fn build_specta() -> tauri_specta::Builder<tauri::Wry> {
         set_last_played_server,
         set_last_view_mode,
         toggle_favorite_server,
+        set_whitelisted_server,
         trust_direct_connect_address,
         save_filter_settings,
         get_control_server_port,
@@ -473,8 +476,10 @@ pub fn run() {
 
             let server_state =
                 std::sync::Arc::clone(app.state::<std::sync::Arc<servers::ServerState>>().inner());
-            let ping_state =
-                std::sync::Arc::clone(app.state::<std::sync::Arc<server_ping::ServerPingState>>().inner());
+            let ping_state = std::sync::Arc::clone(
+                app.state::<std::sync::Arc<server_ping::ServerPingState>>()
+                    .inner(),
+            );
 
             let server_state_init = std::sync::Arc::clone(&server_state);
             let ping_state_init = std::sync::Arc::clone(&ping_state);
@@ -485,7 +490,12 @@ pub fn run() {
 
             let handle_for_server_task = handle.clone();
             tauri::async_runtime::spawn(async move {
-                servers::server_fetch_background_task(handle_for_server_task, server_state, ping_state).await;
+                servers::server_fetch_background_task(
+                    handle_for_server_task,
+                    server_state,
+                    ping_state,
+                )
+                .await;
             });
 
             let relay_state =

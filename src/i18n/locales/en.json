@@ -16,6 +16,7 @@
     "refresh": "Refresh",
     "connect": "Connect",
     "join": "Join",
+    "apply": "Apply",
     "tryAgain": "Try Again",
     "createAccount": "Create Account"
   },

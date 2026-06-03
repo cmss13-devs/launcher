@@ -37,6 +37,7 @@ pub enum RenderingPipeline {
     Wined3d,
 }
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct AppSettings {
     pub auth_mode: AuthMode,
@@ -74,6 +75,8 @@ pub struct AppSettings {
     pub trusted_direct_connect_addresses: HashSet<String>,
     #[serde(default = "default_true")]
     pub rich_presence_enabled: bool,
+    #[serde(default)]
+    pub whitelisted_servers: HashSet<String>,
 }
 
 fn default_true() -> bool {
@@ -124,6 +127,7 @@ impl Default for AppSettings {
             search_query: None,
             trusted_direct_connect_addresses: HashSet::new(),
             rich_presence_enabled: true,
+            whitelisted_servers: HashSet::new(),
         }
     }
 }
@@ -291,6 +295,25 @@ pub async fn trust_direct_connect_address(
     settings
         .trusted_direct_connect_addresses
         .insert(address.to_lowercase());
+    save_settings(&app, &settings)?;
+    Ok(settings)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_whitelisted_server(
+    app: AppHandle,
+    uuid: String,
+    state: bool,
+) -> CommandResult<AppSettings> {
+    let mut settings = load_settings(&app)?;
+
+    if state {
+        settings.whitelisted_servers.insert(uuid);
+    } else {
+        settings.whitelisted_servers.remove(&uuid);
+    }
+
     save_settings(&app, &settings)?;
     Ok(settings)
 }

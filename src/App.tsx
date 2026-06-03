@@ -39,7 +39,6 @@ import {
   useSettingsStore,
   useSteamStore,
 } from "./stores";
-
 const AppContent = () => {
   const { t } = useTranslation();
   const { errors, dismissError, showError } = useError();

@@ -28,8 +28,9 @@ import { useConfigStore, useServerStore, useSettingsStore } from "../stores";
 import type { Server } from "../bindings";
 import { formatDuration } from "../utils";
 import { Modal, ModalContent } from "./Modal";
+import { WhitelistRequiredModal } from "./WhitelistRequired";
 
-const linkIconMap: Record<string, IconDefinition> = {
+export const LinkIconMap: Record<string, IconDefinition> = {
   discord: faDiscord,
   wiki: faBook,
   web: faGlobe,
@@ -53,6 +54,9 @@ export const ServerItem = ({
   const [connecting, setConnecting] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const [whitelistRequired, setWhitelistedRequired] = useState(false);
+
+  const { whitelistedServers } = useSettingsStore()
   const { showError } = useError();
   const { connect } = useConnect();
 
@@ -133,6 +137,8 @@ export const ServerItem = ({
           ? "#4ade80"
           : undefined;
 
+  const notWhitelisted = server.whitelisted && server.id && !whitelistedServers.has(server.id);
+
   return (
     <>
       <Modal
@@ -167,6 +173,13 @@ export const ServerItem = ({
           </div>
         </ModalContent>
       </Modal>
+      <WhitelistRequiredModal
+        visible={whitelistRequired}
+        server={server}
+        onClose={() => setWhitelistedRequired(false)}
+        onJoin={handleConnect}
+        linkClick={setPendingUrl}
+      />
       <div
         className={`server-item ${!isOnline ? "offline" : ""} ${infoOpen ? "expanded" : ""}`}
       >
@@ -203,7 +216,7 @@ export const ServerItem = ({
                       type="button"
                       className="badge badge-whitelisted"
                       title="Whitelisted"
-                      onClick={() => {}}
+                      onClick={() => setWhitelistedRequired(true)}
                     >
                       <FontAwesomeIcon icon={faLock} /> Whitelisted
                     </button>
@@ -249,6 +262,7 @@ export const ServerItem = ({
                       )}
                     </div>
                     {(server.verified_domain ||
+                      server.whitelisted ||
                       server.is_18_plus ||
                       (server.tags && server.tags.length > 0)) && (
                       <div className="server-tags">
@@ -270,7 +284,7 @@ export const ServerItem = ({
                             type="button"
                             className="badge badge-whitelisted"
                             title="Whitelisted"
-                            onClick={() => {}}
+                            onClick={() => setWhitelistedRequired(true)}
                           >
                             <FontAwesomeIcon icon={faLock} /> Whitelisted
                           </button>
@@ -358,8 +372,8 @@ export const ServerItem = ({
             <div className="connect-group">
               <button
                 type="button"
-                className="button connect-button"
-                onClick={handleConnect}
+                className={`button connect-button ${notWhitelisted ? "whitelisted-button" : ""}`}
+                onClick={notWhitelisted ? () => setWhitelistedRequired(true) : handleConnect}
                 disabled={!canConnect || connecting || autoConnecting}
               >
                 {connecting || autoConnecting ? (
@@ -373,7 +387,7 @@ export const ServerItem = ({
                         className="connect-auth-icon"
                       />
                     )}
-                    {t("common.join")}
+                    {notWhitelisted ? t("common.apply") : t("common.join")}
                   </>
                 )}
               </button>
@@ -425,7 +439,7 @@ export const ServerItem = ({
                     onClick={() => setPendingUrl(link.link)}
                     title={link.type}
                   >
-                    <FontAwesomeIcon icon={linkIconMap[link.type] ?? faGlobe} />
+                    <FontAwesomeIcon icon={LinkIconMap[link.type] ?? faGlobe} />
                     <span>
                       {link.type.charAt(0).toUpperCase() + link.type.slice(1)}
                     </span>
