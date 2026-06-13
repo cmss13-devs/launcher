@@ -904,17 +904,31 @@ async fn get_auth_for_connection(
                 })
             }
         }
-        AuthMode::Byond => {
-            let config = crate::config::get_config();
-            if !config.features.auto_launch_byond && !check_byond_pager_running() {
-                return Err(AuthError {
-                    code: "byond_auth_required".to_string(),
-                    message: "Please log in to BYOND before connecting.".to_string(),
-                    linking_url: None,
-                });
-            }
-            Ok(AccessMethod::Byond)
-        }
+        AuthMode::Byond => Ok(AccessMethod::Byond),
+    }
+}
+
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+async fn ensure_byond_web_session(
+    app: AppHandle,
+) -> CommandResult<crate::byond_login::ByondSessionCheck> {
+    let mut session_check = check_byond_web_session(app.clone()).await.ok();
+
+    if session_check
+        .as_ref()
+        .map(|session| session.logged_in)
+        .unwrap_or(false)
+    {
+        return session_check.ok_or(CommandError::NotAuthenticated);
+    }
+
+    tracing::info!("Not logged in to BYOND web auth, opening login flow");
+    start_byond_login(app.clone()).await?;
+    session_check = check_byond_web_session(app.clone()).await.ok();
+
+    match session_check {
+        Some(session) if session.logged_in => Ok(session),
+        _ => Err(CommandError::NotAuthenticated),
     }
 }
 
@@ -1074,33 +1088,30 @@ async fn topic_preflight(ip: &str, port: u16, challenge: &str) -> PreflightOutco
         }
     };
 
-    match result {
-        http2byond::ByondTopicValue::String(s) => {
-            let s = s.trim_end_matches('\0');
-            let v: serde_json::Value = match serde_json::from_str(s) {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::warn!("[topic_preflight] invalid JSON from {ip}:{port}: {e}");
-                    return PreflightOutcome::NoHubAuth;
-                }
-            };
-            let Some(server_id) = v["server_id"].as_str().map(String::from) else {
-                tracing::debug!("[topic_preflight] {ip}:{port} no server_id in response");
+    if let http2byond::ByondTopicValue::String(s) = result {
+        let s = s.trim_end_matches('\0');
+        let v: serde_json::Value = match serde_json::from_str(s) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!("[topic_preflight] invalid JSON from {ip}:{port}: {e}");
                 return PreflightOutcome::NoHubAuth;
-            };
-            let domain = v["domain"].as_str().map(String::from);
-            let signature = v["signature"].as_str().map(String::from);
-            tracing::info!("[topic_preflight] {ip}:{port} server_id={server_id} domain={domain:?}");
-            PreflightOutcome::Ok(PreflightResult {
-                server_id,
-                domain,
-                signature,
-            })
-        }
-        _ => {
-            tracing::debug!("[topic_preflight] {ip}:{port} returned non-string response");
-            PreflightOutcome::NoHubAuth
-        }
+            }
+        };
+        let Some(server_id) = v["server_id"].as_str().map(String::from) else {
+            tracing::debug!("[topic_preflight] {ip}:{port} no server_id in response");
+            return PreflightOutcome::NoHubAuth;
+        };
+        let domain = v["domain"].as_str().map(String::from);
+        let signature = v["signature"].as_str().map(String::from);
+        tracing::info!("[topic_preflight] {ip}:{port} server_id={server_id} domain={domain:?}");
+        PreflightOutcome::Ok(PreflightResult {
+            server_id,
+            domain,
+            signature,
+        })
+    } else {
+        tracing::debug!("[topic_preflight] {ip}:{port} returned non-string response");
+        PreflightOutcome::NoHubAuth
     }
 }
 
@@ -1374,7 +1385,7 @@ pub async fn connect_to_address(
         };
         (method, Some(server_id))
     } else {
-        (AccessMethod::None, None)
+        (AccessMethod::Byond, None)
     };
 
     let version = select_byond_version(None, &app)?;
@@ -1461,48 +1472,17 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
         let webview2_data_dir = get_byond_base_dir(&app)?.join("webview2_data");
 
         let is_byond_auth = access_method.is_byond();
-        let pager_running = check_byond_pager_running();
-
-        let mut session_check = if is_byond_auth {
-            check_byond_web_session(app.clone()).await.ok()
+        let session_check = if is_byond_auth {
+            Some(ensure_byond_web_session(app.clone()).await?)
         } else {
             None
-        };
-
-        let using_webid = match &session_check {
-            Some(session) if session.logged_in => {
-                tracing::info!("User logged in via web (web_id present), using web authentication");
-                true
-            }
-            _ if !pager_running && is_byond_auth => {
-                tracing::info!("Not logged in to BYOND and pager not running, opening login flow");
-                let login_result = start_byond_login(app.clone()).await;
-                if login_result.is_err() {
-                    return Err(CommandError::Cancelled {
-                        operation: "byond_login".into(),
-                    });
-                }
-                session_check = check_byond_web_session(app.clone()).await.ok();
-                true
-            }
-            _ => {
-                if is_byond_auth {
-                    tracing::info!("Using BYOND pager for authentication");
-                }
-                false
-            }
         };
 
         if source.as_deref() != Some("control_server_restart") {
             app.emit("game-connecting", &server_name).ok();
         }
 
-        if using_webid {
-            let session = if session_check.as_ref().map(|s| s.logged_in).unwrap_or(false) {
-                session_check.unwrap()
-            } else {
-                check_byond_web_session(app.clone()).await?
-            };
+        if let Some(session) = session_check {
             let web_id = session.web_id.ok_or(CommandError::NotAuthenticated)?;
             if !session.logged_in {
                 return Err(CommandError::NotAuthenticated);
@@ -1557,17 +1537,13 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                 if let Some(path) = crate::webview2::get_fixed_runtime_path() {
                     let wine_path = wine::unix_to_wine_path(&path);
                     tracing::info!("Fixed WebView2 runtime: {:?} -> {}", path, wine_path);
-                    env_vars.push((
-                        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
-                        wine_path,
-                    ));
+                    env_vars.push(("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", wine_path));
                 }
                 let env_refs: Vec<(&str, &str)> =
                     env_vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
-                wine::launch_with_wine(&app, &exe_path, &[&connect_url], &env_refs)
-                    .map_err(|e| {
-                        CommandError::Io(format!("Failed to launch BYOND via Wine: {e}"))
-                    })?
+                wine::launch_with_wine(&app, &exe_path, &[&connect_url], &env_refs).map_err(
+                    |e| CommandError::Io(format!("Failed to launch BYOND via Wine: {e}")),
+                )?
             };
 
             existing_pids.insert(pager_child.id());
@@ -1636,10 +1612,7 @@ async fn connect_impl(app: AppHandle, req: ConnectionRequest) -> CommandResult<C
                 if let Some(path) = crate::webview2::get_fixed_runtime_path() {
                     let wine_path = wine::unix_to_wine_path(&path);
                     tracing::info!("Fixed WebView2 runtime: {:?} -> {}", path, wine_path);
-                    env_vars.push((
-                        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
-                        wine_path,
-                    ));
+                    env_vars.push(("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", wine_path));
                 }
                 let env_refs: Vec<(&str, &str)> =
                     env_vars.iter().map(|(k, v)| (*k, v.as_str())).collect();
